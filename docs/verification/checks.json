@@ -1,0 +1,36 @@
+{
+  "date": "2026-09-06",
+  "mainAsset": "/assets/index-EckBE8TA.js",
+  "sha256": "b16aaa834426d7113589caa038f128d65bb5167d6df9cb7b0774dbbed751a1a8",
+  "domainTestsPassed": 47,
+  "productionBrowserChecksPassed": 24,
+  "productionBrowserChecksSkipped": 2,
+  "fixture": {
+    "components": 1000,
+    "connections": 2000,
+    "viewport": [
+      1920,
+      1080
+    ]
+  },
+  "host": {
+    "cpu": "Apple M1 Pro",
+    "memoryGiB": 16,
+    "chromium": "153.0.8010.12",
+    "nativeSafari": "27.0"
+  },
+  "measurementsMs": {
+    "panP95": 16.7,
+    "dragP95": 16.8,
+    "selectionP95": 76.2,
+    "selectionMax": 150.3,
+    "pause": 26.3,
+    "save": 687.4
+  },
+  "selectionSamples": 40,
+  "openGates": [
+    "Firefox profile startup failure",
+    "Native OS IME composition",
+    "External deployment and GitHub CI"
+  ]
+}
