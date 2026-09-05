@@ -5,3 +5,8 @@ playwright-report/
 *.tsbuildinfo
 .DS_Store
 docs/verification/dense.loom.json
+coverage/
+*.log
+.env
+.env.*
+!.env.example
