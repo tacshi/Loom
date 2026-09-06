@@ -14,6 +14,7 @@ jobs:
       - run: npm run build
       - run: node dist-cli/loom.mjs validate tests/fixtures/v2/calculator.loom.json
       - run: node dist-cli/loom.mjs test tests/fixtures/v2/calculator.loom.json --report test-results/cli
+      - run: node dist-cli/loom.mjs course-check tests/fixtures/v3/course-completed.loom.json --json > test-results/course.json
       - run: npx playwright install --with-deps chromium firefox webkit
       - run: npm run preview > /tmp/loom-preview.log 2>&1 &
       - run: npm run test:browser

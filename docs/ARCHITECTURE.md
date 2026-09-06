@@ -11,7 +11,7 @@
 
 ## Electrical model
 
-Connectivity is stored as directed endpoint connections. Fan-out connections sharing an output form one electrical net; route points never define connectivity. A geometric crossing only creates a junction when the connections share that source. Different sources use bridge arcs.
+Electrical membership is stored in explicit nets. A net has at most one output driver and can have multiple input endpoints; route points and names never create connectivity. Routes are independent visual geometry. Different signals use bridge arcs at crossings.
 
 Compilation expands subcircuits into scoped instance paths, validates wiring and hierarchy, and topologically orders combinational evaluation. Storage input edges are excluded from combinational dependencies; RAM's address remains a combinational dependency because reads are asynchronous. Width mismatches, multiple drivers, and combinational cycles prevent execution.
 
@@ -40,3 +40,9 @@ Circuit-space geometry uses a shared grid. Snapping thresholds are measured in s
 Crossing lookup uses a sorted vertical-segment index. Dense component glyphs and pan surfaces are cached; selection is an independent overlay. Canvas text is single-line, and editable text remains in native DOM fields.
 
 The optional `run_circuit_tests` WebMCP tool invokes the same visible test workflow. It does not edit the project and validates its empty input schema.
+
+## Course
+
+Course state is optional project data: exercise roots, source drafts, accepted snapshot references, verification hashes and dependency identities. The checker uses the application registry and traverses all nested definitions to enforce permitted primitives. Imported claims are untrusted until reverified. Hashes normalize definition IDs and include electrical structure while excluding layout and labels. Accepted dependencies remain immutable when an earlier draft changes.
+
+The course worker and CLI share checks. Check replies have request identities; stale replies cannot replace later edits. References open separately and cannot award progress. Verification uses the same gate engine as the live workbench. The engine precomputes signal lookup keys; only definitions reachable from the active root affect its compilation signature. No instruction-level oracle is included in application execution.

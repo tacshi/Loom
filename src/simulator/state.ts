@@ -24,47 +24,60 @@ export type ExecutionState = {
   devices: Record<string, PeripheralState>;
 };
 export function semanticDocument(p: Project) {
+  const reachable = new Set<string>();
+  function visit(id: string) {
+    if (reachable.has(id) || !p.circuits[id]) return;
+    reachable.add(id);
+    for (const n of p.circuits[id].components)
+      if (n.definitionId) visit(n.definitionId);
+  }
+  visit(p.root);
   return {
     root: p.root,
     debug: p.debugProfile,
     cpu: p.cpu,
-    circuits: Object.values(p.circuits).map((c) => ({
-      id: c.id,
-      parameters: c.parameters,
-      ports: c.ports.map(
-        ({ id, width, widthParameter, direction, componentId }) => ({
-          id,
-          width,
-          widthParameter,
-          direction,
-          componentId,
-        }),
-      ),
-      components: c.components.map(
-        ({
-          id,
-          kind,
-          width,
-          params,
-          definitionId,
-          image,
-          arguments: args,
-          widthParameter,
-          addressParameter,
-        }) => ({
-          id,
-          kind,
-          width,
-          params: { ...params, value: kind === "input" ? 0 : params.value },
-          definitionId,
-          image,
-          arguments: args,
-          widthParameter,
-          addressParameter,
-        }),
-      ),
-      nets: c.nets.map(({ width, ports }) => ({ width, ports })),
-    })),
+    circuits: Object.values(p.circuits)
+      .filter((c) => reachable.has(c.id))
+      .map((c) => ({
+        id: c.id,
+        parameters: c.parameters,
+        ports: c.ports.map(
+          ({ id, width, widthParameter, direction, componentId }) => ({
+            id,
+            width,
+            widthParameter,
+            direction,
+            componentId,
+          }),
+        ),
+        components: c.components.map(
+          ({
+            id,
+            kind,
+            width,
+            params,
+            definitionId,
+            image,
+            arguments: args,
+            widthParameter,
+            addressParameter,
+          }) => ({
+            id,
+            kind,
+            width,
+            params: {
+              ...params,
+              value: ["input", "portIn"].includes(kind) ? 0 : params.value,
+            },
+            definitionId,
+            image,
+            arguments: args,
+            widthParameter,
+            addressParameter,
+          }),
+        ),
+        nets: c.nets.map(({ width, ports }) => ({ width, ports })),
+      })),
   };
 }
 export function fingerprint(p: Project) {

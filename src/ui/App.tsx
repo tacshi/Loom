@@ -1,4 +1,11 @@
-import {updateParameters} from "../model/parameters";
+import CourseLearn from "./CourseLearn";
+import {
+  allowedKinds,
+  acceptedRoots,
+  replaceCourseDependency,
+} from "../course/session";
+import { exercises } from "../course/registry";
+import { updateParameters } from "../model/parameters";
 import { ParameterDefinitions, InstanceParameters } from "./Parameters";
 import { compile } from "../simulator/compiler";
 import { calculatorProject } from "../cpu/calculator";
@@ -65,7 +72,7 @@ import Debugger from "./Debugger";
 import { useWebMCP } from "./useWebMCP";
 import UpdateNotice from "./UpdateNotice";
 import Program from "./Program";
-import Learn from "./Learn";
+
 import Replacement from "./Replacement";
 import CircuitTests from "./CircuitTests";
 import { overlapping } from "../editor/crossings";
@@ -169,7 +176,16 @@ export default function App() {
     if (openingId === project.id && persistence.writable)
       setOpeningId(undefined);
   }, [openingId, project.id, persistence.writable]);
+  const [courseReturn, setCourseReturn] = useState<Project>();
   function edit(action: (p: Project) => void): boolean {
+    if (project.courseReference) {
+      setNotice(
+        lang === "zh"
+          ? "参考电路不可编辑。"
+          : "Reference circuits are read-only.",
+      );
+      return false;
+    }
     if (sim.isolated) {
       setNotice(t("returnBeforeEdit"));
       return false;
@@ -211,6 +227,7 @@ export default function App() {
     setFit(fit + 1);
   }
   function add(kind: Kind) {
+    if (allowedKinds(project) && !allowedKinds(project)!.includes(kind)) return;
     const n = circuit.components.length;
     const c = createComponent(
       kind,
@@ -255,7 +272,7 @@ export default function App() {
   }
   function toggle(id: string) {
     const c = circuit.components.find((c) => c.id === id);
-    if (c?.kind === "input")
+    if (c?.kind === "input" || (c?.kind === "portIn" && !nav.length))
       edit((p) => {
         const n = p.circuits[activeId].components.find((c) => c.id === id)!;
         n.params.value = n.params.value ? 0 : 1;
@@ -516,24 +533,26 @@ export default function App() {
           maxLength={200}
           aria-label={t("project")}
           value={project.name}
-          onChange={(e) =>
-            edit((p) => {
-              p.name = e.target.value;
-            })
-          }
+          disabled={!!project.courseReference || !!openingId || !persistence.writable || sim.isolated}
+          onChange={(e) => {
+            history.current.push(project);
+            setProject({...project,name:e.target.value,updatedAt:Date.now()});
+          }}
         />
         <span className="local-indicator">
           {t(openingId ? "loading" : persistence.status)}
         </span>
         <div className="header-actions">
-          <button
-            onClick={() => {
-              setShowProgram(!showProgram);
-              setShowDebug(false);
-            }}
-          >
-            {t("program")}
-          </button>
+          {(!project.course || project.cpu) && (
+            <button
+              onClick={() => {
+                setShowProgram(!showProgram);
+                setShowDebug(false);
+              }}
+            >
+              {t("program")}
+            </button>
+          )}
           <button
             onClick={() => {
               setShowDebug(!showDebug);
@@ -542,12 +561,16 @@ export default function App() {
           >
             {t("debug")}
           </button>
-          <button onClick={() => setShowDevices(!showDevices)}>
-            {t("devices")}
-          </button>
-          <button onClick={() => setShowLibraries(true)}>
-            {t("componentLibraries")}
-          </button>
+          {(!project.course || allowedKinds(project)?.includes("keyboard")) && (
+            <button onClick={() => setShowDevices(!showDevices)}>
+              {t("devices")}
+            </button>
+          )}
+          {!project.course && (
+            <button onClick={() => setShowLibraries(true)}>
+              {t("componentLibraries")}
+            </button>
+          )}
           <button onClick={() => setShowProjects(true)}>{t("projects")}</button>
           <button onClick={() => setHelp(true)} aria-label={t("help")}>
             <HelpCircle size={18} />
@@ -566,8 +589,21 @@ export default function App() {
           </button>
         </div>
       </header>
+      {project.courseReference && courseReturn && (
+        <div className="course-reference" role="status">
+          <span>{lang === "zh" ? "只读参考电路" : "Read-only reference"}</span>
+          <button
+            onClick={() => {
+              void openProject(courseReturn);
+              setCourseReturn(undefined);
+            }}
+          >
+            {lang === "zh" ? "返回课程" : "Return to course"}
+          </button>
+        </div>
+      )}
       <main inert={!!openingId || modalOpen}>
-        <aside className="library">
+        <aside className="library" data-course={!!project.course}>
           <div className="library-tabs">
             {(["components", "circuit", "learn"] as const).map((k) => (
               <button
@@ -580,7 +616,46 @@ export default function App() {
             ))}
           </div>
           {libraryTab === "learn" ? (
-            <Learn lang={lang} t={t} open={openProject} project={project} />
+            <CourseLearn
+              isolated={sim.isolated}
+              t={t}
+              lang={lang}
+              open={openProject}
+              project={project}
+              edit={edit}
+              inspect={(r) => {
+                const failed = r.results.findIndex(
+                  (x) => x.status === "failed",
+                );
+                if (failed >= 0) {
+                  const failure = r.results[failed].failure!;
+                  const ref = failure.assertion.ref;
+                  let c = project.circuits[project.root];
+                  const route: typeof nav = [];
+                  for (const id of ref.instancePath) {
+                    const n = c.components.find((n) => n.id === id);
+                    if (!n?.definitionId) break;
+                    route.push({ circuit: n.definitionId, instance: id });
+                    c = project.circuits[n.definitionId];
+                  }
+                  setNav(route);
+                  setSelected([ref.componentId]);
+                  setFocus(ref.componentId);
+                  setFit(fit + 1);
+                  setProbes([
+                    [...ref.instancePath, ref.componentId].join("/") +
+                      ":" +
+                      ref.portId,
+                  ]);
+                  sim.openTest(r.cases[failed], project.root);
+                  setShowDebug(true);
+                }
+              }}
+              reference={(p) => {
+                setCourseReturn(project);
+                void openProject(p);
+              }}
+            />
           ) : libraryTab === "circuit" ? (
             <div className="circuit-list">
               <h3>{circuit.name}</h3>
@@ -652,71 +727,93 @@ export default function App() {
                   placeholder={t("search")}
                 />
               </label>
-              {categories.map((category) => (
-                <section key={category.id}>
-                  <h3>
-                    {t(category.id)}
-                    <ChevronDown size={12} />
-                  </h3>
-                  <div className="component-grid">
-                    {category.kinds
-                      .filter((k) =>
-                        t(k).toLowerCase().includes(search.toLowerCase()),
-                      )
-                      .map((k) => (
-                        <button
-                          key={k}
-                          className="component-item"
-                          onClick={() => add(k)}
-                          title={t(k)}
-                          aria-label={t(k)}
-                        >
-                          <span className="symbol">
-                            {k === "input"
-                              ? "◉"
-                              : k === "probe"
-                                ? "○"
-                                : k === "and"
-                                  ? "&"
-                                  : k === "or"
-                                    ? "≥1"
-                                    : k === "xor"
-                                      ? "=1"
-                                      : k === "nand"
-                                        ? "&̅"
-                                        : k === "not"
-                                          ? "¬"
-                                          : k === "adder"
-                                            ? "+"
-                                            : k === "register"
-                                              ? "D"
-                                              : k === "ram"
-                                                ? "▤"
-                                                : k === "rom"
-                                                  ? "▥"
-                                                  : k === "counter"
-                                                    ? "#"
-                                                    : k === "constant"
-                                                      ? "1"
-                                                      : k === "mux"
-                                                        ? "▷"
-                                                        : k
-                                                            .slice(0, 3)
-                                                            .toUpperCase()}
-                          </span>
-                          <span>{t(k)}</span>
-                        </button>
-                      ))}
-                  </div>
-                </section>
-              ))}
+              {categories
+                .filter(
+                  (category) =>
+                    !allowedKinds(project) ||
+                    category.kinds.some((k) =>
+                      allowedKinds(project)!.includes(k),
+                    ),
+                )
+                .map((category) => (
+                  <section key={category.id}>
+                    <h3>
+                      {t(category.id)}
+                      <ChevronDown size={12} />
+                    </h3>
+                    <div className="component-grid">
+                      {category.kinds
+                        .filter(
+                          (k) =>
+                            !allowedKinds(project) ||
+                            allowedKinds(project)!.includes(k),
+                        )
+                        .filter((k) =>
+                          t(k).toLowerCase().includes(search.toLowerCase()),
+                        )
+                        .map((k) => (
+                          <button
+                            key={k}
+                            className="component-item"
+                            onClick={() => add(k)}
+                            title={t(k)}
+                            aria-label={t(k)}
+                          >
+                            <span className="symbol">
+                              {k === "input"
+                                ? "◉"
+                                : k === "probe"
+                                  ? "○"
+                                  : k === "and"
+                                    ? "&"
+                                    : k === "or"
+                                      ? "≥1"
+                                      : k === "xor"
+                                        ? "=1"
+                                        : k === "nand"
+                                          ? "&̅"
+                                          : k === "not"
+                                            ? "¬"
+                                            : k === "adder"
+                                              ? "+"
+                                              : k === "register"
+                                                ? "D"
+                                                : k === "ram"
+                                                  ? "▤"
+                                                  : k === "rom"
+                                                    ? "▥"
+                                                    : k === "counter"
+                                                      ? "#"
+                                                      : k === "constant"
+                                                        ? "1"
+                                                        : k === "mux"
+                                                          ? "▷"
+                                                          : k
+                                                              .slice(0, 3)
+                                                              .toUpperCase()}
+                            </span>
+                            <span>{t(k)}</span>
+                          </button>
+                        ))}
+                    </div>
+                  </section>
+                ))}
               {Object.values(project.circuits).filter(
-                (c) => c.id !== project.root && c.id !== activeId,
+                (c) =>
+                  c.id !== project.root &&
+                  c.id !== activeId &&
+                  (!project.course || acceptedRoots(project).includes(c.id)),
               ).length > 0 && (
                 <section>
                   <h3>{t("subcircuits")}</h3>
                   {Object.values(project.circuits)
-                    .filter((c) => c.id !== project.root && c.id !== activeId)
+                    .filter(
+                      (c) =>
+                        c.id !== project.root &&
+                        c.id !== activeId &&
+                        (!project.course ||
+                          acceptedRoots(project).includes(c.id)),
+                    )
                     .map((c) => (
                       <button
                         key={c.id}
@@ -888,7 +985,7 @@ export default function App() {
                   try {
                     edit((p) => {
                       const c = p.circuits[activeId];
-                      rerouteAutomatic(c,p);
+                      rerouteAutomatic(c, p);
                     });
                   } catch {
                     setNotice(t("routeBlocked"));
@@ -960,7 +1057,11 @@ export default function App() {
               })
             }
             panMode={panMode}
-            readOnly={!persistence.writable || !!circuit.library}
+            readOnly={
+              !persistence.writable ||
+              !!circuit.library ||
+              !!project.courseReference
+            }
             path={instancePath}
             enter={(id) => {
               const c = circuit.components.find((c) => c.id === id);
@@ -1042,7 +1143,13 @@ export default function App() {
             {sim.isolated && (
               <div className="notice">
                 <span>{t("isolatedTest")}</span>
-                <button onClick={sim.exitTest}>{t("returnLive")}</button>
+                <button onClick={sim.exitTest}>
+                  {project.course
+                    ? lang === "zh"
+                      ? "返回电路"
+                      : "Return to circuit"
+                    : t("returnLive")}
+                </button>
               </div>
             )}
             {showDevices && (
@@ -1431,6 +1538,40 @@ export default function App() {
                   >
                     {t("editableCopy")}
                   </button>
+                )}
+              {component.kind === "instance" &&
+                project.course &&
+                !project.courseReference && (
+                  <label>
+                    {lang === "zh"
+                      ? "替换为已验证的元件"
+                      : "Replace with verified component"}
+                    <select
+                      value=""
+                      onChange={(e) => {
+                        const id = e.target.value;
+                        if (id)
+                          edit((p) =>
+                            replaceCourseDependency(
+                              p,
+                              component.id,
+                              id as import("../course/types").ExerciseId,
+                            ),
+                          );
+                      }}
+                    >
+                      <option value="">
+                        {lang === "zh" ? "选择元件…" : "Choose component…"}
+                      </option>
+                      {exercises
+                        .filter((e) => project.course!.accepted[e.id])
+                        .map((e) => (
+                          <option key={e.id} value={e.id}>
+                            {e.title[lang === "zh" ? 1 : 0]}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
                 )}
               {component.kind === "instance" && (
                 <div className="selection-actions">

@@ -1585,3 +1585,16 @@ button.primary {
   content: " •";
   color: var(--accent);
 }
+.course-learn {padding:16px;display:flex;flex-direction:column;gap:12px;}
+.course-learn nav {display:flex;flex-direction:column;gap:4px;max-height:230px;overflow:auto;}
+.course-learn nav button {text-align:left;justify-content:flex-start;}
+.course-learn button {border:1px solid var(--border);border-radius:5px;padding:8px 10px;}
+.course-learn details {padding:6px 0;}
+.course-learn details p {margin:8px 0;line-height:1.5;}
+.course-learn details details {margin-left:10px;}
+.course-learn h3 {color:var(--text);}
+.course-heading {display:flex;flex-direction:column;gap:8px;}
+.course-reference {display:flex;justify-content:center;align-items:center;gap:16px;padding:8px;border-bottom:1px solid var(--border);}
+.course-reference button {border:1px solid var(--border);border-radius:5px;}
+
+.library[data-course="true"] .library-bottom {display:none;}

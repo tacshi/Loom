@@ -22,7 +22,7 @@ The production app caches its assets after the first successful online load. Pro
 
 ## Start building
 
-- **Learn** contains bilingual checkpoints from NAND gates through libraries, rewind, peripherals, and regression tests.
+- **Learn → Start course** guides you through 19 exercises from NAND to a computer running a calculator, carrying your verified components forward. Sandbox projects remain unrestricted.
 - **Open example… → Loom 8 CPU** opens a complete computer. **Assemble & load**, then **Run**: the supplied sum program outputs **55**.
 - Use **Circuit** to select a component by name, inspect its signals, connect ports, or open its subcircuit.
 - Inside the CPU's **ALU**, replace **ADD** with a NAND-built adder and rerun the same program.
@@ -46,9 +46,11 @@ To test the production preview, keep `npm run preview` running and use:
 LOOM_BASE_URL=http://127.0.0.1:4173 npm run test:browser -- --project=chromium --project=webkit
 ```
 
-See [v2 evidence and outstanding gates](docs/V2-PHASES.md). Automated tests supplement Computer-Use checks. Linux Firefox verification is available through the official Playwright container; native macOS IME and browser-specific checks are tracked separately.
+See [the v3 course](docs/V3.md) and [v3 verification](docs/V3-VERIFICATION.md). Automated tests supplement Computer-Use checks. Linux Firefox verification is available through the official Playwright container; native macOS IME and browser-specific checks are tracked separately.
 
 ## Documentation
+
+- [V3 course and component continuity](docs/V3.md)
 
 - [Using Loom](docs/USER_GUIDE.md)
 - [CPU instruction set and timing](docs/CPU.md)

@@ -1,3 +1,4 @@
+import {validateCourse} from "../course/validation";
 // Shape and resource limits only. Electrical faults remain compiler diagnostics.
 import type {
   Project,
@@ -104,6 +105,7 @@ export function validateTest(t: TestCase) {
   }
 }
 export function validateV2(p: Project) {
+  validateCourse(p);
   let members = 0,
     steps = 0;
   for (const c of Object.values(p.circuits)) {

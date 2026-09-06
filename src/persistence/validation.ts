@@ -50,7 +50,9 @@ export function parseProject(text: string): Project {
   } catch {
     throw new Error("invalidProject");
   }
-  return validateProject(raw);
+  const project=validateProject(raw);
+  if(project.course)project.course.needsVerification=true;
+  return project;
 }
 export function validateProject(raw: unknown): Project {
   assert(object(raw));

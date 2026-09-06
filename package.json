@@ -1,7 +1,7 @@
 {
   "name": "loom",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:browser": "playwright test",
     "build:cli": "esbuild src/cli/main.ts --bundle --platform=node --format=esm --target=node24 --outfile=dist-cli/loom.mjs",
-    "generate:layouts": "esbuild scripts/generate-cpu-layouts.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/generate-cpu-layouts.mjs && node node_modules/.cache/generate-cpu-layouts.mjs"
+    "generate:layouts": "esbuild scripts/generate-cpu-layouts.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/generate-cpu-layouts.mjs && node node_modules/.cache/generate-cpu-layouts.mjs",
+    "fixture:course": "esbuild scripts/course-fixture.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/course-fixture.mjs && node node_modules/.cache/course-fixture.mjs"
   },
   "dependencies": {
     "@fontsource-variable/dm-sans": "^5.3.0",

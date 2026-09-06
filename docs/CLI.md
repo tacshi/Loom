@@ -13,3 +13,7 @@ node dist-cli/loom.mjs test project.loom.json --circuit circuit-id --report ./re
 Exit codes: 0 passed; 1 assertion failure; 2 invalid input/project; 3 execution limit/internal failure. Cases declare cycle limits and seeds. The digital engine is deterministic and currently uses no randomness.
 
 Browser and CLI share validation, compilation, logic evaluation, state semantics, and test assertion code. Headless success does not establish native browser, IME, file-dialog or rendering correctness.
+
+## Course checks
+
+`loom course-check course.loom.json --json` revalidates imported completion claims and checks the active exercise against the built-in registry. It does not modify the file. Results include prerequisite/construction failures, behavioral failures, passing checks and execution limits. Exit code 0 means all reported checks passed; 1 means a course check did not pass; malformed input uses 2.

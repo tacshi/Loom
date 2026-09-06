@@ -1,5 +1,9 @@
 # Using Loom
 
+## Guided course
+
+Use **Learn → Start course** for the connected NAND-to-computer journey. Your drafts and verified components stay in one course project. See [the v3 course guide](V3.md) for prerequisites, hints, references, checking, and component revisions.
+
 ## Editing
 
 Choose a component from **Components**. Its position and pins share a 20-unit grid. Select a component on the canvas or through **Circuit**; edit its name, bit width, and available parameters in the inspector.
@@ -61,7 +65,7 @@ Browser storage can be cleared or evicted. Keep independent `.loom.json` exports
 
 使用“平移画布”或按住空格拖动。滚动围绕指针缩放，Shift＋滚动平移，“适应电路”显示完整电路。框选或 Shift＋点击进行多选，可对齐、分布、复制和整体移动。撤销会同时恢复位置和走线。
 
-“学习”提供七个检查点，每个都有起始电路、参考电路和行为测试。“封装子电路”把选中的内部逻辑变为可复用元件。进入子电路可检查实际逻辑门；多个实例共享定义，但各自保存独立的仿真状态。
+“学习 → 开始课程”提供 19 个连续练习，每个都有草稿、只读参考电路、分层提示和行为检查；验证后的元件可在后续练习中复用。“封装子电路”把选中的内部逻辑变为可复用元件。进入子电路可检查实际逻辑门；多个实例共享定义，但各自保存独立的仿真状态。
 
 “运行／暂停”控制连续执行，“单步”推进一个上升沿。“复位”恢复寄存器初值、清空 RAM 和波形，保留 ROM 程序。选择元件并添加观察信号，可以查看波形并设置数值断点。内存视图显示所选 RAM 或 ROM 实例。`X` 表示未知值，二进制格式可显示逐位状态。
 

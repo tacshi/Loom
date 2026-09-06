@@ -29,6 +29,13 @@ export class Engine {
   readonly compiled: Compiled;
   readonly byId: Map<string, Component>;
   readonly pinMap: Map<string, ReturnType<typeof ports>>;
+  private access = new Map<
+    Component,
+    {
+      read: (port: string) => Signal;
+      put: (port: string, value: Signal) => void;
+    }
+  >();
   values = new Map<string, Signal>();
   state = new Map<string, Signal>();
   memory = new Map<string, Signal[]>();
@@ -48,17 +55,36 @@ export class Engine {
     this.pinMap = new Map(
       this.compiled.components.map((c) => [c.id, ports(c)]),
     );
+    for (const c of this.compiled.components) {
+      const reads = new Map<string, { key?: string; fallback: Signal }>(),
+        outputs = new Map<string, string>();
+      for (const port of this.pinMap.get(c.id)!) {
+        const source = this.compiled.sources.get(c.id + ":" + port.id);
+        reads.set(port.id, {
+          key: source ? key(source) : undefined,
+          fallback: unknown(port.width),
+        });
+        outputs.set(port.id, c.id + ":" + port.id);
+      }
+      this.access.set(c, {
+        read: (port) => {
+          const entry = reads.get(port);
+          return entry?.key
+            ? (this.values.get(entry.key) ?? entry.fallback)
+            : (entry?.fallback ?? unknown(c.width));
+        },
+        put: (port, value) => {
+          this.values.set(outputs.get(port)!, value);
+        },
+      });
+    }
     this.reset();
   }
   get valid() {
     return !this.compiled.diagnostics.some((d) => d.severity === "error");
   }
   read(c: Component, p: string): Signal {
-    const port = this.pinMap.get(c.id)!.find((x) => x.id === p),
-      source = this.compiled.sources.get(c.id + ":" + p);
-    return source
-      ? (this.values.get(key(source)) ?? unknown(port?.width ?? c.width))
-      : unknown(port?.width ?? c.width);
+    return this.access.get(c)!.read(p);
   }
   get(id: string, port: string): Signal {
     const alias = this.compiled.aliases.get(id + ":" + port);
@@ -110,8 +136,7 @@ export class Engine {
   settle() {
     if (!this.valid) return;
     for (const c of this.compiled.order) {
-      const read = (p: string) => this.read(c, p),
-        put = (p: string, s: Signal) => this.values.set(c.id + ":" + p, s);
+      const { read, put } = this.access.get(c)!;
       const a = () => read("a"),
         b = () => read("b");
       switch (c.kind) {

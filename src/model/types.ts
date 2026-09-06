@@ -1,3 +1,4 @@
+import type { CourseState } from "../course/types";
 export type Point = { x: number; y: number };
 export type Kind =
   | "input"
@@ -167,6 +168,8 @@ export type CpuBinding = {
 };
 export type Project = {
   schemaVersion: 2;
+  course?: CourseState;
+  courseReference?: boolean;
   id: string;
   name: string;
   root: string;

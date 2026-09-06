@@ -1,0 +1,238 @@
+{
+  "date": "2026-09-06",
+  "course": "build-computer",
+  "fixture": "tests/fixtures/v3/course-completed.loom.json",
+  "origin": "Reference-derived QA submissions reuse earlier accepted components; not evidence of human authorship.",
+  "results": [
+    {
+      "exercise": "nand",
+      "status": "passed",
+      "cases": [
+        {
+          "name": "Interface behavior",
+          "status": "passed",
+          "cycles": 0
+        }
+      ]
+    },
+    {
+      "exercise": "not",
+      "status": "passed",
+      "cases": [
+        {
+          "name": "Interface behavior",
+          "status": "passed",
+          "cycles": 0
+        }
+      ]
+    },
+    {
+      "exercise": "and-or",
+      "status": "passed",
+      "cases": [
+        {
+          "name": "Interface behavior",
+          "status": "passed",
+          "cycles": 0
+        }
+      ]
+    },
+    {
+      "exercise": "xor",
+      "status": "passed",
+      "cases": [
+        {
+          "name": "Interface behavior",
+          "status": "passed",
+          "cycles": 0
+        }
+      ]
+    },
+    {
+      "exercise": "mux",
+      "status": "passed",
+      "cases": [
+        {
+          "name": "Interface behavior",
+          "status": "passed",
+          "cycles": 0
+        }
+      ]
+    },
+    {
+      "exercise": "mux8",
+      "status": "passed",
+      "cases": [
+        {
+          "name": "Interface behavior",
+          "status": "passed",
+          "cycles": 0
+        }
+      ]
+    },
+    {
+      "exercise": "half-adder",
+      "status": "passed",
+      "cases": [
+        {
+          "name": "Interface behavior",
+          "status": "passed",
+          "cycles": 0
+        }
+      ]
+    },
+    {
+      "exercise": "full-adder",
+      "status": "passed",
+      "cases": [
+        {
+          "name": "Interface behavior",
+          "status": "passed",
+          "cycles": 0
+        }
+      ]
+    },
+    {
+      "exercise": "adder8",
+      "status": "passed",
+      "cases": [
+        {
+          "name": "Interface behavior",
+          "status": "passed",
+          "cycles": 0
+        }
+      ]
+    },
+    {
+      "exercise": "subtract",
+      "status": "passed",
+      "cases": [
+        {
+          "name": "Interface behavior",
+          "status": "passed",
+          "cycles": 0
+        }
+      ]
+    },
+    {
+      "exercise": "register",
+      "status": "passed",
+      "cases": [
+        {
+          "name": "Interface behavior",
+          "status": "passed",
+          "cycles": 64
+        }
+      ]
+    },
+    {
+      "exercise": "accumulator",
+      "status": "passed",
+      "cases": [
+        {
+          "name": "Interface behavior",
+          "status": "passed",
+          "cycles": 64
+        }
+      ]
+    },
+    {
+      "exercise": "pc",
+      "status": "passed",
+      "cases": [
+        {
+          "name": "Interface behavior",
+          "status": "passed",
+          "cycles": 64
+        }
+      ]
+    },
+    {
+      "exercise": "pc-fields",
+      "status": "passed",
+      "cases": [
+        {
+          "name": "Interface behavior",
+          "status": "passed",
+          "cycles": 0
+        }
+      ]
+    },
+    {
+      "exercise": "alu",
+      "status": "passed",
+      "cases": [
+        {
+          "name": "Interface behavior",
+          "status": "passed",
+          "cycles": 0
+        }
+      ]
+    },
+    {
+      "exercise": "control",
+      "status": "passed",
+      "cases": [
+        {
+          "name": "Interface behavior",
+          "status": "passed",
+          "cycles": 0
+        }
+      ]
+    },
+    {
+      "exercise": "cpu",
+      "status": "passed",
+      "cases": [
+        {
+          "name": "Loom 8 instruction execution",
+          "status": "passed",
+          "cycles": 46
+        }
+      ]
+    },
+    {
+      "exercise": "io",
+      "status": "passed",
+      "cases": [
+        {
+          "name": "Clock-qualified keyboard and terminal",
+          "status": "passed",
+          "cycles": 9
+        }
+      ]
+    },
+    {
+      "exercise": "calculator",
+      "status": "passed",
+      "cases": [
+        {
+          "name": "12+34, 255+255, 0-255",
+          "status": "passed",
+          "cycles": 2048
+        },
+        {
+          "name": "Invalid input and recovery",
+          "status": "passed",
+          "cycles": 1280
+        }
+      ]
+    },
+    {
+      "exercise": "calculator",
+      "status": "passed",
+      "cases": [
+        {
+          "name": "12+34, 255+255, 0-255",
+          "status": "passed",
+          "cycles": 2048
+        },
+        {
+          "name": "Invalid input and recovery",
+          "status": "passed",
+          "cycles": 1280
+        }
+      ]
+    }
+  ]
+}

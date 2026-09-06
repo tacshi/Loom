@@ -95,7 +95,7 @@ export function embedPackage(p: Project, pkg: ComponentPackage) {
   const ids = new Map(
     Object.keys(pkg.circuits).map((id) => [
       id,
-      `lib-${pkg.hash.slice(0, 20)}-${id}`,
+      `lib-${pkg.hash.slice(0, 20)}-${stableId(id)}`,
     ]),
   );
   for (const [id, original] of Object.entries(pkg.circuits)) {

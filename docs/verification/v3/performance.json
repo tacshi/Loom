@@ -1,0 +1,21 @@
+{
+  "date": "2026-09-06",
+  "cpu": "Apple M1 Pro",
+  "memoryGiB": 16,
+  "browser": "Chromium 153.0.8010.12",
+  "viewport": "1920x1080",
+  "components": 1000,
+  "connections": 2000,
+  "panP95Ms": 16.8,
+  "panFrames": 47,
+  "dragP95Ms": 16.8,
+  "dragFrames": 75,
+  "selectionP95Ms": 82.5,
+  "selectionMaxMs": 131.5,
+  "selectionSamples": 40,
+  "pauseMs": 119.1,
+  "saveMs": 669,
+  "runningAnimationP95Ms": 33.3,
+  "runningAnimationFrames": 60,
+  "note": "Local QA samples; fixture/CLI generation overlapped this run. Pan/drag and animation meet the stated reference targets. Pause/save are single samples."
+}

@@ -1,4 +1,4 @@
-import generatedLayouts from "./generatedLayouts.json";
+import generatedLayouts from "./generatedLayouts.json" with { type: "json" };
 import { Builder } from "../examples/adder";
 import { assemble, sumSource } from "./assembler";
 import { route, protectTerminals, orthogonal } from "../editor/routing";

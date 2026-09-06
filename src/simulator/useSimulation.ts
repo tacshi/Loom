@@ -41,7 +41,7 @@ export function useSimulation(project: Project) {
     );
   const sig = useMemo(
       () => JSON.stringify(semanticDocument(project)),
-      [project],
+      [project.root,project.circuits,project.cpu,project.debugProfile],
     ),
     current = useRef(project);
   current.current = project;
@@ -159,7 +159,7 @@ export function useSimulation(project: Project) {
   // Only actual root input changes generate events; layout edits never branch history.
   const inputValues = JSON.stringify(
     project.circuits[project.root]?.components
-      .filter((c) => c.kind === "input")
+      .filter((c) => c.kind === "input" || c.kind === "portIn")
       .map((c) => [c.id, c.params.value ?? 0]),
   );
   useEffect(() => {
