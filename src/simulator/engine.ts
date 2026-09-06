@@ -1,3 +1,11 @@
+import { initialDevice, sampleDevice } from "./devices";
+import {
+  fingerprint,
+  PAGE_WORDS,
+  type ExecutionState,
+  type PeripheralState,
+  type Transaction,
+} from "./state";
 import type { Project, Component, TestVector } from "../model/types";
 import { ports } from "../model/components";
 import { compile, key, type Compiled } from "./compiler";
@@ -14,6 +22,8 @@ export type Snapshot = {
   cycle: number;
   values: Record<string, Signal>;
   memory: Record<string, number[]>;
+  devices?: Record<string, PeripheralState>;
+  transactions?: Transaction[];
 };
 export class Engine {
   readonly compiled: Compiled;
@@ -23,11 +33,16 @@ export class Engine {
   state = new Map<string, Signal>();
   memory = new Map<string, Signal[]>();
   inputs = new Map<string, number>();
+  devices = new Map<string, PeripheralState>();
+  transactions: Transaction[] = [];
+  eventOrder = 0;
+  readonly fingerprint: string;
   cycle = 0;
   constructor(
     public project: Project,
     root = project.root,
   ) {
+    this.fingerprint = fingerprint({ ...project, root });
     this.compiled = compile(project, root);
     this.byId = new Map(this.compiled.components.map((c) => [c.id, c]));
     this.pinMap = new Map(
@@ -59,11 +74,16 @@ export class Engine {
   }
   reset() {
     this.cycle = 0;
+    this.eventOrder = 0;
+    this.devices.clear();
+    this.transactions = [];
     this.values.clear();
     this.state.clear();
     this.memory.clear();
     if (!this.valid) return;
     for (const c of this.compiled.components) {
+      const device = initialDevice(c.kind);
+      if (device) this.devices.set(c.id, device);
       if (["register", "dff", "counter"].includes(c.kind))
         this.state.set(c.id, signal(c.params.initial ?? 0, c.width));
       if (c.kind === "ram")
@@ -196,6 +216,31 @@ export class Engine {
         case "counter":
           put("q", this.state.get(c.id)!);
           break;
+        case "keyboard": {
+          const d = this.devices.get(c.id)!;
+          if (d.kind === "keyboard") {
+            put("data", d.uncertain ? unknown(8) : signal(d.queue[0] ?? 0, 8));
+            put(
+              "ready",
+              d.uncertain ? unknown(1) : signal(Number(d.queue.length > 0), 1),
+            );
+          }
+          break;
+        }
+        case "terminal":
+          break;
+        case "display": {
+          const d = this.devices.get(c.id)!,
+            x = read("x"),
+            y = read("y");
+          put(
+            "out",
+            d.kind === "display" && defined(x) && defined(y)
+              ? d.pixels[y.value * 64 + x.value]
+              : unknown(1),
+          );
+          break;
+        }
         case "ram":
         case "rom": {
           const addr = read("addr");
@@ -262,9 +307,118 @@ export class Engine {
         }
       }
     }
+    for (const [id, d] of this.devices) {
+      const c = this.byId.get(id)!;
+      const enabled = this.read(c, d.kind === "keyboard" ? "read" : "write"),
+        clear = this.read(c, "clear");
+      if (defined(clear) && clear.value)
+        this.transactions.push({
+          cycle: this.cycle + 1,
+          component: id,
+          kind: "clear",
+          value: 1,
+          known: 1,
+        });
+      else if (defined(enabled) && enabled.value) {
+        const data =
+          d.kind === "keyboard" ? this.get(id, "data") : this.read(c, "data");
+        this.transactions.push({
+          cycle: this.cycle + 1,
+          component: id,
+          kind: d.kind === "keyboard" ? "read" : "write",
+          value: data.value,
+          known: data.known,
+          ...(d.kind === "display"
+            ? {
+                address: this.read(c, "y").value * 64 + this.read(c, "x").value,
+              }
+            : {}),
+        });
+      }
+    }
+    for (const w of writes)
+      this.transactions.push({
+        cycle: this.cycle + 1,
+        component: w.id,
+        kind: "write",
+        address: w.addr,
+        value: w.data.value,
+        known: w.data.known,
+      });
+    this.transactions = this.transactions.slice(-128);
+    const devices = new Map(
+      [...this.devices].map(([id, d]) => [
+        id,
+        sampleDevice(d, (p) => this.read(this.byId.get(id)!, p)),
+      ]),
+    );
+    this.devices = devices;
     for (const [id, value] of next) this.state.set(id, value);
     for (const w of writes) this.memory.get(w.id)![w.addr] = w.data;
     this.cycle++;
+    this.settle();
+  }
+  enqueue(id: string, text: string) {
+    const d = this.devices.get(id);
+    if (d?.kind !== "keyboard") throw new Error("missingKeyboard");
+    const bytes = Array.from(new TextEncoder().encode(text));
+    if (d.queue.length + bytes.length > 256)
+      throw new Error("keyboardOverflow");
+    this.devices.set(id, { ...d, queue: [...d.queue, ...bytes] });
+    this.settle();
+  }
+  capture(previous?: ExecutionState): ExecutionState {
+    const memory: ExecutionState["memory"] = {};
+    for (const [id, words] of this.memory) {
+      const pages: (readonly Signal[])[] = [];
+      for (let i = 0; i < words.length; i += PAGE_WORDS) {
+        const old = previous?.memory[id]?.[i / PAGE_WORDS];
+        pages.push(
+          old && old.every((v, j) => v === words[i + j])
+            ? old
+            : words.slice(i, i + PAGE_WORDS),
+        );
+      }
+      memory[id] = pages;
+    }
+    return {
+      transactions: structuredClone(this.transactions),
+      fingerprint: this.fingerprint,
+      cycle: this.cycle,
+      eventOrder: this.eventOrder,
+      registers: Object.fromEntries(this.state),
+      memory,
+      inputs: Object.fromEntries(this.inputs),
+      devices: structuredClone(Object.fromEntries(this.devices)),
+    };
+  }
+  restore(saved: ExecutionState) {
+    if (saved.fingerprint !== this.fingerprint)
+      throw new Error("historyMismatch");
+    this.transactions = structuredClone(saved.transactions);
+    this.cycle = saved.cycle;
+    this.eventOrder = saved.eventOrder;
+    this.state = new Map(Object.entries(saved.registers));
+    this.memory = new Map(
+      Object.entries(saved.memory).map(([id, pages]) => [id, pages.flat()]),
+    );
+    this.inputs = new Map(Object.entries(saved.inputs));
+    this.devices = new Map(Object.entries(structuredClone(saved.devices)));
+    this.values.clear();
+    this.settle();
+  }
+  editMemory(id: string, address: number, value: number, known?: number) {
+    const c = this.byId.get(id),
+      m = this.memory.get(id);
+    if (
+      c?.kind !== "ram" ||
+      !m ||
+      !Number.isInteger(address) ||
+      address < 0 ||
+      address >= m.length
+    )
+      throw new Error("invalidMemoryAddress");
+    m[address] = signal(value, c.width, known);
     this.settle();
   }
   snapshot(memoryIds: string[] = []): Snapshot {
@@ -278,6 +432,8 @@ export class Engine {
     }
     return {
       cycle: this.cycle,
+      devices: structuredClone(Object.fromEntries(this.devices)),
+      transactions: this.transactions,
       values,
       memory: Object.fromEntries(
         memoryIds

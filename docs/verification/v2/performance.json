@@ -1,0 +1,15 @@
+{
+  "date": "2026-09-06",
+  "hardware": "Apple M1 Pro, 16 GiB",
+  "browser": "HeadlessChrome/153.0.8010.12, macOS arm64",
+  "viewport": "1920x1080",
+  "fixture": {"visibleComponents":1000,"connections":2000},
+  "pan": {"p95Ms":16.8,"frames":49},
+  "drag": {"p95Ms":16.8,"frames":61},
+  "selection": {"p95Ms":74.9,"maximumMs":79.4,"samples":40},
+  "pause": {"acknowledgementMs":40.4,"samples":1},
+  "save": {"confirmationMs":703.4,"samples":1},
+  "previousDragP95Ms":216.7,
+  "change": "Spatial buckets for component collision queries and indexed wire rows/columns in the router.",
+  "measurement": "tests/browser/performance.spec.ts against the production preview. Automation supplements Computer-Use inspection."
+}

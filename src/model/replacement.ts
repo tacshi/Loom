@@ -5,6 +5,7 @@ import {
   type Component,
   type Kind,
 } from "./types";
+import { deriveNets } from "./nets";
 import { ports } from "./components";
 import { Engine } from "../simulator/engine";
 import { same } from "../simulator/signal";
@@ -89,6 +90,7 @@ export function compareReplacement(
         points: [],
       });
     }
+    c.nets = deriveNets(c, p);
     return new Engine(p);
   }
   const a = harness(old, false),

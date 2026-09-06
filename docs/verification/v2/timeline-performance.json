@@ -1,0 +1,1 @@
+{"date":"2026-09-06","hardware":"Apple M1 Pro, 16 GiB","browser":"HeadlessChrome/153.0.8010.12, macOS arm64","fixture":"Loom 8 CPU looping program","head":10165,"oldest":192,"samples":40,"p95VisibleSeekMs":17.3,"boundary":"input event to rendered debugger cycle counter on next animation frame"}

@@ -1,3 +1,13 @@
+import {updateParameters} from "../model/parameters";
+import { ParameterDefinitions, InstanceParameters } from "./Parameters";
+import { compile } from "../simulator/compiler";
+import { calculatorProject } from "../cpu/calculator";
+import SequentialTests from "./SequentialTests";
+import Devices from "./Devices";
+import MemoryEditor from "./MemoryEditor";
+import { ioProject, echoSource, pixelSource } from "../cpu/ioCircuit";
+import Libraries from "./Libraries";
+import { forkDefinition } from "../library/package";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CircuitBoard,
@@ -24,13 +34,25 @@ import {
   type Point,
   type Endpoint,
 } from "../model/types";
-import { categories, ports } from "../model/components";
+import AppearanceEditor from "./AppearanceEditor";
+import NetInspector from "./NetInspector";
+import { categories, ports, validateAppearance } from "../model/components";
 import {
   route,
   moveComponents,
   moveSegment,
+  routeClear,
+  rerouteAutomatic,
   validDirection,
 } from "../editor/routing";
+import {
+  editProject,
+  copySelection,
+  pasteSelection,
+  addConnection,
+  remapComponent,
+  type Clipboard,
+} from "../editor/session";
 import { History } from "../editor/history";
 import { translator, type Language } from "./i18n";
 import Canvas from "./Canvas";
@@ -57,26 +79,22 @@ export default function App() {
   const [libraryTab, setLibraryTab] = useState<
     "components" | "circuit" | "learn"
   >("components");
-  const clipboard = useRef<
-    | {
-        components: typeof circuit.components;
-        wires: typeof circuit.wires;
-        definitions: Project["circuits"];
-      }
-    | undefined
-  >(undefined);
+  const clipboard = useRef<Clipboard | undefined>(undefined);
   const [openingId, setOpeningId] = useState<string>();
   const [showReplacement, setShowReplacement] = useState(false);
   const [showProgram, setShowProgram] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
+  const [showDevices, setShowDevices] = useState(false);
   const [probes, setProbes] = useState<string[]>([]);
   const [breakpoints, setBreakpoints] = useState<Breakpoint[]>([]);
   const [sourceBreakpoints, setSourceBreakpoints] = useState<number[]>([]);
   const [showProjects, setShowProjects] = useState(false);
+  const [showLibraries, setShowLibraries] = useState(false);
   const [nav, setNav] = useState<{ circuit: string; instance: string }[]>([]);
   const [extractName, setExtractName] = useState("");
   const [showExtract, setShowExtract] = useState(false);
   const [showTests, setShowTests] = useState(false);
+  const [showSequences, setShowSequences] = useState(false);
   const [focus, setFocus] = useState<string>();
   const [base, setBase] = useState<2 | 10 | 16>(10);
   const [hz, setHz] = useState(10);
@@ -115,6 +133,11 @@ export default function App() {
     setShowTests(true);
     return sim.vectors(circuit.id, circuit.vectors);
   });
+  const selectedNet = circuit.nets.find(
+    (n) =>
+      selected.includes(n.id) ||
+      circuit.wires.some((w) => selected.includes(w.id) && w.netId === n.id),
+  );
   const component = circuit.components.find((c) => c.id === selected[0]);
   useEffect(() => {
     sim.subscribe({
@@ -146,17 +169,26 @@ export default function App() {
     if (openingId === project.id && persistence.writable)
       setOpeningId(undefined);
   }, [openingId, project.id, persistence.writable]);
-  function edit(action: (p: Project) => void) {
-    if (openingId) return;
+  function edit(action: (p: Project) => void): boolean {
+    if (sim.isolated) {
+      setNotice(t("returnBeforeEdit"));
+      return false;
+    }
+    if (openingId) return false;
     if (!persistence.writable) {
       setNotice(t("readOnly"));
-      return;
+      return false;
     }
-    const next = structuredClone(project);
-    action(next);
-    history.current.push(project);
-    next.updatedAt = Date.now();
-    setProject(next);
+    try {
+      const next = editProject(project, action);
+      history.current.push(project);
+      next.updatedAt = Date.now();
+      setProject(next);
+      return true;
+    } catch (error) {
+      setNotice(t(error instanceof Error ? error.message : "routeBlocked"));
+      return false;
+    }
   }
   async function openProject(p: Project) {
     setOpeningId(p.id);
@@ -211,90 +243,15 @@ export default function App() {
     }
   }
   function copy() {
-    clipboard.current = {
-      components: structuredClone(
-        circuit.components.filter((c) => selected.includes(c.id)),
-      ),
-      wires: structuredClone(
-        circuit.wires.filter(
-          (w) =>
-            selected.includes(w.from.component) &&
-            selected.includes(w.to.component),
-        ),
-      ),
-      definitions: structuredClone(project.circuits),
-    };
+    clipboard.current = copySelection(project, activeId, selected);
   }
   function paste() {
-    const copied = clipboard.current;
-    if (!copied) return;
-    const ids: string[] = [];
-    edit((p) => {
-      const target = p.circuits[activeId],
-        map = new Map<string, string>();
-      for (const old of copied.components) {
-        const id = uid();
-        map.set(old.id, id);
-        ids.push(id);
-        target.components.push({
-          ...structuredClone(old),
-          id,
-          x: old.x + 40,
-          y: old.y + 40,
-        });
-        if (old.definitionId) {
-          const addDefinition = (id: string, visited = new Set<string>()) => {
-            if (visited.has(id) || p.circuits[id]) return;
-            visited.add(id);
-            const def = copied.definitions[id];
-            if (!def) return;
-            p.circuits[id] = structuredClone(def);
-            for (const c of def.components)
-              if (c.definitionId) addDefinition(c.definitionId, visited);
-          };
-          addDefinition(old.definitionId);
-        }
-      }
-      for (const w of copied.wires)
-        target.wires.push({
-          ...structuredClone(w),
-          id: uid(),
-          from: { ...w.from, component: map.get(w.from.component)! },
-          to: { ...w.to, component: map.get(w.to.component)! },
-          points: w.points.map((p) => ({ x: p.x + 40, y: p.y + 40 })),
-        });
-    });
-    setSelected(ids);
+    if (clipboard.current)
+      edit((p) => setSelected(pasteSelection(p, activeId, clipboard.current!)));
   }
   function duplicate() {
-    const ids: string[] = [];
-    edit((p) => {
-      const c = p.circuits[activeId];
-      const map = new Map<string, string>();
-      for (const old of circuit.components.filter((c) =>
-        selected.includes(c.id),
-      )) {
-        const id = uid();
-        map.set(old.id, id);
-        ids.push(id);
-        c.components.push({
-          ...structuredClone(old),
-          id,
-          x: old.x + 40,
-          y: old.y + 40,
-        });
-      }
-      for (const w of circuit.wires)
-        if (map.has(w.from.component) && map.has(w.to.component))
-          c.wires.push({
-            ...structuredClone(w),
-            id: uid(),
-            from: { ...w.from, component: map.get(w.from.component)! },
-            to: { ...w.to, component: map.get(w.to.component)! },
-            points: w.points.map((p) => ({ x: p.x + 40, y: p.y + 40 })),
-          });
-    });
-    setSelected(ids);
+    const copied = copySelection(project, activeId, selected);
+    edit((p) => setSelected(pasteSelection(p, activeId, copied)));
   }
   function toggle(id: string) {
     const c = circuit.components.find((c) => c.id === id);
@@ -306,7 +263,7 @@ export default function App() {
   }
   function move(id: string, delta: Point) {
     const ids = selected.includes(id) ? selected : [id];
-    edit((p) => moveComponents(p.circuits[activeId], p, ids, delta));
+    return edit((p) => moveComponents(p.circuits[activeId], p, ids, delta));
   }
   function pin(e: Endpoint, waypoints: Point[] = []) {
     if (!persistence.writable) {
@@ -338,7 +295,7 @@ export default function App() {
         dir === "out" ? waypoints : waypoints.toReversed(),
       );
       edit((p) =>
-        p.circuits[activeId].wires.push({
+        addConnection(p, activeId, {
           id: uid(),
           from,
           to,
@@ -348,8 +305,8 @@ export default function App() {
       );
       setPending(undefined);
       setNotice("");
-    } catch {
-      setNotice(t("routeBlocked"));
+    } catch (error) {
+      setNotice(t(error instanceof Error ? error.message : "routeBlocked"));
     }
   }
   function branch(id: string, at: Point) {
@@ -365,7 +322,7 @@ export default function App() {
         { x: Math.round(at.x / 20) * 20, y: Math.round(at.y / 20) * 20 },
       ]);
       edit((p) =>
-        p.circuits[activeId].wires.push({
+        addConnection(p, activeId, {
           id: uid(),
           from: structuredClone(w.from),
           to,
@@ -378,8 +335,8 @@ export default function App() {
         }),
       );
       setPending(undefined);
-    } catch {
-      setNotice(t("routeBlocked"));
+    } catch (error) {
+      setNotice(t(error instanceof Error ? error.message : "routeBlocked"));
     }
   }
   function segment(id: string, index: number, at: Point) {
@@ -400,7 +357,7 @@ export default function App() {
               .some((d, j) => overlapping(points[i], b, w.points[j], d)),
           ),
     );
-    if (overlap) {
+    if (overlap || !routeClear(circuit, project, old, points)) {
       setNotice(t("wireOverlap"));
       return;
     }
@@ -449,11 +406,14 @@ export default function App() {
 
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
+      if (e.isComposing) return;
       const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
       if (dialog) {
         if (e.key === "Escape") {
           e.preventDefault();
           setShowProjects(false);
+          setShowLibraries(false);
+          setShowSequences(false);
           setShowReplacement(false);
           setShowExtract(false);
           setShowTests(false);
@@ -523,6 +483,25 @@ export default function App() {
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
   });
+  const modalOpen =
+    showProjects ||
+    showLibraries ||
+    showSequences ||
+    showTests ||
+    showExtract ||
+    showReplacement ||
+    help;
+  useEffect(() => {
+    if (!modalOpen) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const frame = requestAnimationFrame(() =>
+      document.querySelector<HTMLElement>('[role="dialog"] button')?.focus(),
+    );
+    return () => {
+      cancelAnimationFrame(frame);
+      previous?.isConnected && previous.focus();
+    };
+  }, [modalOpen]);
   return (
     <div className="app">
       <UpdateNotice flush={persistence.flush} t={t} />
@@ -563,6 +542,12 @@ export default function App() {
           >
             {t("debug")}
           </button>
+          <button onClick={() => setShowDevices(!showDevices)}>
+            {t("devices")}
+          </button>
+          <button onClick={() => setShowLibraries(true)}>
+            {t("componentLibraries")}
+          </button>
           <button onClick={() => setShowProjects(true)}>{t("projects")}</button>
           <button onClick={() => setHelp(true)} aria-label={t("help")}>
             <HelpCircle size={18} />
@@ -581,7 +566,7 @@ export default function App() {
           </button>
         </div>
       </header>
-      <main inert={!!openingId}>
+      <main inert={!!openingId || modalOpen}>
         <aside className="library">
           <div className="library-tabs">
             {(["components", "circuit", "learn"] as const).map((k) => (
@@ -599,6 +584,15 @@ export default function App() {
           ) : libraryTab === "circuit" ? (
             <div className="circuit-list">
               <h3>{circuit.name}</h3>
+              <ParameterDefinitions
+                circuit={circuit}
+                t={t}
+                apply={(values) =>
+                  edit((p) => {
+                    updateParameters(p, activeId, values);
+                  })
+                }
+              />
               {circuit.components.map((c) => (
                 <button
                   key={c.id}
@@ -615,6 +609,17 @@ export default function App() {
                   <small>{t(c.kind)}</small>
                 </button>
               ))}
+              <details>
+                <summary>{t("nets")}</summary>
+                {circuit.nets.map((n) => (
+                  <button key={n.id} onClick={() => setSelected([n.id])}>
+                    {n.name || n.id}{" "}
+                    <small>
+                      {n.width}-bit · {n.ports.length}
+                    </small>
+                  </button>
+                ))}
+              </details>
               <details>
                 <summary>{t("wires")}</summary>
                 {circuit.wires.map((w) => (
@@ -726,6 +731,7 @@ export default function App() {
                         }}
                       >
                         {c.name}
+                        {c.library ? ` · v${c.library.version}` : ""}
                       </button>
                     ))}
                 </section>
@@ -733,6 +739,9 @@ export default function App() {
             </>
           )}
           <div className="library-bottom">
+            <button onClick={() => setShowSequences(true)}>
+              {t("sequentialTests")}
+            </button>
             <select
               aria-label={t("examples")}
               value=""
@@ -740,6 +749,9 @@ export default function App() {
                 const factories = {
                   cpu: cpuProject,
                   counter: counterExample,
+                  calculator: calculatorProject,
+                  echo: () => ioProject(echoSource),
+                  pixels: () => ioProject(pixelSource),
                   swap: swapExample,
                   adder: fullAdder,
                 };
@@ -748,6 +760,9 @@ export default function App() {
                     factories[e.target.value as keyof typeof factories](),
                   );
                   setShowProgram(e.target.value === "cpu");
+                  setShowDevices(
+                    ["calculator", "echo", "pixels"].includes(e.target.value),
+                  );
                   setShowDebug(false);
                 }
               }}
@@ -757,6 +772,9 @@ export default function App() {
               <option value="counter">{t("counterExample")}</option>
               <option value="swap">{t("swapExample")}</option>
               <option value="adder">{t("fullAdder")}</option>
+              <option value="calculator">{t("calculatorExample")}</option>
+              <option value="echo">{t("echoExample")}</option>
+              <option value="pixels">{t("pixelExample")}</option>
             </select>
             <button
               onClick={() => {
@@ -870,9 +888,7 @@ export default function App() {
                   try {
                     edit((p) => {
                       const c = p.circuits[activeId];
-                      const ws = c.wires.filter((w) => !w.pinned);
-                      for (const w of ws) w.points = [];
-                      for (const w of ws) w.points = route(c, p, w.from, w.to);
+                      rerouteAutomatic(c,p);
                     });
                   } catch {
                     setNotice(t("routeBlocked"));
@@ -933,8 +949,18 @@ export default function App() {
             </div>
           )}
           <Canvas
+            running={sim.running && !sim.isolated}
+            markerMove={(id, at) =>
+              edit((p) => {
+                const m = p.circuits[activeId].markers.find(
+                  (m) => m.id === id,
+                )!;
+                m.x = at.x;
+                m.y = at.y;
+              })
+            }
             panMode={panMode}
-            readOnly={!persistence.writable}
+            readOnly={!persistence.writable || !!circuit.library}
             path={instancePath}
             enter={(id) => {
               const c = circuit.components.find((c) => c.id === id);
@@ -962,14 +988,16 @@ export default function App() {
             dark={dark}
             fitToken={fit}
           />
-          {sim.reason && !(project.cpu && sim.reason === "halted") && (
-            <div className="notice">
-              {t(sim.reason)}
-              {sim.reason === "workerFailure" && (
-                <button onClick={sim.recover}>{t("recover")}</button>
-              )}
-            </div>
-          )}
+          {sim.reason &&
+            sim.reason !== "isolatedTest" &&
+            !(project.cpu && sim.reason === "halted") && (
+              <div className="notice">
+                {t(sim.reason)}
+                {sim.reason === "workerFailure" && (
+                  <button onClick={sim.recover}>{t("recover")}</button>
+                )}
+              </div>
+            )}
           {sim.diagnostics.length > 0 && (
             <details className="diagnostics">
               <summary>
@@ -1010,19 +1038,31 @@ export default function App() {
               reset={() => sim.command("reset")}
             />
           )}{" "}
-          {showDebug && (
-            <Debugger
-              snapshot={sim.snapshot}
-              trace={sim.trace}
-              probes={probes}
-              removeProbe={(id) => setProbes(probes.filter((p) => p !== id))}
-              breakpoints={breakpoints}
-              setBreakpoints={setBreakpoints}
-              t={t}
-              close={() => setShowDebug(false)}
-              memoryId={component ? instancePath + component.id : undefined}
-            />
-          )}
+          <div className="workbench-dock">
+            {sim.isolated && (
+              <div className="notice">
+                <span>{t("isolatedTest")}</span>
+                <button onClick={sim.exitTest}>{t("returnLive")}</button>
+              </div>
+            )}
+            {showDevices && (
+              <Devices snapshot={sim.snapshot} submit={sim.keyboard} t={t} />
+            )}
+            {showDebug && (
+              <Debugger
+                simulation={sim}
+                snapshot={sim.snapshot}
+                trace={sim.trace}
+                probes={probes}
+                removeProbe={(id) => setProbes(probes.filter((p) => p !== id))}
+                breakpoints={breakpoints}
+                setBreakpoints={setBreakpoints}
+                t={t}
+                close={() => setShowDebug(false)}
+                memoryId={component ? instancePath + component.id : undefined}
+              />
+            )}
+          </div>
           <footer>
             <span>
               {t("cycle")} {sim.snapshot.cycle}
@@ -1160,6 +1200,134 @@ export default function App() {
                   </span>
                 </button>
               ))}
+              {(component.kind === "ram" || component.kind === "rom") && (
+                <MemoryEditor
+                  component={component}
+                  id={instancePath + component.id}
+                  values={
+                    sim.snapshot.memory[instancePath + component.id] ?? []
+                  }
+                  running={sim.running}
+                  t={t}
+                  write={(address, value) => {
+                    if (component.kind === "rom")
+                      edit((p) => {
+                        const c = p.circuits[activeId].components.find(
+                          (c) => c.id === component.id,
+                        )!;
+                        c.image ??= [];
+                        c.image[address] = value;
+                      });
+                    else
+                      sim.memoryEdit(
+                        instancePath + component.id,
+                        address,
+                        value,
+                      );
+                  }}
+                  importWords={(start, words) => {
+                    if (component.kind === "rom")
+                      edit((p) => {
+                        const c = p.circuits[activeId].components.find(
+                          (c) => c.id === component.id,
+                        )!;
+                        c.image = Array.from(
+                          { length: 2 ** (c.params.addressBits ?? 8) },
+                          (_, i) =>
+                            i >= start && i < start + words.length
+                              ? words[i - start]
+                              : (c.image?.[i] ?? 0),
+                        );
+                      });
+                    else
+                      words.forEach((v, i) =>
+                        sim.memoryEdit(
+                          instancePath + component.id,
+                          start + i,
+                          v,
+                        ),
+                      );
+                  }}
+                />
+              )}
+              {component.kind === "instance" && (
+                <InstanceParameters
+                  component={component}
+                  project={project}
+                  t={t}
+                  apply={(args) =>
+                    edit((p) => {
+                      p.circuits[activeId].components.find(
+                        (c) => c.id === component.id,
+                      )!.arguments = args;
+                      const errors = compile(p).diagnostics.filter(
+                        (d) => d.severity === "error",
+                      );
+                      if (errors.length) throw new Error(errors[0].code);
+                    })
+                  }
+                />
+              )}
+              {!!circuit.parameters?.length && (
+                <label className="appearance-editor">
+                  {t("widthParameter")}
+                  <select
+                    value={component.widthParameter ?? ""}
+                    onChange={(e) =>
+                      edit((p) => {
+                        p.circuits[activeId].components.find(
+                          (c) => c.id === component.id,
+                        )!.widthParameter = e.target.value || undefined;
+                        const port = p.circuits[activeId].ports.find(
+                          (port) => port.componentId === component.id,
+                        );
+                        if (port)
+                          port.widthParameter = e.target.value || undefined;
+                      })
+                    }
+                  >
+                    <option value="">{t("literalWidth")}</option>
+                    {circuit.parameters.map((p) => (
+                      <option key={p.name}>{p.name}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {!!circuit.parameters?.length &&
+                ["ram", "rom"].includes(component.kind) && (
+                  <label className="appearance-editor">
+                    {t("addressParameter")}
+                    <select
+                      value={component.addressParameter ?? ""}
+                      onChange={(e) =>
+                        edit((p) => {
+                          p.circuits[activeId].components.find(
+                            (c) => c.id === component.id,
+                          )!.addressParameter = e.target.value || undefined;
+                        })
+                      }
+                    >
+                      <option value="">{t("literalWidth")}</option>
+                      {circuit.parameters.map((p) => (
+                        <option key={p.name}>{p.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+              <AppearanceEditor
+                component={component}
+                project={project}
+                t={t}
+                apply={(appearance) =>
+                  edit((p) => {
+                    const c = p.circuits[activeId],
+                      n = c.components.find((n) => n.id === component.id)!;
+                    n.appearance = appearance;
+                    validateAppearance(n, p);
+                    moveComponents(c, p, [n.id], { x: 0, y: 0 });
+                  })
+                }
+              />
               <div className="probe-actions">
                 <select
                   aria-label={t("watchSignal")}
@@ -1247,6 +1415,23 @@ export default function App() {
                   </button>
                 </div>
               )}
+              {component.kind === "instance" &&
+                project.circuits[component.definitionId!]?.library && (
+                  <button
+                    onClick={() =>
+                      edit((p) => {
+                        p.circuits[activeId].components.find(
+                          (c) => c.id === component.id,
+                        )!.definitionId = forkDefinition(
+                          p,
+                          component.definitionId!,
+                        );
+                      })
+                    }
+                  >
+                    {t("editableCopy")}
+                  </button>
+                )}
               {component.kind === "instance" && (
                 <div className="selection-actions">
                   <button
@@ -1286,6 +1471,14 @@ export default function App() {
                 </button>
               </div>
             </>
+          ) : selectedNet ? (
+            <NetInspector
+              net={selectedNet}
+              circuit={circuit}
+              project={project}
+              edit={edit}
+              t={t}
+            />
           ) : (
             <>
               <div className="inspector-empty">
@@ -1333,16 +1526,34 @@ export default function App() {
               c.components = c.components.map((n) =>
                 n.id === component.id ? next : n,
               );
-              for (const w of c.wires) {
-                if (w.from.component === component.id)
-                  w.from.port = mapping[w.from.port];
-                if (w.to.component === component.id)
-                  w.to.port = mapping[w.to.port];
-              }
+              remapComponent(c, component.id, mapping);
               moveComponents(c, p, [component.id], { x: 0, y: 0 });
             });
             setShowReplacement(false);
           }}
+        />
+      )}
+      {showSequences && (
+        <SequentialTests
+          project={project}
+          circuit={circuit}
+          simulation={sim}
+          edit={edit}
+          t={t}
+          close={() => setShowSequences(false)}
+          debug={(refs) => {
+            setProbes(refs);
+            setShowDebug(true);
+          }}
+        />
+      )}
+      {showLibraries && (
+        <Libraries
+          project={project}
+          circuitId={circuit.id}
+          edit={edit}
+          t={t}
+          close={() => setShowLibraries(false)}
         />
       )}
       {showProjects && (

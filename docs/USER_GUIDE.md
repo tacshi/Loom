@@ -68,3 +68,26 @@ Browser storage can be cleared or evicted. Keep independent `.loom.json` exports
 打开 Loom 8 CPU 示例，汇编并加载求和程序后运行，输出应为 55。源代码修改后必须重新汇编才会改变 ROM。点击已汇编的行号设置断点；“指令单步”完成一条指令。进入 ALU，把 ADD 替换为 NAND 加法器后，可重新运行验证结果。
 
 工程自动保存在当前浏览器。重要工程请导出 `.loom.json` 文件备份。第二个标签页需要复制工程后才能编辑。导入文件和恢复快照都创建副本。重新打开工程会重置运行状态，但保留电路、布局、走线、ROM、源代码、测试和学习进度。
+
+## V2: larger circuits and interactive programs
+
+**Nets and layout.** Circuit → Named nets lists electrical connections independently of their drawing. Select a net to rename it, highlight all its routes, or attach a compatible port explicitly. A name never connects two nets. Named markers can replace a drawn connection without removing electrical membership. Use Appearance & pins to rotate a component or change its grid bounds and pin slots. Failed routing changes are rejected; Undo changes the document, while Back one cycle changes simulation history.
+
+**Libraries.** Libraries exports a circuit and its nested dependencies as a `.loom-component.json` package. Each installed version has an immutable SHA-256 content hash. Add to project embeds copies, so the catalog is not required when reopening offline. A pinned instance offers Make editable local copy. Export the edited copy with a newer version number and use Review update in the old project. Review interface mappings and tests before applying behavior changes. This is distinct from equivalent-component replacement.
+
+**History.** Debug offers retained runs, cycle/event seeking, backward cycle/instruction steps, and two measurement cursors. Seek pauses execution. Continuing from history branches into a new run; select an older run to compare it. Up to four runs share a 10,000-cycle and 64 MiB accounted-storage budget. Complete checkpoint segments are evicted. History is never saved in project files. Topology, parameter and ROM edits reset the simulation session; positions and names preserve it. Inspect transaction rows for clock-qualified device reads and writes.
+
+**Memory and devices.** Select a RAM or ROM component to inspect its paged editor. Pause before changing words or importing a `.bin` or hexadecimal `.hex`/`.txt` image. Imports start at the selected address; binary words default to little endian. RAM changes are runtime events and can be rewound. ROM changes update the project and reset history. Devices shows only the selected simulation's peripherals. Send input queues exact UTF-8 bytes; Send line appends a newline. The keyboard queue holds 256 bytes. The terminal retains its most recent 65,536 bytes and the display has 64 × 32 monochrome pixels.
+
+**Calculator.** Choose Loom 8 I/O · Calculator, type `12+34`, and Send line. Run at 1000 Hz or higher. The terminal prints `46`. Operands range from 0 to 255; addition and subtraction produce results from −255 to 510. Invalid expressions print `?` and discard the rest of that line. The CPU assembly program performs parsing, validation, arithmetic and decimal formatting. Browser code only queues bytes and displays peripheral state.
+
+**Sequential tests.** Open Sequential tests to run stored cases or expand Add test case. Each step can set inputs or queue device bytes, advance clocks, and assert a signal, memory word, terminal text or pixel. Known-bit masks allow exact X expectations. Append steps, then save the case. Open failure in debugger uses an isolated execution; Return to live run restores the previous simulation. Create test from this run records retained stimuli with the configured assertion. Capture requires the run's original reset point to remain retained.
+
+## V2 中文操作
+
+- **命名网络与布局：** 在“电路 → 命名网络”中检查电气连接。名称不会自动合并网络；必须明确连接兼容引脚。外观与引脚支持旋转、网格尺寸和引脚位置。无法完成的布线编辑会被拒绝。
+- **元件库：** 导出包含完整依赖的元件包，导入后添加到工程。工程内嵌副本可离线使用。固定版本不可直接修改；先创建可编辑本地副本，再导出新版本。更新前检查接口映射和测试结果。
+- **历史：** 调试面板支持周期与事件定位、回退、运行分支及两个测量游标。历史仅在当前会话有效，不写入工程文件。修改接线、参数或ROM会重置历史；移动与重命名不会。
+- **内存与外设：** 暂停后可编辑RAM/ROM或导入内存镜像，注意起始地址、字宽和字节序。“发送输入”提交原始UTF-8字节，“发送一行”追加换行。RAM编辑可回退；ROM编辑会重置会话。
+- **计算器：** 打开“Loom 8 I/O · 计算器”，输入`12+34`并发送一行，运行后得到`46`。`255+255`得到`510`，`0-255`得到`-255`。非法输入显示`?`，下一行可以重新输入。计算逻辑全部在可编辑CPU电路上的汇编程序中执行。
+- **顺序测试：** 定义激励、时钟周期与断言，追加步骤后保存。失败可在独立调试运行中检查；返回原运行不会丢失原状态。录制测试要求仍保留完整运行起点。

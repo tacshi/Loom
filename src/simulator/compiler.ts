@@ -1,3 +1,8 @@
+import {
+  parameters,
+  resolvedComponent,
+  parameterValue,
+} from "../model/parameters";
 import type {
   Component,
   Project,
@@ -5,6 +10,7 @@ import type {
   Endpoint,
   Diagnostic,
 } from "../model/types";
+import { electricalWires, portAt } from "../model/nets";
 import { ports } from "../model/components";
 export type Compiled = {
   components: Component[];
@@ -21,7 +27,12 @@ export function compile(project: Project, root = project.root): Compiled {
     diagnostics: Diagnostic[] = [];
   const aliases = new Map<string, string>();
   let expanded = 0;
-  function walk(id: string, prefix: string, stack: string[]) {
+  function walk(
+    id: string,
+    prefix: string,
+    stack: string[],
+    args: Record<string, number> = {},
+  ) {
     if (stack.includes(id) || stack.length > 16) {
       diagnostics.push({
         code: "recursive",
@@ -30,8 +41,8 @@ export function compile(project: Project, root = project.root): Compiled {
       });
       return;
     }
-    const circuit = project.circuits[id];
-    if (!circuit) {
+    let circuit = project.circuits[id];
+    if (!circuit || !Array.isArray(circuit.components)) {
       diagnostics.push({
         code: "missingDefinition",
         severity: "error",
@@ -39,11 +50,68 @@ export function compile(project: Project, root = project.root): Compiled {
       });
       return;
     }
+    try {
+      const values = parameters(circuit, args);
+      circuit = {
+        ...circuit,
+        components: circuit.components.map((c) => resolvedComponent(c, values)),
+        ports: circuit.ports.map((p) => ({
+          ...p,
+          width: parameterValue(p.widthParameter, p.width, values),
+        })),
+      };
+      if (circuit.parameters?.length)
+        circuit.nets = circuit.nets.map((n) => {
+          const widths = n.ports.map((e) => portAt(circuit, project, e)?.width);
+          return {
+            ...n,
+            width: widths.every((w) => w === widths[0])
+              ? (widths[0] ?? n.width)
+              : n.width,
+          };
+        });
+    } catch {
+      diagnostics.push({
+        code: "parameterBounds",
+        severity: "error",
+        component: prefix.slice(0, -1),
+      });
+      return;
+    }
+    for (const net of circuit.nets ?? [])
+      if (
+        net.ports.filter(
+          (e) => portAt(circuit, project, e)?.direction === "out",
+        ).length > 1
+      )
+        diagnostics.push({
+          code: "multipleDrivers",
+          severity: "error",
+          component: prefix + net.ports[0]?.component,
+        });
+    for (const net of circuit.nets ?? [])
+      for (const endpoint of net.ports) {
+        const port = portAt(circuit, project, endpoint);
+        if (!port)
+          diagnostics.push({
+            code: "missingPort",
+            severity: "error",
+            component: prefix + endpoint.component,
+            port: endpoint.port,
+          });
+        else if (port.width !== net.width)
+          diagnostics.push({
+            code: "widthMismatch",
+            severity: "error",
+            component: prefix + endpoint.component,
+            port: endpoint.port,
+          });
+      }
     const resolve = (e: Endpoint): Endpoint => {
       const c = circuit.components.find((c) => c.id === e.component);
       if (c?.kind === "instance") {
         const def = project.circuits[c.definitionId!],
-          p = def?.ports.find((p) => p.id === e.port);
+          p = def?.ports?.find((p) => p.id === e.port);
         return p
           ? {
               component: prefix + c.id + "/" + p.componentId,
@@ -59,7 +127,7 @@ export function compile(project: Project, root = project.root): Compiled {
         return;
       }
       if (c.kind === "instance") {
-        walk(c.definitionId!, prefix + c.id + "/", [...stack, id]);
+        walk(c.definitionId!, prefix + c.id + "/", [...stack, id], c.arguments);
         for (const port of project.circuits[c.definitionId!]?.ports ?? [])
           aliases.set(
             prefix + c.id + ":" + port.id,
@@ -80,7 +148,7 @@ export function compile(project: Project, root = project.root): Compiled {
               : c.kind,
         });
     }
-    for (const w of circuit.wires)
+    for (const w of electricalWires(circuit, project))
       wires.push({
         ...w,
         id: prefix + w.id,
@@ -90,8 +158,12 @@ export function compile(project: Project, root = project.root): Compiled {
   }
   walk(root, "", []);
   const memoryCells = components
-    .filter((c) => c.kind === "ram" || c.kind === "rom")
-    .reduce((n, c) => n + 2 ** (c.params.addressBits ?? 8), 0);
+    .filter((c) => c.kind === "ram" || c.kind === "rom" || c.kind === "display")
+    .reduce(
+      (n, c) =>
+        n + (c.kind === "display" ? 2048 : 2 ** (c.params.addressBits ?? 8)),
+      0,
+    );
   if (memoryCells > 1_048_576)
     diagnostics.push({ code: "memoryLimit", severity: "error" });
   const byId = new Map(components.map((c) => [c.id, c]));
@@ -153,7 +225,10 @@ export function compile(project: Project, root = project.root): Compiled {
     for (const p of ports(c).filter(
       (p) =>
         p.direction === "in" &&
-        !["register", "dff", "counter"].includes(c.kind) &&
+        !["register", "dff", "counter", "keyboard", "terminal"].includes(
+          c.kind,
+        ) &&
+        (c.kind !== "display" || p.id === "x" || p.id === "y") &&
         (c.kind !== "ram" || p.id === "addr"),
     )) {
       const src = sources.get(c.id + ":" + p.id);

@@ -5,9 +5,11 @@ export function usePersistence(
   project: Project,
   setProject: (p: Project) => void,
 ) {
+  const [loadError, setLoadError] = useState(false);
   const [loaded, setLoaded] = useState(false),
     [owner, setOwner] = useState<string>(),
     [status, setStatus] = useState("loading");
+  const initialId = useRef(project.id);
   const current = useRef(project);
   current.current = project;
   const saved = useRef("");
@@ -25,7 +27,10 @@ export function usePersistence(
           setProject(found);
         }
       } catch {
-        if (live) setStatus("loadFailed");
+        if (live) {
+          setStatus("loadFailed");
+          setLoadError(true);
+        }
       } finally {
         if (live) setLoaded(true);
       }
@@ -35,7 +40,7 @@ export function usePersistence(
     };
   }, []);
   useEffect(() => {
-    if (!loaded) return;
+    if (!loaded || loadError) return;
     let release: (() => void) | undefined,
       cancelled = false;
     setOwner(undefined);
@@ -67,7 +72,10 @@ export function usePersistence(
       cancelled = true;
       release?.();
     };
-  }, [project.id, loaded]);
+  }, [project.id, loaded, loadError]);
+  useEffect(() => {
+    if (loadError && project.id !== initialId.current) setLoadError(false);
+  }, [project.id]);
   async function flush() {
     const p = structuredClone(current.current);
     if (owned.current !== p.id) return false;
@@ -118,15 +126,17 @@ export function usePersistence(
     };
   }, []);
   const serialized = useMemo(() => JSON.stringify(project), [project]);
-  const displayStatus = !loaded
-    ? "loading"
-    : owner !== project.id
-      ? ["readOnly", "locksUnavailable"].includes(status)
-        ? status
-        : "loading"
-      : saved.current !== serialized && status !== "saveFailed"
-        ? "saving"
-        : status;
+  const displayStatus = loadError
+    ? "loadFailed"
+    : !loaded
+      ? "loading"
+      : owner !== project.id
+        ? ["readOnly", "locksUnavailable"].includes(status)
+          ? status
+          : "loading"
+        : saved.current !== serialized && status !== "saveFailed"
+          ? "saving"
+          : status;
   return {
     loaded,
     writable: owner === project.id,

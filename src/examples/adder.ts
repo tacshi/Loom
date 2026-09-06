@@ -6,6 +6,7 @@ import {
   type Kind,
   type Endpoint,
 } from "../model/types";
+import { connect as connectNet } from "../model/nets";
 import { pinPosition } from "../model/components";
 import { orthogonal, protectTerminals } from "../editor/routing";
 export class Builder {
@@ -37,7 +38,7 @@ export class Builder {
         bp,
         this.p,
       );
-    this.c.wires.push({
+    connectNet(this.c, this.p, {
       id: uid(),
       from,
       to,

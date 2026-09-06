@@ -1,3 +1,4 @@
+import {deriveNets} from "../src/model/nets";
 import { describe, it, expect } from "vitest";
 import {
   emptyProject,
@@ -37,6 +38,7 @@ function fixture(kind: Kind, width = 1) {
       points: [],
     },
   ];
+  c.nets=deriveNets(c,p);
   return p;
 }
 describe("combinational kernel", () => {
@@ -90,6 +92,7 @@ describe("combinational kernel", () => {
       to: { component: "g", port: "a" },
       points: [],
     });
+    c.nets=deriveNets(c,p);
     const e = new Engine(p);
     expect(e.valid).toBe(false);
     expect(e.compiled.diagnostics.map((d) => d.code)).toEqual(
@@ -100,6 +103,7 @@ describe("combinational kernel", () => {
     const p = fixture("and");
     p.circuits[p.root].components[0].width = 8;
     p.circuits[p.root].wires.pop();
+    p.circuits[p.root].nets=deriveNets(p.circuits[p.root],p);
     expect(new Engine(p).compiled.diagnostics.map((d) => d.code)).toEqual(
       expect.arrayContaining(["widthMismatch", "undriven"]),
     );
@@ -121,7 +125,8 @@ it("rejects excessive memory before allocating storage", () => {
     ram.params.addressBits = 16;
     c.components.push(ram);
   }
-  const e = new Engine(p);
+  c.nets=deriveNets(c,p);
+    const e = new Engine(p);
   expect(e.valid).toBe(false);
   expect(e.memory.size).toBe(0);
   expect(e.compiled.diagnostics.some((d) => d.code === "memoryLimit")).toBe(

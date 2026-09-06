@@ -1,3 +1,4 @@
+import { exportProject } from "../persistence/serialization";
 import { useEffect, useRef, useState } from "react";
 import type { Project } from "../model/types";
 import { uid } from "../model/types";
@@ -16,7 +17,9 @@ export default function Projects({
   flush: () => Promise<boolean>;
   t: (s: string) => string;
 }) {
-  const [list, setList] = useState<Project[]>([]),
+  const [list, setList] = useState<Awaited<ReturnType<typeof listProjects>>>(
+      [],
+    ),
     [versions, setVersions] = useState<Awaited<ReturnType<typeof recoveries>>>(
       [],
     ),
@@ -39,7 +42,7 @@ export default function Projects({
   };
   async function download() {
     await flush();
-    const blob = new Blob([JSON.stringify(project, null, 2)], {
+    const blob = new Blob([exportProject(project)], {
       type: "application/json",
     });
     const url = URL.createObjectURL(blob),
@@ -92,7 +95,8 @@ export default function Projects({
             if (!f) return;
             try {
               if (f.size > MAX_FILE_BYTES) throw new Error("fileTooLarge");
-              const p = parseProject(await f.text());
+              const text = await f.text();
+              const p = parseProject(text);
               p.id = uid();
               p.updatedAt = Date.now();
               await open(p);
@@ -136,7 +140,7 @@ export default function Projects({
                 key={v.id}
                 className="recovery-row"
                 onClick={async () => {
-                  const p = structuredClone(v.project);
+                  const p = parseProject(JSON.stringify(v.project));
                   p.id = uid();
                   p.name += " — " + t("recovered");
                   p.updatedAt = Date.now();

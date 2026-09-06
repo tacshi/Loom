@@ -48,3 +48,25 @@ it("detects collinear overlap without treating crossings as overlap", () => {
     ),
   ).toBe(false);
 });
+it("does not turn duplicated same-net elbows into junction dots", () => {
+  const a = wire(
+      "a",
+      [
+        { x: 0, y: 40 },
+        { x: 60, y: 40 },
+        { x: 60, y: 80 },
+      ],
+      "source",
+    ),
+    b = wire(
+      "b",
+      [
+        { x: 0, y: 40 },
+        { x: 60, y: 40 },
+        { x: 60, y: 80 },
+        { x: 100, y: 80 },
+      ],
+      "source",
+    );
+  expect(crossings([a, b]).junctions).toEqual([]);
+});

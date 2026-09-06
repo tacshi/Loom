@@ -1,7 +1,15 @@
+import { calculatorSource } from "../cpu/calculator";
+import { echoSource, pixelSource } from "../cpu/ioCircuit";
 import { useRef, useState } from "react";
 import type { Project } from "../model/types";
 import type { Snapshot } from "../simulator/engine";
 import { assemble, programs, type AssemblyError } from "../cpu/assembler";
+const programSources = {
+  ...programs,
+  calculator: calculatorSource,
+  echo: echoSource,
+  pixels: pixelSource,
+};
 export default function Program({
   project,
   edit,
@@ -81,14 +89,15 @@ export default function Program({
           onChange={(e) => {
             if (e.target.value) {
               edit((p) => {
-                p.source = programs[e.target.value];
+                p.source =
+                  programSources[e.target.value as keyof typeof programSources];
               });
               setErrors([]);
             }
           }}
         >
           <option value="">{t("exampleProgram")}</option>
-          {Object.keys(programs).map((k) => (
+          {Object.keys(programSources).map((k) => (
             <option value={k} key={k}>
               {t("program_" + k)}
             </option>

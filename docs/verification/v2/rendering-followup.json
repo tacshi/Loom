@@ -1,0 +1,21 @@
+{
+  "date": "2026-09-06",
+  "build": "index-DPh3x5B_.js",
+  "viewport": "1920x1080",
+  "components": 1000,
+  "connections": 2000,
+  "panP95Ms": 16.8,
+  "panFrames": 48,
+  "dragP95Ms": 16.7,
+  "dragFrames": 56,
+  "selectionP95Ms": 75.0,
+  "selectionMaxMs": 76.8,
+  "selectionSamples": 40,
+  "pauseMs": 40.1,
+  "saveMs": 713.8,
+  "cpu": "Apple M1 Pro",
+  "memoryGiB": 16,
+  "browser": "Chromium 153.0.8010.12",
+  "source": "tests/browser/performance.spec.ts",
+  "note": "After bridge overlay and selected-pin masks; pause and save are single samples."
+}

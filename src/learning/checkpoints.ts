@@ -1,3 +1,4 @@
+import { deriveNets } from "../model/nets";
 import { Builder, fullAdder } from "../examples/adder";
 import { counterExample } from "../examples/sequential";
 import { nandAdder } from "../cpu/nandAdder";
@@ -35,6 +36,7 @@ function arithmetic() {
     p = emptyProject("8-bit NAND adder");
   p.root = def.id;
   p.circuits = { [def.id]: def };
+  p.circuits[p.root].nets = deriveNets(p.circuits[p.root], p);
   return p;
 }
 function accumulator() {
@@ -81,6 +83,7 @@ function missing(
   p.circuits[p.root].wires = p.circuits[p.root].wires.filter(
     (w) => !predicate(w),
   );
+  p.circuits[p.root].nets = deriveNets(p.circuits[p.root], p);
   return p;
 }
 export const checkpoints: Checkpoint[] = [

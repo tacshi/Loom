@@ -6,6 +6,7 @@ import {
   type Port,
   type Circuit,
 } from "./types";
+import { deriveNets, electricalWires, removeRouteConnection } from "./nets";
 import { ports, pinPosition } from "./components";
 import { orthogonal, protectTerminals, route } from "../editor/routing";
 export function extract(
@@ -15,6 +16,10 @@ export function extract(
   name: string,
   routeLayout = true,
 ): string {
+  project.circuits[circuitId].wires = electricalWires(
+    project.circuits[circuitId],
+    project,
+  );
   const parent = project.circuits[circuitId],
     selected = parent.components.filter(
       (c) =>
@@ -37,6 +42,9 @@ export function extract(
           selection.includes(w.to.component),
       )
       .map((w) => structuredClone(w)),
+    nets: [],
+    markers: [],
+    tests: [],
     ports: [],
     vectors: [],
   };
@@ -179,7 +187,8 @@ export function extract(
     try {
       if (!routeLayout) throw new Error("layout");
       w.points = route(parent, project, w.from, w.to);
-    } catch {
+    } catch (error) {
+      if (routeLayout) throw error;
       w.points = protectTerminals(
         orthogonal(
           pinPosition(
@@ -196,6 +205,8 @@ export function extract(
       );
     }
   }
+  definition.nets = deriveNets(definition, project);
+  parent.nets = deriveNets(parent, project);
   return instanceId;
 }
 
@@ -205,12 +216,23 @@ export function removeSelection(
   selection: string[],
 ) {
   const circuit = project.circuits[circuitId];
+  circuit.nets = circuit.nets.filter((n) => !selection.includes(n.id));
+  circuit.wires = circuit.wires.filter(
+    (w) => !w.netId || circuit.nets.some((n) => n.id === w.netId),
+  );
+  circuit.markers = circuit.markers.filter(
+    (m) =>
+      !selection.includes(m.id) && circuit.nets.some((n) => n.id === m.netId),
+  );
+  for (const id of selection) removeRouteConnection(circuit, id);
   const removedPorts = new Set(
     circuit.ports
       .filter((p) => selection.includes(p.componentId))
       .map((p) => p.id),
   );
   circuit.ports = circuit.ports.filter((p) => !removedPorts.has(p.id));
+  for (const net of circuit.nets)
+    net.ports = net.ports.filter((e) => !selection.includes(e.component));
   circuit.components = circuit.components.filter(
     (c) => !selection.includes(c.id),
   );
@@ -227,6 +249,10 @@ export function removeSelection(
           .filter((c) => c.definitionId === circuitId)
           .map((c) => c.id),
       );
+      for (const net of parent.nets)
+        net.ports = net.ports.filter(
+          (e) => !(instances.has(e.component) && removedPorts.has(e.port)),
+        );
       parent.wires = parent.wires.filter(
         (w) =>
           !(instances.has(w.from.component) && removedPorts.has(w.from.port)) &&

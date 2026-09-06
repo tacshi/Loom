@@ -405,8 +405,23 @@ footer i {
 .selection-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  padding: 20px 12px;
+  gap: 6px;
+  padding: 4px 18px;
+}
+.selection-actions > button {
+  flex: 1 1 auto;
+  justify-content: center;
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+}
+.selection-actions > button:hover {
+  background: var(--bg);
+}
+.selection-actions:last-child {
+  padding-bottom: 18px;
 }
 .danger {
   color: var(--danger);
@@ -1157,4 +1172,416 @@ button.primary {
 }
 .workspace {
   overflow: auto;
+}
+.appearance-editor,
+.net-inspector {
+  margin: 16px;
+}
+.appearance-editor summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+.appearance-editor label,
+.net-inspector label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 12px 0;
+}
+.two-fields {
+  display: flex;
+  gap: 8px;
+}
+.two-fields label {
+  min-width: 0;
+  flex: 1;
+}
+.two-fields input {
+  width: 100%;
+}
+.pin-layout {
+  display: grid;
+  grid-template-columns: 1fr 65px 45px;
+  align-items: center;
+  gap: 5px;
+  margin: 7px 0;
+}
+.pin-layout input,
+.pin-layout select {
+  width: 100%;
+  padding: 4px;
+}
+.net-members > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.86rem;
+  overflow-wrap: anywhere;
+}
+.net-inspector > button {
+  margin: 8px 0;
+}
+.net-inspector h3 {
+  font-size: 1rem;
+}
+.timeline-panel {
+  border-bottom: 1px solid var(--border);
+  padding: 10px;
+  min-width: 0;
+}
+.timeline-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.timeline-controls label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.timeline-controls input {
+  width: 80px;
+}
+.timeline-controls strong {
+  color: var(--accent);
+}
+.timeline-scroll {
+  width: 100%;
+}
+.timeline-waveforms {
+  max-height: 240px;
+  overflow: auto;
+}
+.timeline-ticks {
+  display: flex;
+  justify-content: space-between;
+  margin-left: 130px;
+  font-size: 10px;
+}
+.timeline-track {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.timeline-track > span {
+  width: 122px;
+  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font: 11px monospace;
+}
+.timeline-track svg {
+  min-width: 0;
+  flex: 1;
+  height: 38px;
+  cursor: crosshair;
+}
+.debugger {
+  max-height: 65vh;
+  overflow: auto;
+}
+.libraries-dialog {
+  width: min(850px, 95vw);
+  max-height: 85vh;
+  overflow: auto;
+}
+.library-catalog {
+  padding: 0;
+  list-style: none;
+}
+.library-catalog li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.library-catalog strong {
+  flex: 1;
+}
+.interface-map {
+  display: flex;
+  gap: 12px;
+  margin: 8px 0;
+}
+.devices-panel {
+  padding: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 16px;
+  max-height: 45vh;
+  overflow: auto;
+  border-top: 1px solid var(--border);
+}
+.devices-panel textarea {
+  width: 100%;
+  height: 64px;
+}
+.devices-panel form > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.devices-panel pre {
+  min-height: 90px;
+  max-height: 200px;
+  overflow: auto;
+  background: var(--bg);
+  padding: 10px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.pixel-display {
+  width: 256px;
+  max-width: 100%;
+  image-rendering: pixelated;
+  shape-rendering: crispEdges;
+  border: 1px solid var(--border);
+}
+.memory-cells {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+}
+.memory-cells label {
+  font: 10px monospace;
+  min-width: 0;
+}
+.memory-cells input {
+  width: 100%;
+  padding: 5px;
+  font: 12px monospace;
+}
+.libraries-dialog .dialog-heading {
+  padding: 0 0 20px;
+  margin: 0 0 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.libraries-dialog .dialog-heading h2 {
+  margin: 0;
+}
+.libraries-dialog .dialog-heading button {
+  margin: 0;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+}
+.library-actions {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) 80px auto auto;
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.dialog .library-actions label {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: left;
+  gap: 8px;
+  margin: 0;
+  min-width: 0;
+}
+.library-actions select,
+.library-actions input,
+.library-actions > button {
+  width: 100%;
+  height: 38px;
+  box-sizing: border-box;
+  margin: 0;
+}
+.library-actions input {
+  min-width: 0;
+}
+.library-catalog li {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) 40px auto auto;
+  align-items: center;
+  gap: 12px;
+}
+.library-catalog li button {
+  margin: 0;
+  min-height: 36px;
+}
+.library-catalog li strong {
+  overflow-wrap: anywhere;
+}
+.library-catalog li > button:nth-of-type(n + 3) {
+  grid-column: 3 / -1;
+  justify-self: end;
+}
+@media (max-width: 760px) {
+  .library-actions {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .library-actions > label:first-child {
+    grid-column: span 3;
+  }
+  .library-actions > label:nth-child(2) {
+    grid-column: span 1;
+  }
+  .library-actions > button {
+    grid-row: 2;
+    grid-column: span 2;
+    align-self: stretch;
+    height: auto;
+    min-height: 38px;
+    min-width: 0;
+    white-space: normal;
+  }
+  .library-catalog li {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .library-catalog li > button {
+    grid-row: auto;
+  }
+  .library-catalog li > button:nth-of-type(n + 3) {
+    grid-column: 1 / -1;
+  }
+  .libraries-dialog {
+    padding: 20px;
+  }
+}
+.sequence-dialog {
+  width: min(880px, 95vw);
+  max-height: 85vh;
+  overflow: auto;
+}
+.sequence-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  align-items: end;
+  margin: 16px 0;
+}
+.sequence-fields label {
+  min-width: 0;
+}
+.sequence-fields input,
+.sequence-fields select,
+.sequence-fields textarea {
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+}
+.sequence-dialog details > label {
+  margin: 12px 0;
+}
+.sequence-dialog details > summary {
+  cursor: pointer;
+  padding: 10px 0;
+}
+.sequence-dialog pre {
+  overflow: auto;
+  max-width: 300px;
+}
+.sequence-dialog td button {
+  white-space: normal;
+}
+.parameter-editor {
+  margin: 12px 0;
+  font-size: 12px;
+}
+.parameter-editor summary {
+  cursor: pointer;
+}
+.parameter-editor label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 10px 0;
+}
+.parameter-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.parameter-fields input {
+  min-width: 0;
+  width: 100%;
+  padding: 6px;
+}
+.workbench-dock {
+  flex: 0 0 auto;
+  max-height: 60vh;
+  overflow: auto;
+  min-height: 0;
+}
+.workbench-dock:empty {
+  display: none;
+}
+.workbench-dock .devices-panel {
+  max-height: none;
+  overflow: visible;
+  min-height: 190px;
+}
+.workbench-dock .debugger {
+  max-height: none;
+  overflow: visible;
+  resize: none;
+}
+.workbench-dock > .notice {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.workbench-dock .devices-panel > div {
+  min-width: 0;
+}
+.devices-panel h3 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.devices-panel form > div {
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.devices-panel form > div span {
+  margin-right: auto;
+}
+.sequence-dialog .sequence-fields textarea {
+  resize: vertical;
+  min-height: 38px;
+}
+.workbench-dock {
+  max-height: max(160px, min(55vh, calc(100dvh - 380px)));
+}
+.devices-panel form > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.devices-panel form > div > span {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+.devices-panel form > div > button {
+  margin: 0;
+}
+.devices-panel pre {
+  min-height: 124px;
+}
+.workspace > footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  background: var(--surface);
+  flex-shrink: 0;
+}
+.memory-cells .memory-changed input {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.memory-cells .memory-changed > span::after {
+  content: " •";
+  color: var(--accent);
 }

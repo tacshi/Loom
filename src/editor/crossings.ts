@@ -7,6 +7,7 @@ export function crossings(wires: Wire[]): {
   const bridges: Bridge[] = [],
     junctions: Point[] = [],
     seen = new Set<string>();
+  const candidates = new Map<string, { point: Point; arms: Set<string> }>();
   const vertical = wires
     .flatMap((w) =>
       w.points
@@ -43,14 +44,22 @@ export function crossings(wires: Wire[]): {
           y = a.y;
         if (y < Math.min(v.a.y, v.b.y) || y > Math.max(v.a.y, v.b.y)) continue;
         const same =
-          w.from.component === v.w.from.component &&
-          w.from.port === v.w.from.port;
+          w.netId && v.w.netId
+            ? w.netId === v.w.netId
+            : w.from.component === v.w.from.component &&
+              w.from.port === v.w.from.port;
         if (same) {
-          const k = "j:" + x + ":" + y;
-          if (!seen.has(k)) {
-            junctions.push({ x, y });
-            seen.add(k);
-          }
+          const k = (w.netId ?? JSON.stringify(w.from)) + ":" + x + ":" + y;
+          let candidate = candidates.get(k);
+          if (!candidate)
+            candidates.set(
+              k,
+              (candidate = { point: { x, y }, arms: new Set() }),
+            );
+          if (x > left) candidate.arms.add("left");
+          if (x < right) candidate.arms.add("right");
+          if (y > Math.min(v.a.y, v.b.y)) candidate.arms.add("up");
+          if (y < Math.max(v.a.y, v.b.y)) candidate.arms.add("down");
         } else if (x > left && x < right) {
           const k = w.id + ":" + i + ":" + x + ":" + y;
           if (!seen.has(k)) {
@@ -60,6 +69,13 @@ export function crossings(wires: Wire[]): {
         }
       }
     }
+  for (const { point, arms } of candidates.values()) {
+    const k = "j:" + point.x + ":" + point.y;
+    if (arms.size >= 3 && !seen.has(k)) {
+      junctions.push(point);
+      seen.add(k);
+    }
+  }
   return { bridges, junctions };
 }
 export function overlapping(a: Point, b: Point, c: Point, d: Point) {
@@ -74,4 +90,14 @@ export function overlapping(a: Point, b: Point, c: Point, d: Point) {
       Math.max(Math.min(a.y, b.y), Math.min(c.y, d.y))
     );
   return false;
+}
+
+/** Visual geometry is in circuit units; only pointer hit targets use screen units. */
+export function wireMetrics(scale: number, selected = false) {
+  return {
+    strokeWidth: selected ? 3 : 2,
+    bridgeRadius: 6,
+    bridgeHalo: 2,
+    hitStrokeWidth: Math.max(12, 12 / scale),
+  };
 }

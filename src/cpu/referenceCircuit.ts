@@ -1,14 +1,28 @@
+import generatedLayouts from "./generatedLayouts.json";
 import { Builder } from "../examples/adder";
 import { assemble, sumSource } from "./assembler";
 import { route, protectTerminals, orthogonal } from "../editor/routing";
 import { pinPosition } from "../model/components";
 import type { Kind, Circuit, Project } from "../model/types";
 type Pin = readonly [string, string];
-class LogicBuilder extends Builder {
+export class LogicBuilder extends Builder {
   serial = 0;
+  finish(): Circuit {
+    const layouts = generatedLayouts as Record<
+      string,
+      Record<string, { x: number; y: number }[]>
+    >;
+    const layout = layouts[this.c.name];
+    for (const wire of this.c.wires) {
+      const points = layout?.[JSON.stringify([wire.from, wire.to])];
+      // New/changed connections retain Builder geometry until layouts are regenerated.
+      if (points) wire.points = structuredClone(points);
+    }
+    return this.c;
+  }
   node(id: string, kind: Kind, width = 1): Pin {
     const n = this.serial++;
-    this.add(id, kind, 240 + (n % 6) * 220, Math.floor(n / 6) * 180, width);
+    this.add(id, kind, 240 + (n % 6) * 360, Math.floor(n / 6) * 360, width);
     return [id, ["register", "counter", "dff"].includes(kind) ? "q" : "out"];
   }
   constant(id: string, width: number, value: number): Pin {
@@ -105,7 +119,7 @@ function arithmetic(): Circuit {
   b.output("result", result, 8);
   b.output("carry", carry);
   b.output("zero", zero);
-  return b.c;
+  return b.finish();
 }
 function control(): Circuit {
   const b = new LogicBuilder("Instruction control");
@@ -151,7 +165,7 @@ function control(): Circuit {
   b.output("control", ["Control bits", "out"], 8);
   b.output("active", active);
   b.output("invalid", invalid);
-  return b.c;
+  return b.finish();
 }
 function fields(): Circuit {
   const b = new LogicBuilder("Instruction fields");
@@ -166,7 +180,7 @@ function fields(): Circuit {
   }
   b.output("opcode", ["Opcode", "out"], 8);
   b.output("operand", ["Operand", "out"], 8);
-  return b.c;
+  return b.finish();
 }
 export function cpuProject(): Project {
   const b = new Builder("Loom 8 · CPU"),

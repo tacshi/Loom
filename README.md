@@ -22,10 +22,12 @@ The production app caches its assets after the first successful online load. Pro
 
 ## Start building
 
-- **Learn** contains seven editable checkpoints, from a NAND gate to a running CPU.
+- **Learn** contains bilingual checkpoints from NAND gates through libraries, rewind, peripherals, and regression tests.
 - **Open example… → Loom 8 CPU** opens a complete computer. **Assemble & load**, then **Run**: the supplied sum program outputs **55**.
 - Use **Circuit** to select a component by name, inspect its signals, connect ports, or open its subcircuit.
 - Inside the CPU's **ALU**, replace **ADD** with a NAND-built adder and rerun the same program.
+
+**Open example… → Loom 8 I/O · Calculator** runs interactive decimal addition/subtraction through keyboard and terminal peripherals. **Debug** adds rewind and retained runs; **Libraries** packages versioned components; **Sequential tests** captures and verifies multi-step behavior.
 
 The CPU executes through the circuit. Its instruction-level reference model exists only in tests.
 
@@ -44,7 +46,7 @@ To test the production preview, keep `npm run preview` running and use:
 LOOM_BASE_URL=http://127.0.0.1:4173 npm run test:browser -- --project=chromium --project=webkit
 ```
 
-See [phase evidence and outstanding checks](docs/PHASES.md). Automated tests supplement the recorded Computer-Use checks. Firefox's test application currently fails to load its profile on this Mac; that is not recorded as a compatibility pass.
+See [v2 evidence and outstanding gates](docs/V2-PHASES.md). Automated tests supplement Computer-Use checks. Linux Firefox verification is available through the official Playwright container; native macOS IME and browser-specific checks are tracked separately.
 
 ## Documentation
 
@@ -52,6 +54,10 @@ See [phase evidence and outstanding checks](docs/PHASES.md). Automated tests sup
 - [CPU instruction set and timing](docs/CPU.md)
 - [Architecture and simulation contracts](docs/ARCHITECTURE.md)
 - [Deployment](docs/DEPLOYMENT.md)
-- [Verification ledger](docs/PHASES.md)
+- [CLI commands and reports](docs/CLI.md)
+- [V2 verification ledger](docs/V2-PHASES.md)
+- [V1 verification ledger](docs/PHASES.md)
 
 No account, cloud storage, analytics, or external runtime service is required.
+
+Loom is unreleased. Development iterations support only the current project format; no backward-compatibility migrations are provided. See [development policy](AGENTS.md).

@@ -1,14 +1,16 @@
 {
   "name": "loom",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && npm run build:cli",
     "preview": "vite preview --host 127.0.0.1",
     "test": "vitest run",
-    "test:browser": "playwright test"
+    "test:browser": "playwright test",
+    "build:cli": "esbuild src/cli/main.ts --bundle --platform=node --format=esm --target=node24 --outfile=dist-cli/loom.mjs",
+    "generate:layouts": "esbuild scripts/generate-cpu-layouts.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/generate-cpu-layouts.mjs && node node_modules/.cache/generate-cpu-layouts.mjs"
   },
   "dependencies": {
     "@fontsource-variable/dm-sans": "^5.3.0",
@@ -30,6 +32,18 @@
     "typescript": "^5.9.0",
     "vite": "^7.0.0",
     "vite-plugin-pwa": "^1.0.0",
-    "vitest": "^3.2.0"
+    "vitest": "^3.2.0",
+    "esbuild": "^0.25.0"
+  },
+  "bin": {
+    "loom": "dist-cli/loom.mjs"
+  },
+  "files": [
+    "dist-cli",
+    "README.md",
+    "docs/CLI.md"
+  ],
+  "engines": {
+    "node": ">=24"
   }
 }

@@ -1,3 +1,4 @@
+import Electrons from "./Electrons";
 import {
   memo,
   useEffect,
@@ -25,16 +26,17 @@ import {
   type Point,
   type Endpoint,
 } from "../model/types";
-import { geometry, ports, pinPosition } from "../model/components";
+import { geometry, ports, pinPosition, pinNormal } from "../model/components";
 import { nearestAlignment, type Alignment } from "../editor/alignment";
-import { crossings } from "../editor/crossings";
-import { orthogonal, moveSegment } from "../editor/routing";
+import { crossings,wireMetrics } from "../editor/crossings";
+import { orthogonal, moveSegment, previewMove } from "../editor/routing";
 export type CanvasProps = {
   project: Project;
   circuit: Circuit;
   selected: string[];
   setSelected: (s: string[]) => void;
-  move: (id: string, delta: Point) => void;
+  move: (id: string, delta: Point) => boolean | void;
+  markerMove?: (id: string, p: Point) => void;
   t: (k: string) => string;
   dark: boolean;
   fitToken: number;
@@ -50,6 +52,7 @@ export type CanvasProps = {
   focus?: string;
   readOnly?: boolean;
   panMode?: boolean;
+  running?: boolean;
 };
 function Canvas({
   project,
@@ -72,6 +75,8 @@ function Canvas({
   focus,
   readOnly = false,
   panMode = false,
+  running = false,
+  markerMove,
 }: CanvasProps) {
   const networkLayer = useRef<Konva.Layer>(null);
   const dragLayer = useRef<Konva.Layer>(null);
@@ -270,6 +275,18 @@ function Canvas({
         ...orthogonal(waypoints.at(-1) ?? startAt, cursor, horizontal).slice(1),
       ]
     : [];
+  const moving = useMemo(
+    () =>
+      dragged
+        ? previewMove(
+            circuit,
+            project,
+            selected.includes(dragged.id) ? selected : [dragged.id],
+            dragged.delta,
+          )
+        : undefined,
+    [dragged, circuit, project, selected],
+  );
   const finishSelect = () => {
     if (marquee) {
       const { start: a, end: b } = marquee;
@@ -386,7 +403,11 @@ function Canvas({
           wires={circuit.wires}
           values={values}
           selection={selected
-            .filter((id) => circuit.wires.some((w) => w.id === id))
+            .filter(
+              (id) =>
+                circuit.wires.some((w) => w.id === id) ||
+                circuit.nets.some((n) => n.id === id),
+            )
             .join()}
           pending={pending}
           view={view}
@@ -395,12 +416,14 @@ function Canvas({
           space={space}
         >
           {circuit.wires.map((w) => {
+            const metrics=wireMetrics(view.scale,selected.includes(w.id)||selected.includes(w.netId??''));
             const val = values[path + w.from.component + ":" + w.from.port];
-            const color = selected.includes(w.id)
-              ? "#d39235"
-              : val && val !== "X" && val !== "0"
-                ? "#31a573"
-                : colors.line;
+            const color =
+              selected.includes(w.id) || selected.includes(w.netId ?? "")
+                ? "#d39235"
+                : val && val !== "X" && val !== "0"
+                  ? "#31a573"
+                  : colors.line;
             return (
               <Group key={w.id}>
                 {w.points.slice(1).map((p, i) => {
@@ -421,7 +444,7 @@ function Canvas({
                           );
                           for (const bridge of bridges) {
                             const radius = Math.min(
-                              6 / view.scale,
+                              metrics.bridgeRadius,
                               Math.abs(bridge.point.x - a.x) / 2,
                               Math.abs(p.x - bridge.point.x) / 2,
                             );
@@ -441,7 +464,9 @@ function Canvas({
                           }
                           ctx.lineTo(p.x, p.y);
                           ctx.strokeStyle = color;
-                          ctx.lineWidth = selected.includes(w.id) ? 3 : 2;
+                          ctx.lineWidth = metrics.strokeWidth;
+                          ctx.lineCap = "round";
+                          ctx.lineJoin = "round";
                           ctx.stroke();
                         }}
                       />
@@ -449,8 +474,8 @@ function Canvas({
                         points={[a.x, a.y, p.x, p.y]}
                         stroke={color}
                         opacity={0}
-                        strokeWidth={selected.includes(w.id) ? 3 : 2}
-                        hitStrokeWidth={Math.max(12, 12 / view.scale)}
+                        strokeWidth={metrics.strokeWidth}
+                        hitStrokeWidth={metrics.hitStrokeWidth}
                         draggable={!readOnly && !pending && !space}
                         onDragStart={() => {
                           cancelledDrag.current = false;
@@ -500,6 +525,20 @@ function Canvas({
               </Group>
             );
           })}
+          <Shape listening={false} sceneFunc={ctx=>{
+            // Paint bridges after every wire, so draw order cannot join unrelated nets.
+            const byId=new Map(circuit.wires.map(w=>[w.id,w]));
+            for(const bridge of intersections.bridges){
+              const w=byId.get(bridge.wire)!,a=w.points[bridge.segment],b=w.points[bridge.segment+1];
+              const active=selected.includes(w.id)||selected.includes(w.netId??''),metrics=wireMetrics(view.scale,active);
+              const radius=Math.min(metrics.bridgeRadius,Math.abs(bridge.point.x-a.x)/2,Math.abs(b.x-bridge.point.x)/2),direction=a.x<b.x?1:-1;
+              const tail=Math.min(metrics.bridgeHalo+metrics.strokeWidth,Math.abs(bridge.point.x-a.x)-radius,Math.abs(b.x-bridge.point.x)-radius),x=bridge.point.x,y=bridge.point.y;
+              const value=values[path+w.from.component+':'+w.from.port],color=active?'#d39235':value&&value!=='X'&&value!=='0'?'#31a573':colors.line;
+              ctx.save();ctx.lineCap='butt';ctx.lineJoin='round';ctx.beginPath();ctx.moveTo(x-direction*(radius+tail),y);ctx.lineTo(x-direction*radius,y);ctx.bezierCurveTo(x-direction*radius,y-radius*1.4,x+direction*radius,y-radius*1.4,x+direction*radius,y);ctx.lineTo(x+direction*(radius+tail),y);
+              ctx.globalCompositeOperation='destination-out';ctx.strokeStyle='#000';ctx.lineWidth=metrics.strokeWidth+2*metrics.bridgeHalo;ctx.stroke();
+              ctx.globalCompositeOperation='source-over';ctx.strokeStyle=color;ctx.lineWidth=metrics.strokeWidth;ctx.stroke();ctx.restore();
+            }
+          }}/>
           {intersections.junctions.map((p, i) => (
             <Circle
               key={"junction" + i}
@@ -511,6 +550,7 @@ function Canvas({
             />
           ))}
         </WireLayer>
+        <Electrons wires={circuit.wires} bridges={intersections.bridges} values={values} path={path} running={running} dark={dark} view={view} size={size} />
         <ComponentLayer
           layerRef={networkLayer}
           circuit={circuit}
@@ -636,7 +676,8 @@ function Canvas({
                       e.target.position({ x: c.x, y: c.y });
                       return;
                     }
-                    moveRef.current(c.id, delta);
+                    if (moveRef.current(c.id, delta) === false)
+                      e.target.position({ x: c.x, y: c.y });
                   }}
                 >
                   <ComponentGlyph
@@ -657,13 +698,100 @@ function Canvas({
               );
             })}
         </ComponentLayer>
+        <Layer>
+          {circuit.markers.map((m) => {
+            const n = circuit.nets.find((n) => n.id === m.netId),
+              c =
+                m.endpoint &&
+                circuit.components.find((c) => c.id === m.endpoint!.component),
+              at =
+                c && m.endpoint
+                  ? pinPosition(c, m.endpoint.port, project)
+                  : undefined;
+            return (
+              <Group key={m.id}>
+                {at && (
+                  <Line
+                    lineCap="round"
+                    lineJoin="round"
+                    points={orthogonal(at, { x: m.x, y: m.y + 10 }).flatMap(
+                      (p) => [p.x, p.y],
+                    )}
+                    stroke={colors.line}
+                    strokeWidth={2}
+                  />
+                )}
+                <Group
+                  x={m.x}
+                  y={m.y}
+                  draggable={!space && !readOnly}
+                  onMouseDown={(e) => {
+                    if (space) return;
+                    e.cancelBubble = true;
+                    setSelected([m.netId]);
+                  }}
+                  onDragEnd={(e) => {
+                    e.cancelBubble = true;
+                    markerMove?.(m.id, {
+                      x: snap(e.target.x()),
+                      y: snap(e.target.y()),
+                    });
+                  }}
+                >
+                  <Rect
+                    width={100}
+                    height={20}
+                    fill={colors.surface}
+                    stroke={
+                      selected.includes(m.netId) ? "#d39235" : colors.line
+                    }
+                    cornerRadius={3}
+                  />
+                  <Text
+                    x={6}
+                    y={4}
+                    width={88}
+                    height={14}
+                    wrap="none"
+                    ellipsis
+                    text={
+                      (n?.name || t("net")) +
+                      (n && n.width > 1 ? " [" + (n.width - 1) + ":0]" : "")
+                    }
+                    fontSize={11}
+                    fill={colors.text}
+                  />
+                </Group>
+              </Group>
+            );
+          })}
+        </Layer>
         <Layer ref={dragLayer} />
         <Layer listening={false}>
+          {moving &&
+            moving.circuit.wires
+              .filter((w) => {
+                const old = circuit.wires.find((n) => n.id === w.id);
+                return old && w !== old;
+              })
+              .map((w) => (
+                <Line
+                    lineCap="round"
+                    lineJoin="round"
+                  key={"move-" + w.id}
+                  points={w.points.flatMap((p) => [p.x, p.y])}
+                  stroke={moving.valid ? "#2b9b64" : "#c94d42"}
+                  strokeWidth={2}
+                  dash={[5, 3]}
+                />
+              ))}
           {wireDrag &&
             (() => {
               const w = circuit.wires.find((w) => w.id === wireDrag.id);
               return w ? (
                 <Line
+                    lineCap="round"
+                    lineJoin="round"
                   points={moveSegment(w, wireDrag.index, wireDrag.at).flatMap(
                     (p) => [p.x, p.y],
                   )}
@@ -697,12 +825,18 @@ function Canvas({
             })}
           {preview.length > 0 && (
             <Line
+                    lineCap="round"
+                    lineJoin="round"
               points={preview.flatMap((p) => [p.x, p.y])}
               stroke="#2b9b64"
               strokeWidth={2}
               dash={[6, 4]}
             />
           )}
+          {circuit.components.filter(c=>selected.includes(c.id)||pending?.component===c.id).flatMap(c=>ports(c,project).map(p=>{
+            const at=pinPosition(c,p.id,project),delta=dragged&&selected.includes(c.id)?dragged.delta:{x:0,y:0};
+            return <Circle key={'pin-mask:'+c.id+':'+p.id} x={at.x+delta.x} y={at.y+delta.y} radius={5} fill={pending?.component===c.id&&pending.port===p.id?'#e0ad58':colors.surface} stroke={pending?'#39a672':colors.line} strokeWidth={2} listening={false}/>;
+          }))}
           {guides.map((g) => (
             <Line
               key={g.axis}
@@ -856,6 +990,9 @@ const ComponentGlyph = memo(
               portOut: "OUT",
               instance: "ƒ",
               buffer: "BUF",
+              keyboard: "KBD",
+              terminal: "TERM",
+              display: "PIX",
             }[c.kind]
           }
           wrap="none"
@@ -865,7 +1002,8 @@ const ComponentGlyph = memo(
           ellipsis
         />
         {ports(c, project).map((p) => {
-          const at = pinPosition(c, p.id, project);
+          const at = pinPosition(c, p.id, project),
+            normal = pinNormal(c, p.id, project);
           return (
             <Group
               key={p.id}
@@ -889,10 +1027,13 @@ const ComponentGlyph = memo(
                 strokeWidth={2}
               />
               <Text
-                x={p.direction === "in" ? 9 : -47}
-                y={-5}
-                width={38}
-                align={p.direction === "in" ? "left" : "right"}
+                visible={scale >= 0.65}
+                x={normal.x < 0 ? 9 : normal.x > 0 ? -47 : -8}
+                y={normal.y < 0 ? 9 : normal.y > 0 ? -18 : -5}
+                width={normal.y ? 16 : 38}
+                align={
+                  normal.x < 0 ? "left" : normal.x > 0 ? "right" : "center"
+                }
                 text={p.name}
                 wrap="none"
                 ellipsis
@@ -993,5 +1134,6 @@ export default memo(
     a.path === b.path &&
     a.focus === b.focus &&
     a.readOnly === b.readOnly &&
-    a.panMode === b.panMode,
+    a.panMode === b.panMode &&
+    a.running === b.running,
 );

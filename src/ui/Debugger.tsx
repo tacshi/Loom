@@ -1,8 +1,11 @@
+import Timeline from "./Timeline";
+import type { useSimulation } from "../simulator/useSimulation";
 import { useState } from "react";
 import type { Snapshot } from "../simulator/engine";
 import { format } from "../simulator/signal";
 import type { Breakpoint } from "../simulator/protocol";
 export default function Debugger({
+  simulation,
   snapshot,
   trace,
   probes,
@@ -13,6 +16,7 @@ export default function Debugger({
   close,
   memoryId,
 }: {
+  simulation: ReturnType<typeof useSimulation>;
   snapshot: Snapshot;
   trace: Snapshot[];
   probes: string[];
@@ -48,6 +52,18 @@ export default function Debugger({
           ×
         </button>
       </div>
+      <Timeline
+        running={simulation.running}
+        history={simulation.history}
+        samples={simulation.range}
+        probes={probes}
+        seek={simulation.seek}
+        fetchRange={simulation.fetchRange}
+        back={(instruction) =>
+          simulation.command(instruction ? "backInstruction" : "back")
+        }
+        t={t}
+      />
       {tab === "signals" ? (
         <div className="signal-table">
           {!probes.length ? (
@@ -149,6 +165,47 @@ export default function Debugger({
                     />
                     {t("breakWhen")}
                   </label>
+                  <button
+                    onClick={() =>
+                      simulation.inspectSource(
+                        id.slice(0, at),
+                        id.slice(at + 1),
+                      )
+                    }
+                  >
+                    {t("signalSource")}
+                  </button>
+                  {bp && (
+                    <select
+                      aria-label={t("breakMode")}
+                      value={bp.mode ?? "equal"}
+                      onChange={(e) =>
+                        setBreakpoints(
+                          breakpoints.map((b) =>
+                            b === bp
+                              ? {
+                                  ...b,
+                                  mode: e.target.value as Breakpoint["mode"],
+                                }
+                              : b,
+                          ),
+                        )
+                      }
+                    >
+                      {[
+                        "equal",
+                        "change",
+                        "rising",
+                        "falling",
+                        "memoryRead",
+                        "memoryWrite",
+                      ].map((mode) => (
+                        <option key={mode} value={mode}>
+                          {t(mode)}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                   {bp && (
                     <input
                       aria-label={t("breakValue")}
@@ -227,6 +284,56 @@ export default function Debugger({
             </>
           )}
         </div>
+      )}
+      {!!snapshot.transactions?.length && (
+        <details>
+          <summary>{t("transactions")}</summary>
+          <table>
+            <thead>
+              <tr>
+                <th>{t("cycle")}</th>
+                <th>{t("component")}</th>
+                <th>{t("operation")}</th>
+                <th>{t("address")}</th>
+                <th>{t("value")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {snapshot.transactions.map((v, i) => (
+                <tr key={i}>
+                  <td>
+                    <button
+                      onClick={() =>
+                        simulation.history &&
+                        simulation.seek(simulation.history.selected, {
+                          cycle: v.cycle,
+                          eventOrder: 0,
+                        })
+                      }
+                    >
+                      {v.cycle}
+                    </button>
+                  </td>
+                  <td>{v.component}</td>
+                  <td>{t(v.kind)}</td>
+                  <td>{v.address?.toString(16) ?? "—"}</td>
+                  <td>{v.known ? v.value : "X"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </details>
+      )}
+      {simulation.chain.length > 0 && (
+        <details open>
+          <summary>{t("signalSource")}</summary>
+          {simulation.chain.map((c) => (
+            <p className="mono" key={c.id + ":" + c.port}>
+              {c.id}:{c.port} {c.unknown ? "X" : ""}{" "}
+              {c.driver ? "← " + c.driver : ""}
+            </p>
+          ))}
+        </details>
       )}
     </section>
   );

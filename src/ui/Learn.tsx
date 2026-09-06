@@ -1,5 +1,6 @@
+import { v2Checkpoints } from "../learning/v2Checkpoints";
 import { useState } from "react";
-import { checkpoints } from "../learning/checkpoints";
+import { checkpoints as v1Checkpoints } from "../learning/checkpoints";
 import type { Project } from "../model/types";
 import type { Language } from "./i18n";
 export default function Learn({
@@ -13,6 +14,7 @@ export default function Learn({
   open: (p: Project) => Promise<void>;
   project: Project;
 }) {
+  const checkpoints = [...v1Checkpoints, ...v2Checkpoints];
   const [selected, setSelected] = useState(project.checkpoint ?? "gates");
   const lesson = checkpoints.find((c) => c.id === selected) ?? checkpoints[0],
     index = lang === "zh" ? 1 : 0;

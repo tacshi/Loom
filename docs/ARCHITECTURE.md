@@ -29,7 +29,7 @@ Execution yields in bounded batches, with display updates independent of clock r
 
 ## Persistence
 
-Schema version 1 is the initial format. Future/unknown formats are rejected without replacing an open document; no fictitious legacy migration is applied. Database creation and each save are transactional. A save stores the project and retains up to eight previous saved versions. Recovery/import create new project identities.
+Loom is unreleased. Only the current project format (schema 2) is accepted; incompatible development formats are rejected without rewriting them or replacing the open document. Development iterations, including v3, do not require compatibility migrations. Database creation and each save are transactional. A save retains up to eight ordinary recovery snapshots. Recovery/import create new project identities.
 
 Only a tab holding the project's Web Lock can write. The project-switch transition remains non-editable until ownership is established. Save status is derived from the current document and the last committed serialized document, rather than merely from a scheduled save.
 

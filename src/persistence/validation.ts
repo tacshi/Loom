@@ -1,3 +1,4 @@
+import { validateV2 } from "./v2Validation";
 import type { Project, Kind } from "../model/types";
 const kinds = new Set<Kind>([
   "input",
@@ -26,6 +27,9 @@ const kinds = new Set<Kind>([
   "portOut",
   "instance",
   "buffer",
+  "keyboard",
+  "terminal",
+  "display",
 ]);
 const object = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
@@ -50,7 +54,7 @@ export function parseProject(text: string): Project {
 }
 export function validateProject(raw: unknown): Project {
   assert(object(raw));
-  if (raw.schemaVersion !== 1) throw new Error("unsupportedVersion");
+  if (raw.schemaVersion !== 2) throw new Error("unsupportedVersion");
   assert(
     str(raw.id) &&
       typeof raw.name === "string" &&
@@ -165,7 +169,7 @@ export function validateProject(raw: unknown): Project {
       if (v.cycles !== undefined) assert(integer(v.cycles, 0, 10000));
     }
   }
-  assert(raw.circuits[raw.root as string]);
+  assert(Object.hasOwn(raw.circuits, raw.root as string));
   if (raw.cpu !== undefined) {
     assert(object(raw.cpu));
     for (const k of [
@@ -188,6 +192,45 @@ export function validateProject(raw: unknown): Project {
     for (const [a, l] of Object.entries(raw.sourceMap))
       assert(integer(Number(a), 0, 255) && integer(l, 1, 10000));
   }
+  for (const value of Object.values(raw.circuits)) {
+    assert(
+      object(value) &&
+        Array.isArray(value.nets) &&
+        Array.isArray(value.markers) &&
+        Array.isArray(value.tests),
+    );
+    const seen = new Set<string>();
+    for (const n of value.nets) {
+      assert(
+        object(n) &&
+          str(n.id, 1024) &&
+          !seen.has(n.id as string) &&
+          integer(n.width, 1, 32) &&
+          Array.isArray(n.ports) &&
+          n.ports.length <= 50000,
+      );
+      seen.add(n.id as string);
+      for (const e of n.ports)
+        assert(object(e) && str(e.component) && str(e.port));
+      if (n.name !== undefined)
+        assert(typeof n.name === "string" && n.name.length <= 200);
+    }
+    for (const m of value.markers)
+      assert(
+        object(m) &&
+          str(m.id) &&
+          seen.has(m.netId as string) &&
+          integer(m.x, -1000000, 1000000) &&
+          integer(m.y, -1000000, 1000000) &&
+          [0, 90, 180, 270].includes(m.rotation as number),
+      );
+  }
   // Reparse to discard any custom prototypes before treating the object as a document.
-  return JSON.parse(JSON.stringify(raw)) as Project;
+  const project = JSON.parse(JSON.stringify(raw)) as Project;
+  try {
+    validateV2(project);
+  } catch {
+    throw new Error("invalidProject");
+  }
+  return project;
 }
