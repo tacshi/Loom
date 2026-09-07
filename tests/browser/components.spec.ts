@@ -30,3 +30,23 @@ test("shift-register example exposes editable internals and parallel loading", a
     page.getByRole("button", { name: "Storage Register", exact: true }),
   ).toBeVisible();
 });
+
+test("priority encoder selects the highest request", async ({ page }) => {
+  await page.goto("/");
+  await page
+    .getByLabel("Open example…", { exact: true })
+    .selectOption("encoder");
+  await page.getByRole("button", { name: "Circuit", exact: true }).click();
+  for (const id of [2, 7]) {
+    await page
+      .getByRole("button", { name: `Request ${id} Input`, exact: true })
+      .click();
+    await page.getByLabel("Value", { exact: true }).fill("1");
+  }
+  await page
+    .getByRole("button", { name: "Selected Probe", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Connect in", exact: true }),
+  ).toContainText("7");
+});

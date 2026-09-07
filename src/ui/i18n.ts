@@ -74,6 +74,8 @@ export const messages: Record<string, [string, string]> = {
   segmentRomExample: ["ROM hexadecimal display", "ROM 十六进制显示"],
   segmentCpuExample: ["Loom 8 I/O · seven-segment display", "Loom 8 I/O · 七段数码管"],
   program_segments: ["Seven-segment sequence (I/O CPU)", "七段数码管序列（I/O CPU）"],
+  priorityEncoder: ["8-input priority encoder", "8 路优先编码器"],
+  encoderExample: ["Priority request selection", "优先请求选择"],
   shiftRegister: ["8-bit shift register", "8 位移位寄存器"],
   shiftExample: ["Serial and parallel shift register", "串行与并行移位寄存器"],
   sevenSegment: ["Seven-segment display", "七段数码管"],

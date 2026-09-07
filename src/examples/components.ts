@@ -55,7 +55,47 @@ export function shiftExample(): Project {
   rerouteAutomatic(b.c, b.p);
   return b.p;
 }
+export function priorityEncoder(): Project {
+  const b = new GateBuilder("8-input priority encoder"),
+    requests = b.bits(b.input("requests", 8), 8);
+  let index = b.constant(0, 3), valid = requests[0];
+  for (let i = 1; i < 8; i++) {
+    const next = b.node("mux", 3, "Priority " + i);
+    b.connect(...index, next[0], "a");
+    b.connect(...b.constant(i, 3), next[0], "b");
+    b.connect(...requests[i], next[0], "sel");
+    index = next;
+    const any = b.node("or", 1, "Any request " + i);
+    b.connect(...valid, any[0], "a"); b.connect(...requests[i], any[0], "b");
+    valid = any;
+  }
+  b.output("index", index, 3);
+  b.output("valid", valid);
+  return layoutGateProject(b.p);
+}
+export function encoderExample(): Project {
+  const b = new Builder("Priority request selection");
+  embedCircuit(b, priorityEncoder(), "Encoder", 400, 0);
+  b.add("Requests", "join", 200, 0, 8);
+  for (let i = 0; i < 8; i++) {
+    b.add("Request " + i, "input", 0, i * 120);
+    b.connect("Request " + i, "out", "Requests", "b" + i);
+  }
+  b.connect("Requests", "out", "Encoder", "requests");
+  b.add("Selected", "probe", 600, 0, 3);
+  b.add("Valid", "probe", 600, 140);
+  b.connect("Encoder", "index", "Selected", "in");
+  b.connect("Encoder", "valid", "Valid", "in");
+  rerouteAutomatic(b.c, b.p);
+  return b.p;
+}
 export const builtinCircuits = [
+  {
+    id: "priorityEncoder",
+    category: "arithmetic",
+    symbol: "ENC",
+    create: priorityEncoder,
+  },
   {
     id: "shiftRegister",
     category: "storage",

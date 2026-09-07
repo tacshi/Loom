@@ -1,4 +1,4 @@
-import { builtinCircuits, shiftExample } from "../examples/components";
+import { builtinCircuits, shiftExample, encoderExample } from "../examples/components";
 import { closure } from "../library/package";
 import Help from "./Help";
 import { sevenSegmentExample } from "../examples/sevenSegment";
@@ -886,6 +886,7 @@ export default function App() {
               onChange={(e) => {
                 const factories = {
                   shift: shiftExample,
+                  encoder: encoderExample,
                   segments: () => sevenSegmentExample(),
                   segmentCounter: () => sevenSegmentExample("counter"),
                   segmentRom: () => sevenSegmentExample("rom"),
@@ -913,6 +914,7 @@ export default function App() {
               }}
             >
               <option value="">{t("examples")}</option>
+              <option value="encoder">{t("encoderExample")}</option>
               <option value="shift">{t("shiftExample")}</option>
               <option value="segments">{t("segmentsExample")}</option>
               <option value="segmentCounter">{t("segmentCounterExample")}</option>

@@ -123,3 +123,7 @@ Canvas notices do not move the circuit. Selecting an already visible component p
 **8-bit shift register** is an editable subcircuit under Memory & state. On each clock edge it resets, loads `parallelIn`, shifts toward bit 7 with `serialIn` entering bit 0, or holds, in that priority order. `serialOut` exposes bit 7. Open the serial/parallel example to try it; Open subcircuit shows its registers and gates.
 
 “8 位移位寄存器”位于自由工程的存储分类。每个时钟边沿按复位、并行载入、移位、保持的优先级处理；串行输入进入位 0，串行输出为位 7。可进入子电路检查内部逻辑。
+
+**8-input priority encoder** is under Arithmetic & buses. It reports the highest asserted request (7 wins over 0). With no request, valid and index are zero. The example exposes eight switches and output probes.
+
+“8 路优先编码器”输出编号最大的有效请求；无请求时 valid 和 index 均为 0。
