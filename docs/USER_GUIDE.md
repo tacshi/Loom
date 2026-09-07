@@ -116,3 +116,10 @@ Open **Help** for course, example, wiring and export directions plus keyboard sh
 Canvas notices do not move the circuit. Selecting an already visible component preserves the viewport; Fit circuit restores the full overview. New components are placed clear of existing bodies. Paused edits paint immediately, including after native Safari file dialogs.
 
 打开“帮助”可查看入门操作和快捷键。“复制问题报告”只包含版本、构建提交、浏览器信息及待填写的复现步骤；不包含工程名称或内容，也不会自动上传。剪贴板不可用时，可选中显示的报告手动复制。
+
+
+## Reusable sandbox components
+
+**8-bit shift register** is an editable subcircuit under Memory & state. On each clock edge it resets, loads `parallelIn`, shifts toward bit 7 with `serialIn` entering bit 0, or holds, in that priority order. `serialOut` exposes bit 7. Open the serial/parallel example to try it; Open subcircuit shows its registers and gates.
+
+“8 位移位寄存器”位于自由工程的存储分类。每个时钟边沿按复位、并行载入、移位、保持的优先级处理；串行输入进入位 0，串行输出为位 7。可进入子电路检查内部逻辑。

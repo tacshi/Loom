@@ -1,3 +1,5 @@
+import { builtinCircuits, shiftExample } from "../examples/components";
+import { closure } from "../library/package";
 import Help from "./Help";
 import { sevenSegmentExample } from "../examples/sevenSegment";
 import CourseLearn from "./CourseLearn";
@@ -244,7 +246,13 @@ export default function App() {
       60 + Math.floor(n / 4) * 120,
     );
     c.name = t(kind);
-    const bounds = geometry(c, project);
+    placeNew(c);
+    edit((p) => p.circuits[activeId].components.push(c));
+    setSelected([c.id]);
+  }
+  function placeNew(c: ReturnType<typeof createComponent>, target = project) {
+    const n = circuit.components.length;
+    const bounds = geometry(c, target);
     for (let attempt = n; ; attempt++) {
       c.x = 80 + (attempt % 4) * 180;
       c.y = 60 + Math.floor(attempt / 4) * 120;
@@ -254,8 +262,17 @@ export default function App() {
           c.y < other.y + g.h + 40 && c.y + bounds.h + 40 > other.y;
       })) break;
     }
-    edit((p) => p.circuits[activeId].components.push(c));
-    setSelected([c.id]);
+  }
+  function addBuiltin(id: string) {
+    if (project.course) return;
+    const entry = builtinCircuits.find(b => b.id === id)!;
+    const definition = entry.create();
+    const c = createComponent("instance", 0, 0);
+    c.definitionId = definition.root;
+    c.name = t(id);
+    const definitions = closure(definition, definition.root);
+    placeNew(c, { ...project, circuits: { ...project.circuits, ...definitions } });
+    if (edit(p => { Object.assign(p.circuits, definitions); p.circuits[activeId].components.push(c); })) setSelected([c.id]);
   }
   function remove() {
     if (!selected.length) return;
@@ -814,6 +831,11 @@ export default function App() {
                             <span>{t(k)}</span>
                           </button>
                         ))}
+                      {!project.course && builtinCircuits.filter(b => b.category === category.id && t(b.id).toLowerCase().includes(search.toLowerCase())).map(b => (
+                        <button key={b.id} className="component-item" onClick={() => addBuiltin(b.id)} aria-label={t(b.id)} title={t(b.id)}>
+                          <span className="symbol">{b.symbol}</span><span>{t(b.id)}</span>
+                        </button>
+                      ))}
                     </div>
                   </section>
                 ))}
@@ -863,6 +885,7 @@ export default function App() {
               value=""
               onChange={(e) => {
                 const factories = {
+                  shift: shiftExample,
                   segments: () => sevenSegmentExample(),
                   segmentCounter: () => sevenSegmentExample("counter"),
                   segmentRom: () => sevenSegmentExample("rom"),
@@ -890,6 +913,7 @@ export default function App() {
               }}
             >
               <option value="">{t("examples")}</option>
+              <option value="shift">{t("shiftExample")}</option>
               <option value="segments">{t("segmentsExample")}</option>
               <option value="segmentCounter">{t("segmentCounterExample")}</option>
               <option value="segmentRom">{t("segmentRomExample")}</option>
