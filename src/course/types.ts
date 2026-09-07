@@ -8,6 +8,7 @@ export type ExerciseId =
   | "xor"
   | "mux"
   | "mux8"
+  | "seven-segment"
   | "half-adder"
   | "full-adder"
   | "adder8"

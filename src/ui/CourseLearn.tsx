@@ -5,6 +5,7 @@ import { emptyProject } from "../model/types";
 import type { CourseCheck, ExerciseId, CourseResponse } from "../course/types";
 import { exercises, exercise, courseReference } from "../course/registry";
 import {
+  counterWithAcceptedDecoder,
   newCourse,
   available,
   activateExercise,
@@ -316,11 +317,19 @@ export default function CourseLearn({
                 )}
               </p>
             )}
+            {selected === "seven-segment" && (
+              <p>
+                {label(
+                  "Glyphs: 0–9, A, b, C, d, E, F. Hex masks in that order: 3F 06 5B 4F 66 6D 7D 07 7F 6F 77 7C 39 5E 79 71. Connect segments to the supplied digit as well as the output port.",
+                  "字形：0–9、A、b、C、d、E、F。对应十六进制段码：3F 06 5B 4F 66 6D 7D 07 7F 6F 77 7C 39 5E 79 71。将段码同时连接到提供的数码管和输出端口。",
+                )}
+              </p>
+            )}
             {["io", "calculator"].includes(selected) && (
               <p>
                 {label(
-                  "Addresses: 00–EF RAM; F0 keyboard ready, F1 keyboard data, F2 terminal write, F3 clear bits (terminal bit 0/display bit 1), F4 X, F5 Y, F6 pixel. F1 consumes only on a qualified rising-edge read.",
-                  "地址：00–EF RAM；F0 键盘就绪，F1 键盘数据，F2 终端写入，F3 清除位（终端第 0 位/显示第 1 位），F4 X，F5 Y，F6 像素。F1 仅在有效上升沿读取时消耗字节。",
+                  "Addresses: 00–EF RAM; F0 keyboard ready, F1 keyboard data, F2 terminal write, F3 clear bits (terminal bit 0/display bit 1), F4 X, F5 Y, F6 pixel, F7 segments. F1 consumes only on a qualified rising-edge read.",
+                  "地址：00–EF RAM；F0 键盘就绪，F1 键盘数据，F2 终端写入，F3 清除位（终端第 0 位/显示第 1 位），F4 X，F5 Y，F6 像素，F7 段码。F1 仅在有效上升沿读取时消耗字节。",
                 )}
               </p>
             )}
@@ -391,6 +400,13 @@ export default function CourseLearn({
                   );
                 })()}
             </div>
+          )}
+          {passed && selected === "seven-segment" && (
+            <button
+              onClick={() => void open(counterWithAcceptedDecoder(project))}
+            >
+              {label("Try in counter", "用于计数器")}
+            </button>
           )}
           {passed && nextExercise(selected) && (
             <button

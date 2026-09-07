@@ -1,3 +1,4 @@
+import { sevenSegmentDecoder, segmentPins } from "../examples/sevenSegment";
 import { assemble } from "../cpu/assembler";
 import {
   GateBuilder,
@@ -159,6 +160,7 @@ export function courseReference(id: ExerciseId): Project {
   )
     p = gates(id);
   else if (id === "mux8") p = busMuxReference();
+  else if (id === "seven-segment") p = sevenSegmentDecoder();
   else if (id === "adder8" || id === "subtract")
     p = gateDefinition(id === "adder8" ? "adder" : "subtractor", 8);
   else if (id === "register" || id === "accumulator")
@@ -274,14 +276,60 @@ function checks(id: ExerciseId): TestCase[] {
       },
     ];
   }
+  if (id === "seven-segment")
+    return [
+      {
+        id: "hexadecimal",
+        name: "All hexadecimal segment patterns",
+        maxCycles: 0,
+        seed: 1,
+        steps: [
+          63, 6, 91, 79, 102, 109, 125, 7, 127, 111, 119, 124, 57, 94, 121, 113,
+        ].map((value, input) => ({
+          cycles: 0,
+          inputs: [{ ref: ref("value", "out"), value: input }],
+          assertions: [
+            { type: "signal" as const, ref: ref("segments", "in"), value },
+            ...segmentPins.map((pin, bit) => ({
+              type: "signal" as const,
+              ref: ref("Digit", pin),
+              value: (value >> bit) & 1,
+            })),
+          ],
+        })),
+      },
+    ];
   if (id === "io")
     return [
       {
         id: "io",
         name: "Clock-qualified keyboard and terminal",
-        maxCycles: 12,
+        maxCycles: 16,
         seed: 1,
         steps: [
+          {
+            cycles: 1,
+            inputs: [
+              { ref: ref("addr", "out"), value: 247 },
+              { ref: ref("data", "out"), value: 191 },
+              { ref: ref("we", "out"), value: 1 },
+              { ref: ref("read", "out"), value: 0 },
+            ],
+            assertions: [
+              { type: "signal", ref: ref("segments", "in"), value: 191 },
+            ],
+          },
+          {
+            cycles: 1,
+            inputs: [
+              { ref: ref("data", "out"), value: 0 },
+              { ref: ref("we", "out"), value: 0 },
+            ],
+            assertions: [
+              { type: "signal", ref: ref("out", "in"), value: 191 },
+              { type: "signal", ref: ref("segments", "in"), value: 191 },
+            ],
+          },
           {
             cycles: 0,
             inputs: [
@@ -570,6 +618,25 @@ const rows: [ExerciseId, Copy, Copy, [Copy, Copy, Copy]][] = [
     ],
   ],
   [
+    "seven-segment",
+    ["Decode a hexadecimal digit", "译码十六进制数码管"],
+    [
+      "Build a four-bit to eight-bit decoder for 0–F. Bits 0–6 drive a–g; bit 7 stays off.",
+      "构建四位输入、八位输出的 0–F 译码器。位 0–6 驱动 a–g，位 7 保持为 0。",
+    ],
+    [
+      ["Write a truth table for each segment.", "为每一段列出真值表。"],
+      [
+        "Split the input into four bits and select the required segment patterns.",
+        "将输入拆成四位，选择对应的段码。",
+      ],
+      [
+        "Use NAND-based selection, join a–g into bits 0–6, and connect bit 7 to zero.",
+        "使用 NAND 构成选择逻辑，将 a–g 合并到位 0–6，并将位 7 接零。",
+      ],
+    ],
+  ],
+  [
     "half-adder",
     ["Half adder", "半加器"],
     ["Add two bits and expose sum and carry.", "相加两位，输出 sum 和 carry。"],
@@ -790,8 +857,8 @@ const rows: [ExerciseId, Copy, Copy, [Copy, Copy, Copy]][] = [
     ],
     [
       [
-        "RAM uses addresses below F0; peripherals use F0–F6.",
-        "RAM 使用 F0 以下地址，外设使用 F0–F6。",
+        "RAM uses addresses below F0; peripherals use F0–F7.",
+        "RAM 使用 F0 以下地址，外设使用 F0–F7。",
       ],
       [
         "Watch address match, read enable and keyboard ready.",
@@ -829,13 +896,14 @@ const rows: [ExerciseId, Copy, Copy, [Copy, Copy, Copy]][] = [
 export const exercises: Exercise[] = rows.map(
   ([id, title, objective, hints], i) => ({
     id,
-    revision: 1,
+    revision: ["half-adder", "io", "calculator"].includes(id) ? 2 : 1,
     title,
     objective,
     hints,
     prerequisites: i ? [rows[i - 1][0]] : [],
     allowed: [
       ...base,
+      ...(id === "seven-segment" ? ["sevenSegment" as const] : []),
       ...(i >= rows.findIndex((r) => r[0] === "register")
         ? ["register" as const]
         : []),
@@ -843,7 +911,12 @@ export const exercises: Exercise[] = rows.map(
         ? ["ram" as const, "rom" as const]
         : []),
       ...(i >= rows.findIndex((r) => r[0] === "io")
-        ? ["keyboard" as const, "terminal" as const, "display" as const]
+        ? [
+            "keyboard" as const,
+            "terminal" as const,
+            "display" as const,
+            "sevenSegment" as const,
+          ]
         : []),
     ],
     reference: () => courseReference(id),

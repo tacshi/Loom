@@ -1,3 +1,5 @@
+import { attachDigit, sevenSegmentExample } from "../examples/sevenSegment";
+import { Builder } from "../examples/adder";
 import { emptyProject, uid, type Project, type Kind } from "../model/types";
 import {
   closure,
@@ -108,9 +110,15 @@ export function activateExercise(p: Project, id: ExerciseId) {
       "portIn",
       "portOut",
       ...exercise(id).allowed.filter((k) =>
-        ["register", "ram", "rom", "keyboard", "terminal", "display"].includes(
-          k,
-        ),
+        [
+          "register",
+          "ram",
+          "rom",
+          "keyboard",
+          "terminal",
+          "display",
+          "sevenSegment",
+        ].includes(k),
       ),
     ]);
     c.components = c.components.filter((n) => supplied.has(n.kind));
@@ -130,7 +138,15 @@ export function activateExercise(p: Project, id: ExerciseId) {
     if (["adder8", "accumulator", "alu", "control", "cpu"].includes(id)) {
       let index = 0;
       for (const [lesson, record] of Object.entries(p.course.accepted)) {
-        if (["nand", "half-adder", "register", "accumulator"].includes(lesson))
+        if (
+          [
+            "nand",
+            "seven-segment",
+            "half-adder",
+            "register",
+            "accumulator",
+          ].includes(lesson)
+        )
           continue;
         const role =
           lesson === "alu"
@@ -172,6 +188,9 @@ export function activateExercise(p: Project, id: ExerciseId) {
       const ram = draft.components.find((n) => n.id === "RAM")!;
       ram.kind = "instance";
       ram.definitionId = p.course.accepted.io!.acceptedRoot;
+      const builder = new Builder("Calculator");
+      builder.p = { ...p, root };
+      attachDigit(builder, ["RAM", "segments"], 2700, 0);
       draft.components.find((n) => n.id === "Program")!.image = r.circuits[
         r.root
       ].components.find((n) => n.id === "Program")!.image;
@@ -263,3 +282,14 @@ export function replaceCourseDependency(
 }
 export const nextExercise = (id: ExerciseId) =>
   exercises[exercises.findIndex((e) => e.id === id) + 1];
+
+export function counterWithAcceptedDecoder(p: Project): Project {
+  const accepted = p.course?.accepted["seven-segment"];
+  if (
+    !accepted ||
+    p.course?.needsVerification ||
+    accepted.exerciseRevision !== exercise("seven-segment").revision
+  )
+    throw new Error("Complete prerequisite checks first");
+  return sevenSegmentExample("counter", { ...p, root: accepted.acceptedRoot });
+}

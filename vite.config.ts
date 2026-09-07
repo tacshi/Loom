@@ -7,7 +7,7 @@ export default defineConfig({
     VitePWA({
       registerType: "prompt",
       injectRegister: false,
-      includeAssets: ["loom.svg"],
+      includeAssets: ["loom.svg", "rom/seven-segment.hex"],
       manifest: {
         name: "Loom Circuit Workbench",
         short_name: "Loom",

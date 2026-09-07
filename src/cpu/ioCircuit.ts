@@ -1,3 +1,4 @@
+import { attachDigit, hexSegments } from "../examples/sevenSegment";
 import { rerouteAutomatic } from "../editor/routing";
 import { LogicBuilder, cpuProject } from "./referenceCircuit";
 import { Builder } from "../examples/adder";
@@ -19,6 +20,13 @@ STA 0xF5
 LDI 1
 STA 0xF6
 ${echoSource}`;
+export const sevenSegmentSource =
+  hexSegments
+    .map(
+      (mask, value) =>
+        `; ${value.toString(16).toUpperCase()}: bits 0-6 = a-g, bit 7 = dp\nLDI ${mask}\nSTA 0xF7`,
+    )
+    .join("\n") + "\nHLT";
 export function ioDefinition() {
   const b = new LogicBuilder("Memory & I/O");
   b.c.name = "Memory & I/O";
@@ -35,7 +43,7 @@ export function ioDefinition() {
   b.connect(...addr, "Data RAM", "addr");
   b.connect(...data, "Data RAM", "data");
   b.connect(...ramWrite, "Data RAM", "we");
-  const selects = Array.from({ length: 7 }, (_, i) =>
+  const selects = Array.from({ length: 8 }, (_, i) =>
     b.equal("Address F" + i, addr, 240 + i),
   );
   b.node("Keyboard", "keyboard", 8);
@@ -90,6 +98,12 @@ export function ioDefinition() {
   b.connect(...clearDisplay, "Display", "clear");
   const pixelWrite = b.binary("Pixel write", "and", selects[6], write);
   b.connect(...pixelWrite, "Display", "write");
+  b.node("Segments", "register", 8);
+  const segmentWrite = b.binary("Segment write", "and", selects[7], write);
+  b.connect(...data, "Segments", "d");
+  b.connect(...segmentWrite, "Segments", "en");
+  b.connect(...low, "Segments", "rst");
+  b.output("segments", ["Segments", "q"], 8);
   b.node("Ready byte", "join", 8);
   b.connect("Keyboard", "ready", "Ready byte", "b0");
   b.node("Pixel byte", "join", 8);
@@ -110,6 +124,7 @@ export function ioDefinition() {
     [4, ["X", "q"]],
     [5, ["Y", "q"]],
     [6, ["Pixel byte", "out"]],
+    [7, ["Segments", "q"]],
   ] as const)
     output = b.mux("Device read " + i, output, value, selects[i]);
   b.output("out", output, 8);
@@ -151,6 +166,7 @@ export function ioProject(source = echoSource) {
   b.connect(prev[0], prev[1], "Qualified read", "a");
   b.connect("Signals", "b1", "Qualified read", "b");
   b.connect("Qualified read", "out", "RAM", "read");
+  attachDigit(b, ["RAM", "segments"], startX + 900, 0);
   // Existing endpoints remain explicit; only the RAM primitive is replaced by an editable interface.
   deriveNets(c, p);
   rerouteAutomatic(c, p);

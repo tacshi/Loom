@@ -1,3 +1,4 @@
+import { sevenSegmentExample } from "../examples/sevenSegment";
 import CourseLearn from "./CourseLearn";
 import {
   allowedKinds,
@@ -12,7 +13,12 @@ import { calculatorProject } from "../cpu/calculator";
 import SequentialTests from "./SequentialTests";
 import Devices from "./Devices";
 import MemoryEditor from "./MemoryEditor";
-import { ioProject, echoSource, pixelSource } from "../cpu/ioCircuit";
+import {
+  ioProject,
+  echoSource,
+  pixelSource,
+  sevenSegmentSource,
+} from "../cpu/ioCircuit";
 import Libraries from "./Libraries";
 import { forkDefinition } from "../library/package";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -206,7 +212,7 @@ export default function App() {
       return false;
     }
   }
-  async function openProject(p: Project) {
+  async function openProject(p: Project, initialFocus?: string) {
     setOpeningId(p.id);
     if (persistence.writable && !(await persistence.flush())) {
       setNotice(t("saveFailed"));
@@ -214,6 +220,8 @@ export default function App() {
       return;
     }
     setProject(p);
+    if (libraryTab === "learn" && !p.course && !p.courseReference)
+      setLibraryTab("circuit");
     history.current.clear();
     setSelected([]);
     setNav([]);
@@ -222,7 +230,7 @@ export default function App() {
     setBreakpoints([]);
     setSourceBreakpoints([]);
     setPending(undefined);
-    setFocus(undefined);
+    setFocus(initialFocus);
     setShowProjects(false);
     setFit(fit + 1);
   }
@@ -844,6 +852,10 @@ export default function App() {
               value=""
               onChange={(e) => {
                 const factories = {
+                  segments: () => sevenSegmentExample(),
+                  segmentCounter: () => sevenSegmentExample("counter"),
+                  segmentRom: () => sevenSegmentExample("rom"),
+                  segmentCpu: () => ioProject(sevenSegmentSource),
                   cpu: cpuProject,
                   counter: counterExample,
                   calculator: calculatorProject,
@@ -855,8 +867,10 @@ export default function App() {
                 if (e.target.value) {
                   void openProject(
                     factories[e.target.value as keyof typeof factories](),
+                    e.target.value === "segmentCpu" ? "Digit" : undefined,
                   );
-                  setShowProgram(e.target.value === "cpu");
+                  setShowProgram(["cpu", "segmentCpu"].includes(e.target.value));
+                  if (e.target.value === "segmentCpu") setHz(2);
                   setShowDevices(
                     ["calculator", "echo", "pixels"].includes(e.target.value),
                   );
@@ -865,6 +879,10 @@ export default function App() {
               }}
             >
               <option value="">{t("examples")}</option>
+              <option value="segments">{t("segmentsExample")}</option>
+              <option value="segmentCounter">{t("segmentCounterExample")}</option>
+              <option value="segmentRom">{t("segmentRomExample")}</option>
+              <option value="segmentCpu">{t("segmentCpuExample")}</option>
               <option value="cpu">{t("cpuExample")}</option>
               <option value="counter">{t("counterExample")}</option>
               <option value="swap">{t("swapExample")}</option>
@@ -957,7 +975,7 @@ export default function App() {
                 value={hz}
                 onChange={(e) => setHz(Math.trunc(Number(e.target.value)))}
               >
-                {[1, 10, 100, 1000, 100000].map((n) => (
+                {[1, 2, 10, 100, 1000, 100000].map((n) => (
                   <option value={n} key={n}>
                     {n} Hz
                   </option>

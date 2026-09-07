@@ -1,5 +1,5 @@
 import { calculatorSource } from "../cpu/calculator";
-import { echoSource, pixelSource } from "../cpu/ioCircuit";
+import { echoSource, pixelSource, sevenSegmentSource } from "../cpu/ioCircuit";
 import { useRef, useState } from "react";
 import type { Project } from "../model/types";
 import type { Snapshot } from "../simulator/engine";
@@ -9,6 +9,7 @@ const programSources = {
   calculator: calculatorSource,
   echo: echoSource,
   pixels: pixelSource,
+  segments: sevenSegmentSource,
 };
 export default function Program({
   project,

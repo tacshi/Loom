@@ -47,9 +47,12 @@ The original Loom 8 keeps all 256 RAM addresses. The I/O variant replaces the ro
 | F3 | Clear terminal (bit 0), clear display (bit 1) |
 | F4/F5 | Pixel X/Y registers; display uses low 6/5 bits |
 | F6 | Selected pixel, low bit |
-| F7–FF | Zero reads; ignored writes |
+| F7 | Eight-bit segment register: bits 0–6 drive a–g; bit 7 drives the decimal point. Reads return the stored byte. |
+| F8–FF | Zero reads; ignored writes |
 
-Keyboard, terminal and display primitives sample control pins on the shared rising edge. Asynchronous evaluation never consumes a byte or repeats a write. Unknown control/data values propagate conservatively. Debug exposes bounded transaction records and restores them with execution checkpoints.
+The segment register starts at zero and latches on qualified rising-edge writes. Reset blanks it; F3 does not affect it. Write zero to F7 to blank the digit in software. Its `segments` output drives the root-level digit in I/O projects.
+
+Keyboard, terminal and pixel display primitives sample control pins on the shared rising edge. Asynchronous evaluation never consumes a byte or repeats a write. Unknown control/data values propagate conservatively. Debug exposes bounded transaction records and restores them with execution checkpoints.
 
 The calculator source is `src/cpu/calculator.ts`. It uses software carry handling and repeated subtraction for decimal formatting. RAM words 0–10 are working storage, and 200–205 hold constants. It accepts newline-terminated decimal addition/subtraction, rejects out-of-range operands and malformed input, and recovers at the next line. There is no JavaScript calculator or instruction interpreter in the runtime.
 

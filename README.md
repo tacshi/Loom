@@ -22,12 +22,14 @@ The production app caches its assets after the first successful online load. Pro
 
 ## Start building
 
-- **Learn → Start course** guides you through 19 exercises from NAND to a computer running a calculator, carrying your verified components forward. Sandbox projects remain unrestricted.
+- **Learn → Start course** guides you through 20 exercises from NAND to a computer running a calculator, carrying your verified components forward. Sandbox projects remain unrestricted.
 - **Open example… → Loom 8 CPU** opens a complete computer. **Assemble & load**, then **Run**: the supplied sum program outputs **55**.
 - Use **Circuit** to select a component by name, inspect its signals, connect ports, or open its subcircuit.
 - Inside the CPU's **ALU**, replace **ADD** with a NAND-built adder and rerun the same program.
 
 **Open example… → Loom 8 I/O · Calculator** runs interactive decimal addition/subtraction through keyboard and terminal peripherals. **Debug** adds rewind and retained runs; **Libraries** packages versioned components; **Sequential tests** captures and verifies multi-step behavior.
+
+The seven-segment examples connect editable NAND decoding, a counter, ROM lookup and CPU output. The I/O CPU drives segment bits through F7. See [the display guide](docs/USER_GUIDE.md#seven-segment-projects).
 
 The CPU executes through the circuit. Its instruction-level reference model exists only in tests.
 

@@ -6,6 +6,7 @@ const ids = new Set([
   "xor",
   "mux",
   "mux8",
+  "seven-segment",
   "half-adder",
   "full-adder",
   "adder8",

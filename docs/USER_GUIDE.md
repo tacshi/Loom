@@ -65,7 +65,7 @@ Browser storage can be cleared or evicted. Keep independent `.loom.json` exports
 
 使用“平移画布”或按住空格拖动。滚动围绕指针缩放，Shift＋滚动平移，“适应电路”显示完整电路。框选或 Shift＋点击进行多选，可对齐、分布、复制和整体移动。撤销会同时恢复位置和走线。
 
-“学习 → 开始课程”提供 19 个连续练习，每个都有草稿、只读参考电路、分层提示和行为检查；验证后的元件可在后续练习中复用。“封装子电路”把选中的内部逻辑变为可复用元件。进入子电路可检查实际逻辑门；多个实例共享定义，但各自保存独立的仿真状态。
+“学习 → 开始课程”提供 20 个连续练习，每个都有草稿、只读参考电路、分层提示和行为检查；验证后的元件可在后续练习中复用。“封装子电路”把选中的内部逻辑变为可复用元件。进入子电路可检查实际逻辑门；多个实例共享定义，但各自保存独立的仿真状态。
 
 “运行／暂停”控制连续执行，“单步”推进一个上升沿。“复位”恢复寄存器初值、清空 RAM 和波形，保留 ROM 程序。选择元件并添加观察信号，可以查看波形并设置数值断点。内存视图显示所选 RAM 或 ROM 实例。`X` 表示未知值，二进制格式可显示逐位状态。
 
@@ -95,3 +95,15 @@ Browser storage can be cleared or evicted. Keep independent `.loom.json` exports
 - **内存与外设：** 暂停后可编辑RAM/ROM或导入内存镜像，注意起始地址、字宽和字节序。“发送输入”提交原始UTF-8字节，“发送一行”追加换行。RAM编辑可回退；ROM编辑会重置会话。
 - **计算器：** 打开“Loom 8 I/O · 计算器”，输入`12+34`并发送一行，运行后得到`46`。`255+255`得到`510`，`0-255`得到`-255`。非法输入显示`?`，下一行可以重新输入。计算逻辑全部在可编辑CPU电路上的汇编程序中执行。
 - **顺序测试：** 定义激励、时钟周期与断言，追加步骤后保存。失败可在独立调试运行中检查；返回原运行不会丢失原状态。录制测试要求仍保留完整运行起点。
+
+## Seven-segment projects
+
+Open example offers **Hexadecimal decoder**, **Hexadecimal counter**, **ROM hexadecimal display**, and **Loom 8 I/O · seven-segment display**. The decoder accepts four-bit `value` and produces eight-bit `segments`: bits 0–6 drive a–g, and bit 7 drives the decimal point. Hexadecimal glyphs are 0–9, A, b, C, d, E and F. Lit segments are green; unknown signals are amber.
+
+After the course's bus-selection lesson, build and check the decoder. **Try in counter** copies your accepted decoder and its dependencies into a separate counter project. Enable advances the counter; Reset returns it to zero. Your course remains in Projects.
+
+In the ROM example, select **Lookup** in Circuit. Download the [plain-hex lookup table](../public/rom/seven-segment.hex), set **Start address** to 0, then choose **Import memory**. Import replaces only the words starting at the selected address. **Export hex** and **Export binary** save the entire ROM. Hex files contain whitespace-separated hexadecimal words, not Intel HEX records. This eight-bit table has one byte per word; byte order does not change it.
+
+The CPU example starts at 2 Hz and writes each glyph to F7, then halts. Run or Step to follow the sequence. Edit its commented assembly in Program and choose Assemble & load to run your version. Project export/import preserves circuits and ROM images; runtime history is session-only.
+
+七段数码管示例包括逻辑译码器、计数器、ROM 查表和 CPU 驱动显示。位 0–6 对应 a–g，位 7 对应小数点。课程译码器通过检查后，选择“用于计数器”可在独立工程中运行自己的元件。ROM 文件从所选地址开始导入；导出包含全部 ROM。F7 为段码寄存器，写入 0 可熄灭显示。
