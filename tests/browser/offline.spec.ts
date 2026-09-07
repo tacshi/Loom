@@ -5,8 +5,8 @@ test("production app can reload, edit, simulate, and save without networking", a
   browserName,
 }) => {
   test.skip(
-    browserName === "webkit" && process.platform === "darwin",
-    "WebKit offline emulation returns an internal navigation error on this host; native Safari origin-offline check is recorded in docs/PHASES.md.",
+    browserName === "webkit",
+    "Playwright WebKit crashes on setOffline() + reload; native Safari origin-offline check is recorded in docs/PHASES.md.",
   );
   test.skip(!process.env.LOOM_BASE_URL, "Requires the production preview");
   await page.goto("/");
