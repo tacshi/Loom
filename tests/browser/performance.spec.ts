@@ -2,6 +2,9 @@ import { test, expect } from "@playwright/test";
 import { cpus, totalmem } from "node:os";
 import { denseFixture } from "../../scripts/fixture";
 test("dense circuit interaction measurements", async ({ page }, testInfo) => {
+  // The complete multi-sample benchmark includes fixture load and many native
+  // input round trips; shared CI runners need more than the default 30 seconds.
+  test.setTimeout(90000);
   test.skip(
     testInfo.project.name !== "chromium",
     "Reference desktop Chromium measurement",
