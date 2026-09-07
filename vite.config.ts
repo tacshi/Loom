@@ -1,7 +1,32 @@
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
+const { version } = JSON.parse(
+  readFileSync(new URL("./package.json", import.meta.url), "utf8"),
+);
+function buildCommit() {
+  if (process.env.GITHUB_SHA) return process.env.GITHUB_SHA;
+  try {
+    const sha = execFileSync("git", ["rev-parse", "HEAD"], {
+      encoding: "utf8",
+    }).trim();
+    const dirty = execFileSync(
+      "git",
+      ["status", "--porcelain", "--untracked-files=no"],
+      { encoding: "utf8" },
+    ).trim();
+    return sha + (dirty ? " (modified)" : "");
+  } catch {
+    return "unknown";
+  }
+}
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(version),
+    __BUILD_COMMIT__: JSON.stringify(buildCommit()),
+  },
   plugins: [
     react(),
     VitePWA({

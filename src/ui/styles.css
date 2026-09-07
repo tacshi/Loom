@@ -1598,3 +1598,8 @@ button.primary {
 .course-reference button {border:1px solid var(--border);border-radius:5px;}
 
 .library[data-course="true"] .library-bottom {display:none;}
+
+.help-dialog .dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.help-dialog textarea { width: 100%; font-family: ui-monospace, monospace; resize: vertical; }
+
+.canvas-notice { position: absolute; left: 12px; right: 12px; bottom: 46px; z-index: 3; border: 1px solid #e5c78f; border-radius: 6px; gap: 12px; }

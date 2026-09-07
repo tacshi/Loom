@@ -133,7 +133,16 @@ export default function MemoryEditor({
           e.target.value = "";
         }}
       />
-      {error && <p role="alert">{t(error)}</p>}
+      {error && (
+        <p role="alert">
+          {error === "invalidMemoryWord"
+            ? t("memoryWordRange").replace(
+                "{max}",
+                (2 ** component.width - 1).toString(base).toUpperCase(),
+              )
+            : t(error)}
+        </p>
+      )}
       <div className="memory-cells">
         {words.slice(address, address + 64).map((v, i) => (
           <label
@@ -161,7 +170,7 @@ export default function MemoryEditor({
                   n = parseInt(text, base);
                 if (!valid || n > 2 ** component.width - 1) {
                   e.target.value = v < 0 ? "X" : v.toString(base);
-                  setError("invalidMemoryImage");
+                  setError("invalidMemoryWord");
                   return;
                 }
                 if (n !== v) write(address + i, n);

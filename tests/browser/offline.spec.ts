@@ -23,6 +23,10 @@ test("production app can reload, edit, simulate, and save without networking", a
   ).toHaveValue("Clocked counter");
   await expect(page.getByText("Saved locally", { exact: true })).toBeVisible();
   await context.setOffline(true);
+  expect(await page.evaluate(async () => {
+    const response = await fetch("/rom/seven-segment.hex");
+    return response.ok && (await response.text()).trim().split(/\s+/).length === 16;
+  })).toBe(true);
   await page.reload();
   await expect(
     page.getByRole("textbox", { name: "Project", exact: true }),

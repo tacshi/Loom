@@ -62,6 +62,10 @@ See [the v3 course](docs/V3.md) and [v3 verification](docs/V3-VERIFICATION.md). 
 - [V2 verification ledger](docs/V2-PHASES.md)
 - [V1 verification ledger](docs/PHASES.md)
 
+Desktop release-candidate checks cover mouse/keyboard workflows at 1280×800 and 1920×1080 in English and Chinese. Touch/tablet sign-off is deferred.
+
+**Help** includes getting-started directions, shortcuts and **Copy bug report**. Reports contain the app version, build commit, browser information and blank reproduction fields; they do not include project contents or upload anything.
+
 No account, cloud storage, analytics, or external runtime service is required.
 
 Loom is unreleased. Development iterations support only the current project format; no backward-compatibility migrations are provided. See [development policy](AGENTS.md).

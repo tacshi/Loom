@@ -54,6 +54,8 @@ export type CanvasProps = {
   readOnly?: boolean;
   panMode?: boolean;
   running?: boolean;
+  notice?: string;
+  dismissNotice?: () => void;
 };
 function Canvas({
   project,
@@ -77,6 +79,8 @@ function Canvas({
   readOnly = false,
   panMode = false,
   running = false,
+  notice,
+  dismissNotice,
   markerMove,
 }: CanvasProps) {
   const networkLayer = useRef<Konva.Layer>(null);
@@ -90,6 +94,11 @@ function Canvas({
     stage = useRef<Konva.Stage>(null);
   const [size, setSize] = useState({ width: 800, height: 600 });
   const [view, setView] = useState({ x: 60, y: 60, scale: 1 });
+  // Safari may defer animation frames after native file dialogs. Paused edits
+  // must paint on commit rather than wait for Konva's next animation frame.
+  useEffect(() => {
+    if (!running) stage.current?.draw();
+  }, [project, circuit, selected, values, view, size, dark, pending, running]);
   const [spaceHeld, setSpace] = useState(false);
   const space = spaceHeld || panMode;
   const cancelledDrag = useRef(false);
@@ -202,6 +211,9 @@ function Canvas({
       minY = Math.min(...cs.map((c) => c.y));
     const maxX = Math.max(...cs.map((c) => c.x + geometry(c, project).w)),
       maxY = Math.max(...cs.map((c) => c.y + geometry(c, project).h));
+    if (focus && view.scale >= 0.65 && minX * view.scale + view.x >= 12 &&
+      minY * view.scale + view.y >= 12 && maxX * view.scale + view.x <= size.width - 12 &&
+      maxY * view.scale + view.y <= size.height - 12) return;
     const scale = Math.max(
       0.1,
       Math.min(
@@ -881,6 +893,7 @@ function Canvas({
           )}
         </Layer>
       </Stage>
+      {notice && <div role="status" className="notice canvas-notice">{notice}<button aria-label={t("dismissNotice")} onClick={dismissNotice}>×</button></div>}
       {!circuit.components.length && (
         <div className="canvas-empty">
           <div className="empty-gate">&</div>
@@ -1156,5 +1169,6 @@ export default memo(
     a.focus === b.focus &&
     a.readOnly === b.readOnly &&
     a.panMode === b.panMode &&
-    a.running === b.running,
+    a.running === b.running &&
+    a.notice === b.notice,
 );

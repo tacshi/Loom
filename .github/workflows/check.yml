@@ -3,6 +3,7 @@ on: [push, pull_request]
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -12,16 +13,44 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
-      - run: node dist-cli/loom.mjs validate tests/fixtures/v2/calculator.loom.json
-      - run: node dist-cli/loom.mjs test tests/fixtures/v2/calculator.loom.json --report test-results/cli
-      - run: node dist-cli/loom.mjs course-check tests/fixtures/v3/course-completed.loom.json --json > test-results/course.json
+      - run: |
+          mkdir -p test-results
+          node dist-cli/loom.mjs validate tests/fixtures/v2/calculator.loom.json
+          node dist-cli/loom.mjs test tests/fixtures/v2/calculator.loom.json --report test-results/cli
+          node dist-cli/loom.mjs course-check tests/fixtures/v3/course-completed.loom.json --json > test-results/course.json
       - run: npx playwright install --with-deps chromium firefox webkit
-      - run: npm run preview > /tmp/loom-preview.log 2>&1 &
+      - name: Start production preview
+        run: |
+          npm run preview > test-results/preview.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:4173/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat test-results/preview.log
+          exit 1
       - run: npm run test:browser
         env:
           LOOM_BASE_URL: http://127.0.0.1:4173
+      - name: Package verified browser artifact
+        run: |
+          tar -czf loom-web.tar.gz -C dist .
+          sha256sum loom-web.tar.gz > loom-web.sha256
+          printf '%s\n' "$GITHUB_SHA" > loom-web.commit
+      - uses: actions/upload-artifact@v4
+        with:
+          name: loom-web-${{ github.sha }}
+          path: |
+            loom-web.tar.gz
+            loom-web.sha256
+            loom-web.commit
+      - uses: actions/upload-artifact@v4
+        with:
+          name: loom-cli-${{ github.sha }}
+          path: dist-cli/loom.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: browser-evidence
-          path: test-results
+          path: |
+            test-results
+            playwright-report

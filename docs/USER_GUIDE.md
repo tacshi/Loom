@@ -107,3 +107,12 @@ In the ROM example, select **Lookup** in Circuit. Download the [plain-hex lookup
 The CPU example starts at 2 Hz and writes each glyph to F7, then halts. Run or Step to follow the sequence. Edit its commented assembly in Program and choose Assemble & load to run your version. Project export/import preserves circuits and ROM images; runtime history is session-only.
 
 七段数码管示例包括逻辑译码器、计数器、ROM 查表和 CPU 驱动显示。位 0–6 对应 a–g，位 7 对应小数点。课程译码器通过检查后，选择“用于计数器”可在独立工程中运行自己的元件。ROM 文件从所选地址开始导入；导出包含全部 ROM。F7 为段码寄存器，写入 0 可熄灭显示。
+
+
+## Help and problem reports
+
+Open **Help** for course, example, wiring and export directions plus keyboard shortcuts. **Copy bug report** copies the app version, build commit and browser information, followed by blank reproduction/expected/actual fields. Add your steps before sharing it. If clipboard access fails, select and copy the displayed text. Project contents and names are not included, and nothing is uploaded automatically.
+
+Canvas notices do not move the circuit. Selecting an already visible component preserves the viewport; Fit circuit restores the full overview. New components are placed clear of existing bodies. Paused edits paint immediately, including after native Safari file dialogs.
+
+打开“帮助”可查看入门操作和快捷键。“复制问题报告”只包含版本、构建提交、浏览器信息及待填写的复现步骤；不包含工程名称或内容，也不会自动上传。剪贴板不可用时，可选中显示的报告手动复制。

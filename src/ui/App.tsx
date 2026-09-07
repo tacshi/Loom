@@ -1,3 +1,4 @@
+import Help from "./Help";
 import { sevenSegmentExample } from "../examples/sevenSegment";
 import CourseLearn from "./CourseLearn";
 import {
@@ -49,7 +50,7 @@ import {
 } from "../model/types";
 import AppearanceEditor from "./AppearanceEditor";
 import NetInspector from "./NetInspector";
-import { categories, ports, validateAppearance } from "../model/components";
+import { categories, ports, validateAppearance, geometry } from "../model/components";
 import {
   route,
   moveComponents,
@@ -243,6 +244,16 @@ export default function App() {
       60 + Math.floor(n / 4) * 120,
     );
     c.name = t(kind);
+    const bounds = geometry(c, project);
+    for (let attempt = n; ; attempt++) {
+      c.x = 80 + (attempt % 4) * 180;
+      c.y = 60 + Math.floor(attempt / 4) * 120;
+      if (!circuit.components.some(other => {
+        const g = geometry(other, project);
+        return c.x < other.x + g.w + 40 && c.x + bounds.w + 40 > other.x &&
+          c.y < other.y + g.h + 40 && c.y + bounds.h + 40 > other.y;
+      })) break;
+    }
     edit((p) => p.circuits[activeId].components.push(c));
     setSelected([c.id]);
   }
@@ -1057,13 +1068,9 @@ export default function App() {
               </span>
             </div>
           )}
-          {notice && (
-            <div role="status" className="notice">
-              {notice}
-              <button onClick={() => setNotice("")}>×</button>
-            </div>
-          )}
           <Canvas
+            notice={notice}
+            dismissNotice={() => setNotice("")}
             running={sim.running && !sim.isolated}
             markerMove={(id, at) =>
               edit((p) => {
@@ -1780,23 +1787,7 @@ export default function App() {
           close={() => setShowTests(false)}
         />
       )}
-      {help && (
-        <div className="modal-backdrop" onClick={() => setHelp(false)}>
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-label={t("help")}
-            className="dialog"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2>{t("help")}</h2>
-            <p>{t("shortcuts")}</p>
-            <button autoFocus onClick={() => setHelp(false)}>
-              {t("close")}
-            </button>
-          </section>
-        </div>
-      )}
+      {help && <Help close={() => setHelp(false)} t={t} />}
     </div>
   );
 }

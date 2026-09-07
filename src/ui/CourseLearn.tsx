@@ -265,6 +265,7 @@ export default function CourseLearn({
       )}
       <h3>{spec.title[index]}</h3>
       <p>{spec.objective[index]}</p>
+          {selected === "nand" && <p>{label("To connect pins, click an output, then an input.", "连接引脚时，先点击输出，再点击输入。")}</p>}
       {!available(project, selected) && (
         <p>
           {label("Complete first: ", "请先完成：")}
@@ -348,7 +349,7 @@ export default function CourseLearn({
               {label("Verified component saved.", "已保存验证后的元件。")}
             </p>
           )}
-          {result && result.status !== "passed" && (
+          {!passed && result && result.status !== "passed" && (
             <div role="status">
               <p>
                 {label("Check result: ", "检查结果：")}

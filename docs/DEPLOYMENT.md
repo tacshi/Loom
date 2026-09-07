@@ -8,8 +8,27 @@ Serve hashed `/assets/` files with immutable caching. Serve `index.html` and `sw
 
 The app prompts before activating an update and flushes its project save first. The browser's project data belongs to the deployment origin. Moving to a different hostname or port requires export/import.
 
-Before publishing a release, complete the remaining entries in `PHASES.md`, run the production browser checks, and inspect the exact deployed artifact. The GitHub workflow runs domain tests, builds, and browser checks and retains failure evidence. The workflow is configured but has not yet run on GitHub.
+The release-candidate milestone stops before public deployment. Cloudflare Pages is the intended later host; no site, DNS change or public release is created by candidate verification.
+
+The GitHub workflow runs domain tests, builds, CLI fixture verification and production Chromium/Firefox/WebKit checks after explicitly waiting for the preview server. Require a green run for the candidate commit, not an older successful run. On success it retains a browser-only `loom-web.tar.gz`, SHA-256 checksum and commit file; the CLI is uploaded separately. Failure artifacts include browser evidence and preview logs. Build metadata in Help identifies the version and commit; local tracked edits are marked modified.
 
 V2 also builds `dist-cli/loom.mjs`. Serve `dist/` over HTTPS (localhost is allowed for local testing). Do not put `dist-cli` into the browser app. `npm run build` produces both artifacts; `npm pack --dry-run` inspects CLI packaging. No account, external API, or public hosting is required.
 
 The service worker caches bundled examples and application assets after the first successful load. The update prompt saves the active project before activation. Execution history is session-only and is not retained across updates/reloads. Export `.loom.json` files for portable backups.
+
+
+## Desktop candidate verification
+
+Desktop sign-off covers English/Chinese wiring, keyboard use, course progression and file workflows at 1280×800 and 1920×1080. Two fresh UI-only agents exercised the app without repository context: both completed the opening lessons, failure repair and counter controls; native file round trips were tested in Safari. This is unfamiliar-app evaluation, not a human beginner study.
+
+Observed issues led to non-overlapping component placement, stable canvas notices, viewport preservation, clearer ROM-word errors and removal of contradictory failure feedback after Undo. Native Safari also exposed a blank/stale paused canvas after file operations and reload. Paused commits now draw without depending on animation-frame delivery; the regression test suspends animation frames and checks real canvas pixels. Running animation continues to use its existing frame scheduling.
+
+Reliability checks exercise rejected-save recovery, invalid imports, two-tab lock handover, offline editing/saving and the cached ROM table. The update check builds two distinct production bundles on one origin, proves rejected saves prevent activation, then verifies course and ROM data after a successful update. Existing WebKit offline-emulation exclusions require a native Safari alternative; the full course journey runs in Chromium, with other engines checking entry/import/resume.
+
+Run the explicit one-hour gate separately from routine CI:
+
+```sh
+LOOM_BASE_URL=http://127.0.0.1:4173 LOOM_SOAK_MINUTES=60 npx playwright test tests/browser/release-soak.spec.ts --project=chromium
+```
+
+The soak keeps an I/O CPU running and checks pause/input, history rewind, saves and project exports each minute. Exported circuits must reproduce the expected terminal bytes through the simulator; reload must retain the latest saved edit. `soak.json` records elapsed time and checkpoints in the ignored test output directory. A short harness check does not count as the one-hour gate. Keep evidence with the candidate's CI/local results rather than committing screenshots or generated log bundles.
