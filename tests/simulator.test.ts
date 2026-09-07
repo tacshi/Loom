@@ -83,7 +83,7 @@ describe("combinational kernel", () => {
     expect(e.get("g", "out").value).toBe(255);
     expect(e.get("g", "carry").value).toBe(0);
   });
-  it("rejects cycles and multiple drivers", () => {
+  it("rejects cycles even on shared nets", () => {
     const p = fixture("and");
     const c = p.circuits[p.root];
     c.wires.push({
@@ -96,7 +96,7 @@ describe("combinational kernel", () => {
     const e = new Engine(p);
     expect(e.valid).toBe(false);
     expect(e.compiled.diagnostics.map((d) => d.code)).toEqual(
-      expect.arrayContaining(["multipleDrivers", "combinationalLoop"]),
+      expect.arrayContaining(["combinationalLoop"]),
     );
   });
   it("reports undriven and mismatched widths", () => {

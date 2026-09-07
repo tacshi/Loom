@@ -4,18 +4,18 @@
 
 - `model`: versioned circuit graph, stable component/port identities, extraction, interface-safe deletion, and replacement checks.
 - `editor`: undo snapshots, orthogonal routing, endpoint clearance, overlap avoidance, bridge/junction analysis.
-- `simulator`: pure compiler/engine, unsigned known-bit masks, synchronous state commits, worker protocol and UI subscriptions.
+- `simulator`: pure compiler/engine, unsigned known-bit and high-impedance masks, synchronous state commits, worker protocol and UI subscriptions.
 - `persistence`: IndexedDB transactions, snapshots, file validation, single-writer Web Locks.
 - `cpu`, `examples`, `learning`: ordinary circuit definitions, assembler, and bilingual checkpoints.
 - `ui`: React DOM controls and layered Konva rendering. Selection, wires, and components draw separately.
 
 ## Electrical model
 
-Electrical membership is stored in explicit nets. A net has at most one output driver and can have multiple input endpoints; route points and names never create connectivity. Routes are independent visual geometry. Different signals use bridge arcs at crossings.
+Electrical membership is stored in explicit nets. A net can have multiple output drivers and input endpoints; route points and names never create connectivity. Routes are independent visual geometry. Different signals use bridge arcs at crossings.
 
-Compilation expands subcircuits into scoped instance paths, validates wiring and hierarchy, and topologically orders combinational evaluation. Storage input edges are excluded from combinational dependencies; RAM's address remains a combinational dependency because reads are asynchronous. Width mismatches, multiple drivers, and combinational cycles prevent execution.
+Compilation expands subcircuits into scoped instance paths, unifies electrical nets across interface pins, validates wiring and hierarchy, and topologically orders combinational evaluation. Interface pins do not become active drivers or create artificial feedback. Each endpoint belongs to one net. Storage input edges are excluded from combinational dependencies; RAM's address remains a combinational dependency because reads are asynchronous. Width mismatches and combinational cycles prevent execution. Drivers are resolved per bit; definite contention yields X and a runtime diagnostic without preventing inspection. Compilation retains driver lists rather than expanding a driver-by-sink Cartesian product.
 
-Each signal stores an unsigned value and known-bit mask for widths 1–32. Controlling AND/OR inputs can resolve output bits even when another input is unknown. Arithmetic conservatively propagates unknowns.
+Each signal stores an unsigned value, known-bit mask and disjoint high-impedance mask for widths 1–32. Undriven nets are Z; ordinary logic and storage consume floating inputs as X, while wiring and hierarchy preserve Z. Controlling AND/OR inputs can resolve output bits even when another input is unknown. Arithmetic conservatively propagates unknowns.
 
 A clock step settles logic, samples all storage, commits it together, and settles again. Registers use synchronous reset with priority over enable. RAM reads are asynchronous; writes commit on a rising edge. Uncertain RAM writes conservatively invalidate possible destinations. Reset clears RAM, retains ROM, and applies register initial values.
 

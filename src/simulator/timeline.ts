@@ -226,7 +226,7 @@ export class Timeline {
       for (const s of r.segments) {
         bytes +=
           128 +
-          Object.keys(s.state.registers).length * 64 +
+          Object.keys(s.state.registers).length * 72 +
           Object.keys(s.state.inputs).length * 48 +
           JSON.stringify(s.state.devices).length * 2 +
           JSON.stringify(s.state.transactions).length * 2 +
@@ -239,7 +239,7 @@ export class Timeline {
           for (const p of pp)
             if (!pages.has(p)) {
               pages.add(p);
-              bytes += 32 + p.length * 32;
+              bytes += 32 + p.length * 40;
             }
         }
       }

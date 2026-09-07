@@ -3,7 +3,7 @@ import { Builder } from "../src/examples/adder";
 import { Engine } from "../src/simulator/engine";
 import { parseProject } from "../src/persistence/validation";
 import { exportProject } from "../src/persistence/serialization";
-import { signal, unknown } from "../src/simulator/signal";
+import { signal, floating } from "../src/simulator/signal";
 
 it("round trips a wired digit and follows individual inputs without clocking", () => {
   const b = new Builder("Digit");
@@ -27,11 +27,11 @@ it("round trips a wired digit and follows individual inputs without clocking", (
   expect(e.cycle).toBe(0);
 });
 
-it("retains unknown segment inputs instead of treating them as off", () => {
+it("retains floating segment inputs instead of treating them as off", () => {
   const b = new Builder("Unconnected digit");
   b.add("Digit", "sevenSegment", 0, 0);
   const e = new Engine(b.p);
   expect(e.valid).toBe(true);
-  expect(e.snapshot().values["Digit:a"]).toEqual(unknown(1));
-  expect(e.snapshot().values["Digit:dp"]).toEqual(unknown(1));
+  expect(e.snapshot().values["Digit:a"]).toEqual(floating(1));
+  expect(e.snapshot().values["Digit:dp"]).toEqual(floating(1));
 });

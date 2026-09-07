@@ -1,3 +1,4 @@
+import { format, type Signal } from "../simulator/signal";
 import { signalLabel } from "../model/nets";
 import { useEffect, useRef, useState } from "react";
 import type { Project } from "../model/types";
@@ -42,6 +43,7 @@ export default function CourseLearn({
       "value" in value &&
       "known" in value
     ) {
+      if ("width" in value && "highZ" in value) return format(value as Signal);
       const v = value as { value: number; known: number };
       const target = expected as { known?: number } | undefined;
       return v.known === 0 || (target && v.known !== target.known)

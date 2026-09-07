@@ -99,7 +99,7 @@ export default function Electrons({
           for (const { wire, path: route } of paths) {
             if (
               !activeSignal(
-                values[path + wire.from.component + ":" + wire.from.port],
+                values[path + wire.to.component + ":" + wire.to.port],
               )
             )
               continue;

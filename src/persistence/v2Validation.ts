@@ -1,4 +1,4 @@
-import {validateCourse} from "../course/validation";
+import { validateCourse } from "../course/validation";
 // Shape and resource limits only. Electrical faults remain compiler diagnostics.
 import type {
   Project,
@@ -88,6 +88,13 @@ export function validateTest(t: TestCase) {
         if (
           !integer(a.value, 0, 0xffffffff) ||
           (a.known !== undefined && !integer(a.known, 0, 0xffffffff))
+        )
+          fail();
+        if (
+          a.type === "signal" &&
+          a.highZ !== undefined &&
+          (!integer(a.highZ, 0, 0xffffffff) ||
+            (a.known !== undefined && (a.highZ & a.known) !== 0))
         )
           fail();
         if (a.type === "memory" && !integer(a.address, 0, 65535)) fail();

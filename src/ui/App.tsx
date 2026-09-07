@@ -1,5 +1,5 @@
 import MomentaryButton from "./MomentaryButton";
-import { builtinCircuits, shiftExample, encoderExample, buttonExample } from "../examples/components";
+import { builtinCircuits, shiftExample, encoderExample, buttonExample, busExample } from "../examples/components";
 import { closure } from "../library/package";
 import Help from "./Help";
 import { sevenSegmentExample } from "../examples/sevenSegment";
@@ -891,6 +891,7 @@ export default function App() {
                   shift: shiftExample,
                   encoder: encoderExample,
                   button: buttonExample,
+                  bus: busExample,
                   segments: () => sevenSegmentExample(),
                   segmentCounter: () => sevenSegmentExample("counter"),
                   segmentRom: () => sevenSegmentExample("rom"),
@@ -918,6 +919,7 @@ export default function App() {
               }}
             >
               <option value="">{t("examples")}</option>
+              <option value="bus">{t("busExample")}</option>
               <option value="button">{t("buttonExample")}</option>
               <option value="encoder">{t("encoderExample")}</option>
               <option value="shift">{t("shiftExample")}</option>
@@ -1173,6 +1175,7 @@ export default function App() {
                 >
                   <span className={d.severity === "error" ? "danger" : ""}>
                     {t(d.code)}
+                    {d.code === "busContention" && ` · ${d.args?.net} · ${t("conflictBits")} ${d.args?.bits} · ${d.args?.drivers}`}
                   </span>
                   <span className="mono">
                     {d.component?.split("/").at(-1)}

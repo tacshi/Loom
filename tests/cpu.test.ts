@@ -61,7 +61,7 @@ describe("circuit CPU", () => {
   });
   it("unassigned opcodes halt through the invalid-instruction circuit", () => {
     const e = load("NOP");
-    e.memory.get("Program")![0] = { value: 0xff00, width: 16, known: 65535 };
+    e.memory.get("Program")![0] = { value: 0xff00, width: 16, known: 65535, highZ: 0 };
     e.settle();
     e.step();
     e.step();

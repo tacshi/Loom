@@ -6,11 +6,19 @@ import {
   type PeripheralState,
   type Transaction,
 } from "./state";
-import type { Project, Component, TestVector } from "../model/types";
+import type {
+  Project,
+  Component,
+  TestVector,
+  Diagnostic,
+} from "../model/types";
 import { ports } from "../model/components";
 import { compile, key, type Compiled } from "./compiler";
 import {
   signal,
+  floating,
+  asLogic,
+  resolveDrivers,
   unknown,
   defined,
   logic,
@@ -24,6 +32,7 @@ export type Snapshot = {
   memory: Record<string, number[]>;
   devices?: Record<string, PeripheralState>;
   transactions?: Transaction[];
+  contentions?: Diagnostic[];
 };
 export class Engine {
   readonly compiled: Compiled;
@@ -56,22 +65,31 @@ export class Engine {
       this.compiled.components.map((c) => [c.id, ports(c)]),
     );
     for (const c of this.compiled.components) {
-      const reads = new Map<string, { key?: string; fallback: Signal }>(),
+      const reads = new Map<string, { keys: string[]; fallback: Signal }>(),
         outputs = new Map<string, string>();
       for (const port of this.pinMap.get(c.id)!) {
         const source = this.compiled.sources.get(c.id + ":" + port.id);
         reads.set(port.id, {
-          key: source ? key(source) : undefined,
-          fallback: unknown(port.width),
+          keys: source?.map(key) ?? [],
+          fallback: floating(port.width),
         });
         outputs.set(port.id, c.id + ":" + port.id);
       }
       this.access.set(c, {
         read: (port) => {
           const entry = reads.get(port);
-          return entry?.key
-            ? (this.values.get(entry.key) ?? entry.fallback)
-            : (entry?.fallback ?? unknown(c.width));
+          if (!entry) return floating(c.width);
+          if (entry.keys.length === 1)
+            return (
+              this.values.get(entry.keys[0]) ?? unknown(entry.fallback.width)
+            );
+          if (!entry.keys.length) return entry.fallback;
+          return resolveDrivers(
+            entry.keys.map(
+              (k) => this.values.get(k) ?? unknown(entry.fallback.width),
+            ),
+            entry.fallback.width,
+          ).signal;
         },
         put: (port, value) => {
           this.values.set(outputs.get(port)!, value);
@@ -94,6 +112,7 @@ export class Engine {
     }
     const c = this.byId.get(id);
     if (!c) return unknown(1);
+    if (this.compiled.boundaries.has(c.id) && (port === "in" || port === "out")) return this.read(c, "in");
     return this.pinMap.get(c.id)!.find((p) => p.id === port)?.direction === "in"
       ? this.read(c, port)
       : (this.values.get(id + ":" + port) ?? unknown(c.width));
@@ -137,10 +156,28 @@ export class Engine {
   settle() {
     if (!this.valid) return;
     for (const c of this.compiled.order) {
-      const { read, put } = this.access.get(c)!;
+      if (this.compiled.boundaries.has(c.id)) continue;
+      const { read: rawRead, put } = this.access.get(c)!;
+      const preserve = ["buffer", "split", "join", "probe", "portOut"].includes(
+        c.kind,
+      );
+      const read = (port: string) =>
+        preserve ? rawRead(port) : asLogic(rawRead(port));
       const a = () => read("a"),
         b = () => read("b");
       switch (c.kind) {
+        case "triState": {
+          const enable = read("enable");
+          put(
+            "out",
+            !defined(enable)
+              ? unknown(c.width)
+              : enable.value
+                ? read("data")
+                : floating(c.width),
+          );
+          break;
+        }
         case "button":
           put("out", signal(this.inputs.get(c.id) ?? 0, 1));
           break;
@@ -218,18 +255,28 @@ export class Engine {
         case "split": {
           const v = read("in");
           for (let i = 0; i < c.width; i++)
-            put("b" + i, signal((v.value >>> i) & 1, 1, (v.known >>> i) & 1));
+            put(
+              "b" + i,
+              signal(
+                (v.value >>> i) & 1,
+                1,
+                (v.known >>> i) & 1,
+                (v.highZ >>> i) & 1,
+              ),
+            );
           break;
         }
         case "join": {
           let value = 0,
-            known = 0;
+            known = 0,
+            highZ = 0;
           for (let i = 0; i < c.width; i++) {
             const v = read("b" + i);
             value = (value | (v.value << i)) >>> 0;
             known = (known | (v.known << i)) >>> 0;
+            highZ = (highZ | (v.highZ << i)) >>> 0;
           }
-          put("out", signal(value, c.width, known));
+          put("out", signal(value, c.width, known, highZ));
           break;
         }
         case "decoder": {
@@ -300,7 +347,7 @@ export class Engine {
             ? defined(old)
               ? signal(old.value + 1, c.width)
               : unknown(c.width)
-            : this.read(c, "d");
+            : asLogic(this.read(c, "d"));
         const enabled = defined(en)
           ? en.value
             ? data
@@ -319,7 +366,7 @@ export class Engine {
           writes.push({
             id: c.id,
             addr: addr.value,
-            data: this.read(c, "data"),
+            data: asLogic(this.read(c, "data")),
           });
         else if ((!defined(we) || we.value) && !defined(addr)) {
           const mem = this.memory.get(c.id)!;
@@ -331,7 +378,7 @@ export class Engine {
             addr: addr.value,
             data: merge(
               this.memory.get(c.id)![addr.value],
-              this.read(c, "data"),
+              asLogic(this.read(c, "data")),
             ),
           });
         }
@@ -379,7 +426,7 @@ export class Engine {
     const devices = new Map(
       [...this.devices].map(([id, d]) => [
         id,
-        sampleDevice(d, (p) => this.read(this.byId.get(id)!, p)),
+        sampleDevice(d, (p) => asLogic(this.read(this.byId.get(id)!, p))),
       ]),
     );
     this.devices = devices;
@@ -451,6 +498,28 @@ export class Engine {
     m[address] = signal(value, c.width, known);
     this.settle();
   }
+  contentions(): Diagnostic[] {
+    const result: Diagnostic[] = [];
+    for (const net of this.compiled.nets) {
+      if (net.drivers.length < 2) continue;
+      const { contention } = resolveDrivers(
+        net.drivers.map((d) => this.get(d.component, d.port)),
+        net.width,
+      );
+      if (contention)
+        result.push({
+          code: "busContention",
+          severity: "warning",
+          component: net.sinks[0]?.component ?? net.drivers[0]?.component,
+          args: {
+            net: net.id,
+            bits: contention.toString(16).toUpperCase(),
+            drivers: net.drivers.map(key).join(", "),
+          },
+        });
+    }
+    return result;
+  }
   snapshot(memoryIds: string[] = []): Snapshot {
     const values: Record<string, Signal> = {};
     for (const c of this.compiled.components)
@@ -462,6 +531,7 @@ export class Engine {
     }
     return {
       cycle: this.cycle,
+      contentions: this.contentions(),
       devices: structuredClone(Object.fromEntries(this.devices)),
       transactions: this.transactions,
       values,

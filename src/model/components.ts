@@ -2,7 +2,7 @@ import { parameters, parameterValue } from "./parameters";
 import type { Component, Port, Project } from "./types";
 export const categories = [
   { id: "sources", kinds: ["input", "button", "constant", "probe"] },
-  { id: "gates", kinds: ["not", "and", "or", "xor", "nand", "nor", "xnor"] },
+  { id: "gates", kinds: ["not", "and", "or", "xor", "nand", "nor", "xnor", "triState"] },
   {
     id: "arithmetic",
     kinds: [
@@ -47,6 +47,8 @@ export function ports(c: Component, project?: Project): Port[] {
         i("clear", 1),
         o("out", 1),
       ];
+    case "triState":
+      return [i("data"), i("enable", 1), o("out")];
     case "button":
       return [o("out", 1)];
     case "input":

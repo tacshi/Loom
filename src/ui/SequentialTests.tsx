@@ -45,7 +45,8 @@ export default function SequentialTests({
     [address, setAddress] = useState(0),
     [x, setX] = useState(0),
     [y, setY] = useState(0),
-    [known, setKnown] = useState("");
+    [known, setKnown] = useState(""),
+    [highZ, setHighZ] = useState("");
   const cases = circuit.tests.length
       ? circuit.tests
       : vectorCases(project, circuit),
@@ -74,7 +75,7 @@ export default function SequentialTests({
     inputs = compiled.components.filter((c) =>
       action === "keyboard"
         ? c.kind === "keyboard"
-        : ["input", "portIn"].includes(c.kind),
+        : ["input", "portIn", "button"].includes(c.kind),
     );
   useEffect(
     () => () => {
@@ -107,6 +108,9 @@ export default function SequentialTests({
       ref,
       value: Number(expected),
       ...(known !== "" ? { known: Number(known) } : {}),
+      ...(assertionType === "signal" && highZ !== ""
+        ? { highZ: Number(highZ) }
+        : {}),
       ...(assertionType === "memory" ? { address } : {}),
     } as TestAssertion;
   }
@@ -397,6 +401,16 @@ export default function SequentialTests({
                   />
                 </label>
               </>
+            )}
+            {assertionType === "signal" && (
+              <label>
+                {t("highZMask")}
+                <input
+                  value={highZ}
+                  placeholder="0"
+                  onChange={(e) => setHighZ(e.target.value)}
+                />
+              </label>
             )}
             {["signal", "memory"].includes(assertionType) && (
               <label>

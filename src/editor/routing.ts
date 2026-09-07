@@ -207,6 +207,19 @@ function search(
   }
   throw new Error("routeBlocked");
 }
+function relatedNetIds(circuit: Circuit, from: Endpoint, to: Endpoint) {
+  return new Set(
+    circuit.nets
+      .filter((n) =>
+        n.ports.some(
+          (e) =>
+            (e.component === from.component && e.port === from.port) ||
+            (e.component === to.component && e.port === to.port),
+        ),
+      )
+      .map((n) => n.id),
+  );
+}
 export function route(
   circuit: Circuit,
   project: Project,
@@ -229,9 +242,11 @@ export function route(
     y: c.y,
     ...geometry(c, project),
   }));
+  const related = relatedNetIds(circuit, from, to);
   const occupied = circuit.wires
     .filter(
       (w) =>
+        !(w.netId && related.has(w.netId)) &&
         !(w.from.component === from.component && w.from.port === from.port),
     )
     .flatMap((w) => w.points.slice(1).map((b, i) => ({ a: w.points[i], b })));
@@ -333,10 +348,13 @@ export function routeClear(
         return false;
     }
   }
+  const related = wire.netId
+    ? new Set([wire.netId])
+    : relatedNetIds(circuit, wire.from, wire.to);
   return !circuit.wires.some(
     (other) =>
       other.id !== wire.id &&
-      (!other.netId || !wire.netId || other.netId !== wire.netId) &&
+      (!other.netId || !related.has(other.netId)) &&
       !(
         other.from.component === wire.from.component &&
         other.from.port === wire.from.port

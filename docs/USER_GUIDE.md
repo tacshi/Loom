@@ -131,3 +131,14 @@ Canvas notices do not move the circuit. Selecting an already visible component p
 **Momentary button** drives 1 while held and 0 when released. Press its center on the canvas or use **Hold** in the Inspector with the pointer, Space or Enter. Drag its outer body to move it. It releases on cancellation, focus loss and reset; it does not clock the circuit automatically. The counter-reset example demonstrates it. Held state is recorded in runtime history, not saved as a project default.
 
 “瞬时按钮”按住时输出 1，松开时输出 0；属性中的“按住”支持空格和回车。失去焦点、取消或复位会释放按钮。按钮本身不会推进时钟。
+
+
+## Shared buses
+
+**Tri-state buffer** has data, enable and output ports, with widths 1–32. Disabled outputs are high impedance (`Z`); enabled outputs drive data. Unknown enables produce `X`. Connect multiple outputs to the same input or attach them through Named nets. Any ordinary output remains an active driver.
+
+A floating bus reads `Z`. Agreeing drivers resolve to their shared value; opposing drivers produce `X` and a Bus contention diagnostic listing the net, conflicting bits and drivers. Simulation remains inspectable. Logic and storage treat floating inputs as unknown; wiring and subcircuit boundaries preserve `Z`. Binary formatting shows mixed bits individually; mixed indeterminate decimal/hex values show `X`.
+
+Open **Shared tri-state bus** to try disabled, driven and conflicting states. Sequential signal assertions accept a high-impedance mask; known and high-impedance masks must not overlap. Input history, rewind and traces retain four-state values. There are no pull resistors, drive strengths or bidirectional ports.
+
+“三态缓冲器”禁用时输出高阻 Z，启用时驱动数据。共享总线允许多个输出；相反的确定值产生 X 并报告驱动冲突。逻辑和存储将浮空输入视为未知，布线与子电路边界保留 Z。示例“共享三态总线”演示断开、驱动和冲突状态。

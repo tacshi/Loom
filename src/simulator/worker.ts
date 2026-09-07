@@ -31,10 +31,11 @@ const stop = () => {
 };
 function report(reason?: string) {
   if (!engine) return;
+  const snapshot = engine.snapshot(memoryIds);
   send({
     type: "state",
-    snapshot: engine.snapshot(memoryIds),
-    diagnostics: engine.compiled.diagnostics,
+    snapshot,
+    diagnostics: [...engine.compiled.diagnostics, ...(snapshot.contentions ?? [])],
     running,
     trace,
     history: timeline.info(),

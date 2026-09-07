@@ -118,3 +118,24 @@ export function buttonExample(): Project {
   rerouteAutomatic(b.c, b.p);
   return b.p;
 }
+
+export function busExample(): Project {
+  const b = new Builder("Shared tri-state bus");
+  for (const [id, y, value] of [
+    ["A", 0, 165],
+    ["B", 280, 60],
+  ] as const) {
+    b.add("Data " + id, "input", 0, y, 8, value);
+    b.add("Enable " + id, "input", 0, y + 120);
+    b.add("Driver " + id, "triState", 240, y, 8);
+    b.connect("Data " + id, "out", "Driver " + id, "data");
+    b.connect("Enable " + id, "out", "Driver " + id, "enable");
+  }
+  b.add("Bus", "probe", 480, 0, 8);
+  b.connect("Driver A", "out", "Bus", "in");
+  b.connect("Driver B", "out", "Bus", "in");
+  b.c.nets.find((n) => n.ports.some((e) => e.component === "Bus"))!.name =
+    "Shared data";
+  rerouteAutomatic(b.c, b.p);
+  return b.p;
+}

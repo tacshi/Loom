@@ -329,8 +329,8 @@ export default function Debugger({
           <summary>{t("signalSource")}</summary>
           {simulation.chain.map((c) => (
             <p className="mono" key={c.id + ":" + c.port}>
-              {c.id}:{c.port} {c.unknown ? "X" : ""}{" "}
-              {c.driver ? "← " + c.driver : ""}
+              {c.id}:{c.port} {c.value}{" "}
+              {c.drivers.length ? "← " + c.drivers.join(", ") : ""}
             </p>
           ))}
         </details>

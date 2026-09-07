@@ -3,6 +3,7 @@ import type { Project, Kind } from "../model/types";
 const kinds = new Set<Kind>([
   "input",
   "button",
+  "triState",
   "constant",
   "probe",
   "not",
@@ -52,8 +53,8 @@ export function parseProject(text: string): Project {
   } catch {
     throw new Error("invalidProject");
   }
-  const project=validateProject(raw);
-  if(project.course)project.course.needsVerification=true;
+  const project = validateProject(raw);
+  if (project.course) project.course.needsVerification = true;
   return project;
 }
 export function validateProject(raw: unknown): Project {
@@ -204,6 +205,7 @@ export function validateProject(raw: unknown): Project {
         Array.isArray(value.tests),
     );
     const seen = new Set<string>();
+    const memberships = new Set<string>();
     for (const n of value.nets) {
       assert(
         object(n) &&
@@ -214,8 +216,12 @@ export function validateProject(raw: unknown): Project {
           n.ports.length <= 50000,
       );
       seen.add(n.id as string);
-      for (const e of n.ports)
+      for (const e of n.ports) {
         assert(object(e) && str(e.component) && str(e.port));
+        const key = JSON.stringify([e.component, e.port]);
+        assert(!memberships.has(key));
+        memberships.add(key);
+      }
       if (n.name !== undefined)
         assert(typeof n.name === "string" && n.name.length <= 200);
     }

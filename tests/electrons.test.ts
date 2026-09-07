@@ -34,3 +34,11 @@ it("animates only known nonzero simulated signals", () => {
   expect(["1", "255"].every(activeSignal)).toBe(true);
   expect([undefined, "X", "0", "0b0000", "NaN"].some(activeSignal)).toBe(false);
 });
+
+it("animates known nonzero hex but never floating or mixed unknown buses", () => {
+  expect(activeSignal("FF")).toBe(true);
+  expect(activeSignal("0000")).toBe(false);
+  expect(activeSignal("Z")).toBe(false);
+  expect(activeSignal("01Z0")).toBe(false);
+  expect(activeSignal("1X00")).toBe(false);
+});

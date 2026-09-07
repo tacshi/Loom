@@ -56,10 +56,5 @@ export function electronPosition(
 }
 
 export function activeSignal(value: string | undefined) {
-  return (
-    value !== undefined &&
-    value !== "X" &&
-    Number.isFinite(Number(value)) &&
-    Number(value) !== 0
-  );
+  return value !== undefined && /^[0-9A-F]+$/.test(value) && /[1-9A-F]/.test(value);
 }

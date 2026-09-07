@@ -36,12 +36,24 @@ export function assertionValue(
     const s =
       a.type === "signal" ? readRef(e, a.ref) : e.memory.get(id)?.[a.address];
     if (!s) return { expected: a.value, actual: null, passed: false };
-    const expected = { value: a.value, known: a.known ?? mask(s.width) },
-      actual = { value: s.value, known: s.known };
+    const highZ = a.type === "signal" ? (a.highZ ?? 0) : 0;
+    const expected = {
+        value: a.value,
+        known: a.known ?? (mask(s.width) & ~highZ) >>> 0,
+        highZ,
+        width: s.width,
+      },
+      actual = {
+        value: s.value,
+        known: s.known,
+        highZ: s.highZ,
+        width: s.width,
+      };
     return {
       expected,
       actual,
       passed:
+        expected.highZ === actual.highZ &&
         expected.known === actual.known &&
         (expected.value & expected.known) >>> 0 ===
           (actual.value & expected.known) >>> 0,
@@ -108,7 +120,7 @@ export function runCase(
         return result("limit", { error: "testLimit" });
       for (const input of step.inputs ?? []) {
         const c = e.byId.get(componentKey(input.ref));
-        if (!c || !["input", "portIn"].includes(c.kind))
+        if (!c || !["input", "portIn", "button"].includes(c.kind))
           return result("invalid", { error: "testInput" });
         e.setInput(c.id, input.value);
       }

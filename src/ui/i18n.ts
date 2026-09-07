@@ -77,6 +77,11 @@ export const messages: Record<string, [string, string]> = {
   priorityEncoder: ["8-input priority encoder", "8 路优先编码器"],
   encoderExample: ["Priority request selection", "优先请求选择"],
   buttonExample: ["Momentary counter reset", "瞬时计数器复位"],
+  busExample: ["Shared tri-state bus", "共享三态总线"],
+  triState: ["Tri-state buffer", "三态缓冲器"],
+  conflictBits: ["bits (hex)", "冲突位（十六进制）"],
+  busContention: ["Bus contention", "总线驱动冲突"],
+  highZMask: ["High-impedance mask", "高阻位掩码"],
   button: ["Momentary button", "瞬时按钮"],
   holdButton: ["Hold", "按住"],
   shiftRegister: ["8-bit shift register", "8 位移位寄存器"],
@@ -312,13 +317,9 @@ export const messages: Record<string, [string, string]> = {
     "Bit widths do not match. Adjust the port width.",
     "位宽不匹配，请调整引脚位宽。",
   ],
-  multipleDrivers: [
-    "Multiple outputs drive this input. Remove a connection.",
-    "多个输出驱动此输入，请移除多余连接。",
-  ],
   undriven: [
-    "Input is not connected; its value is unknown.",
-    "输入未连接，数值未知。",
+    "Input is floating (Z). Connect a driver.",
+    "输入为高阻（Z），请连接驱动源。",
   ],
   combinationalLoop: [
     "Combinational feedback. Insert a register or remove the loop.",

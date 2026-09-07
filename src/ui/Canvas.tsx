@@ -1,3 +1,4 @@
+import { activeSignal } from "../editor/electrons";
 import SevenSegment from "./SevenSegment";
 import Electrons from "./Electrons";
 import {
@@ -432,11 +433,11 @@ function Canvas({
         >
           {circuit.wires.map((w) => {
             const metrics=wireMetrics(view.scale,selected.includes(w.id)||selected.includes(w.netId??''));
-            const val = values[path + w.from.component + ":" + w.from.port];
+            const val = values[path + w.to.component + ":" + w.to.port];
             const color =
               selected.includes(w.id) || selected.includes(w.netId ?? "")
                 ? "#d39235"
-                : val && val !== "X" && val !== "0"
+                : val?.includes("Z") ? "#8c78b3" : activeSignal(val)
                   ? "#31a573"
                   : colors.line;
             return (
@@ -548,7 +549,7 @@ function Canvas({
               const active=selected.includes(w.id)||selected.includes(w.netId??''),metrics=wireMetrics(view.scale,active);
               const radius=Math.min(metrics.bridgeRadius,Math.abs(bridge.point.x-a.x)/2,Math.abs(b.x-bridge.point.x)/2),direction=a.x<b.x?1:-1;
               const tail=Math.min(metrics.bridgeHalo+metrics.strokeWidth,Math.abs(bridge.point.x-a.x)-radius,Math.abs(b.x-bridge.point.x)-radius),x=bridge.point.x,y=bridge.point.y;
-              const value=values[path+w.from.component+':'+w.from.port],color=active?'#d39235':value&&value!=='X'&&value!=='0'?'#31a573':colors.line;
+              const value=values[path+w.to.component+':'+w.to.port],color=active?'#d39235':value?.includes('Z')?'#8c78b3':activeSignal(value)?'#31a573':colors.line;
               ctx.save();ctx.lineCap='butt';ctx.lineJoin='round';ctx.beginPath();ctx.moveTo(x-direction*(radius+tail),y);ctx.lineTo(x-direction*radius,y);ctx.bezierCurveTo(x-direction*radius,y-radius*1.4,x+direction*radius,y-radius*1.4,x+direction*radius,y);ctx.lineTo(x+direction*(radius+tail),y);
               ctx.globalCompositeOperation='destination-out';ctx.strokeStyle='#000';ctx.lineWidth=metrics.strokeWidth+2*metrics.bridgeHalo;ctx.stroke();
               ctx.globalCompositeOperation='source-over';ctx.strokeStyle=color;ctx.lineWidth=metrics.strokeWidth;ctx.stroke();ctx.restore();
@@ -1008,6 +1009,7 @@ const ComponentGlyph = memo(
               {
                 input: "0",
                 button: "0",
+                triState: "3STATE",
                 constant: "1",
                 probe: "—",
                 not: "¬",

@@ -1,6 +1,7 @@
 import type { CourseState } from "../course/types";
 export type Point = { x: number; y: number };
 export type Kind =
+  | "triState"
   | "button"
   | "input"
   | "constant"
@@ -70,7 +71,7 @@ export type TestStep = {
   assertions: TestAssertion[];
 };
 export type TestAssertion =
-  | { type: "signal"; ref: SignalRef; value: number; known?: number }
+  | { type: "signal"; ref: SignalRef; value: number; known?: number; highZ?: number }
   | {
       type: "memory";
       ref: SignalRef;

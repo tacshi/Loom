@@ -51,37 +51,68 @@ export function portAt(c: Circuit, p: Project, e: Endpoint) {
 }
 /** Only for circuit construction and explicit graph commands. Never used by layout edits or compilation. */
 export function deriveNets(c: Circuit, p: Project): Net[] {
-  const old = c.nets ?? [];
-  const grouped = new Map<string, Net>();
-  for (const w of c.wires) {
-    const key = endpointKey(w.from);
-    let net = grouped.get(key);
-    if (!net) {
-      const prior = old.find(
-        (n) =>
-          n.ports.some((e) => endpointKey(e) === key) &&
-          portAt(c, p, w.from)?.direction === "out",
-      );
-      net = {
-        id: prior?.id ?? "net-" + stableId(c.id + key),
-        width: portAt(c, p, w.from)?.width ?? 1,
-        name: prior?.name,
-        ports: [{ ...w.from }],
-      };
-      grouped.set(key, net);
+  const parent = new Map<string, string>(),
+    endpoints = new Map<string, Endpoint>();
+  function find(k: string): string {
+    let root = k;
+    while (parent.get(root) !== root) root = parent.get(root)!;
+    while (k !== root) {
+      const next = parent.get(k)!;
+      parent.set(k, root);
+      k = next;
     }
-    if (!net.ports.some((e) => endpointKey(e) === endpointKey(w.to)))
-      net.ports.push({ ...w.to });
-    w.netId = net.id;
+    return root;
   }
-  return [...grouped.values()];
+  for (const w of c.wires) {
+    for (const e of [w.from, w.to]) {
+      const k = endpointKey(e);
+      if (!parent.has(k)) parent.set(k, k);
+      endpoints.set(k, e);
+    }
+    parent.set(find(endpointKey(w.to)), find(endpointKey(w.from)));
+  }
+  const groups = new Map<string, Endpoint[]>();
+  for (const [k, e] of endpoints) {
+    const root = find(k);
+    const group = groups.get(root) ?? [];
+    group.push({ ...e });
+    groups.set(root, group);
+  }
+  const used = new Set<string>(),
+    nets: Net[] = [];
+  for (const group of groups.values()) {
+    const keys = new Set(group.map(endpointKey));
+    const prior = c.nets.find(
+      (n) => !used.has(n.id) && n.ports.some((e) => keys.has(endpointKey(e))),
+    );
+    const id = prior?.id ?? "net-" + stableId(c.id + [...keys].sort().join());
+    used.add(id);
+    nets.push({
+      id,
+      width: portAt(c, p, group[0])?.width ?? 1,
+      name: prior?.name,
+      ports: group,
+    });
+    for (const w of c.wires) if (keys.has(endpointKey(w.from))) w.netId = id;
+  }
+  for (const marker of c.markers)
+    if (marker.endpoint) {
+      const net = nets.find((n) =>
+        n.ports.some((e) => endpointKey(e) === endpointKey(marker.endpoint!)),
+      );
+      if (net) marker.netId = net.id;
+    }
+  return nets;
 }
+
 export function electricalWires(c: Circuit, p: Project): Wire[] {
   const result: Wire[] = [];
   for (const n of c.nets ?? []) {
     const outputs = n.ports.filter((e) => portAt(c, p, e)?.direction === "out"),
       inputs = n.ports.filter((e) => portAt(c, p, e)?.direction === "in");
-    for (const from of outputs.slice(0, 2))
+    if (result.length + outputs.length * inputs.length > 200000)
+      throw new Error("sizeLimit");
+    for (const from of outputs)
       for (const to of inputs) {
         const drawn = c.wires.find(
           (w) =>
@@ -111,15 +142,6 @@ export function attachNet(c: Circuit, p: Project, netId: string, e: Endpoint) {
     other.ports.some((m) => endpointKey(m) === endpointKey(e)),
   );
   if (existing && existing.id !== netId) throw new Error("alreadyConnected");
-  if (
-    port.direction === "out" &&
-    n.ports.some(
-      (m) =>
-        portAt(c, p, m)?.direction === "out" &&
-        endpointKey(m) !== endpointKey(e),
-    )
-  )
-    throw new Error("multipleDrivers");
   if (!n.ports.some((m) => endpointKey(m) === endpointKey(e)))
     n.ports.push({ ...e });
 }
@@ -136,7 +158,21 @@ export function connect(c: Circuit, p: Project, w: Wire) {
   const sinkNet = c.nets.find((n) =>
     n.ports.some((e) => endpointKey(e) === endpointKey(w.to)),
   );
-  if (sinkNet && sinkNet.id !== net?.id) throw new Error("multipleDrivers");
+  if (sinkNet && sinkNet.id !== net?.id) {
+    if (net) {
+      const sourceId = net.id;
+      for (const e of net.ports)
+        if (!sinkNet.ports.some((m) => endpointKey(m) === endpointKey(e)))
+          sinkNet.ports.push({ ...e });
+      sinkNet.name ??= net.name;
+      for (const route of c.wires)
+        if (route.netId === sourceId) route.netId = sinkNet.id;
+      for (const marker of c.markers)
+        if (marker.netId === sourceId) marker.netId = sinkNet.id;
+      c.nets = c.nets.filter((n) => n.id !== sourceId);
+    }
+    net = sinkNet;
+  }
   if (!net) {
     net = {
       id: "net-" + stableId(c.id + endpointKey(w.from)),
@@ -145,6 +181,7 @@ export function connect(c: Circuit, p: Project, w: Wire) {
     };
     c.nets.push(net);
   }
+  attachNet(c, p, net.id, w.from);
   attachNet(c, p, net.id, w.to);
   w.netId = net.id;
   if (
@@ -159,17 +196,81 @@ export function connect(c: Circuit, p: Project, w: Wire) {
 export function removeRouteConnection(c: Circuit, id: string) {
   const wire = c.wires.find((w) => w.id === id);
   if (!wire) return;
-  c.wires = c.wires.filter((w) => w.id !== id);
   const net = c.nets.find((n) => n.id === wire.netId);
-  if (
-    net &&
-    !c.wires.some(
-      (w) => w.netId === net.id && endpointKey(w.to) === endpointKey(wire.to),
-    )
-  )
-    net.ports = net.ports.filter(
-      (e) => endpointKey(e) !== endpointKey(wire.to),
+  const before = c.wires.filter((w) => w.netId === net?.id);
+  const represented = new Set(
+    before.flatMap((w) => [endpointKey(w.from), endpointKey(w.to)]),
+  );
+  c.wires = c.wires.filter((w) => w.id !== id);
+  if (!net) return;
+  const remaining = c.wires.filter((w) => w.netId === net.id);
+  const used = new Set(
+    remaining.flatMap((w) => [endpointKey(w.from), endpointKey(w.to)]),
+  );
+  const implicit = net.ports.some((e) => !represented.has(endpointKey(e)));
+  net.ports = net.ports.filter((e) => {
+    const k = endpointKey(e);
+    return (
+      ![wire.from, wire.to].some((end) => endpointKey(end) === k) ||
+      used.has(k) ||
+      c.markers.some(
+        (m) =>
+          m.netId === net.id && m.endpoint && endpointKey(m.endpoint) === k,
+      )
     );
+  });
+  // Route endpoints carry explicit connections; positions never do. Named-only
+  // members retain their declared bus membership when a drawn route is removed.
+  if (!implicit && net.ports.length) {
+    const neighbours = new Map(
+      net.ports.map((e) => [endpointKey(e), new Set<string>()]),
+    );
+    for (const w of remaining) {
+      const a = endpointKey(w.from),
+        b = endpointKey(w.to);
+      neighbours.get(a)?.add(b);
+      neighbours.get(b)?.add(a);
+    }
+    const seen = new Set<string>(),
+      groups: Endpoint[][] = [];
+    for (const e of net.ports) {
+      const key = endpointKey(e);
+      if (seen.has(key)) continue;
+      const pending = [key],
+        keys = new Set<string>();
+      while (pending.length) {
+        const k = pending.pop()!;
+        if (seen.has(k)) continue;
+        seen.add(k);
+        keys.add(k);
+        for (const next of neighbours.get(k) ?? []) pending.push(next);
+      }
+      groups.push(net.ports.filter((e) => keys.has(endpointKey(e))));
+    }
+    if (groups.length > 1) {
+      const split = groups.map((ports, i) => ({
+        ...net,
+        id: i
+          ? "net-" + stableId(net.id + ports.map(endpointKey).sort().join())
+          : net.id,
+        name: i ? undefined : net.name,
+        ports,
+      }));
+      c.nets.splice(c.nets.indexOf(net), 1, ...split);
+      for (const w of remaining)
+        w.netId = split.find((n) =>
+          n.ports.some((e) => endpointKey(e) === endpointKey(w.from)),
+        )!.id;
+      for (const m of c.markers)
+        if (m.netId === net.id && m.endpoint) {
+          const n = split.find((n) =>
+            n.ports.some((e) => endpointKey(e) === endpointKey(m.endpoint!)),
+          );
+          if (n) m.netId = n.id;
+        }
+    }
+  }
+  c.nets = c.nets.filter((n) => n.ports.length > 0);
 }
 export function resolveSignalRef(
   p: Project,

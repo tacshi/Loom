@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { TimelineInfo, Position } from "../simulator/timeline";
 import type { Snapshot } from "../simulator/engine";
-import { format } from "../simulator/signal";
+import { format, defined, same } from "../simulator/signal";
 export default function Timeline({
   history,
   running,
@@ -197,15 +197,21 @@ export default function Timeline({
                     <path
                       d={
                         v?.width === 1
-                          ? `M${x},${prev?.value ? 7 : 30}V${v.value ? 7 : 30}H${x + pitch}`
+                          ? `M${x},${prev?.known ? (prev.value ? 7 : 30) : 18}V${v.known ? (v.value ? 7 : 30) : 18}H${x + pitch}`
                           : `M${x},7H${x + pitch}M${x},30H${x + pitch}`
                       }
                       fill="none"
-                      stroke={v?.known ? "var(--accent)" : "#cb8d38"}
+                      stroke={
+                        v?.highZ
+                          ? "#8c78b3"
+                          : v?.known
+                            ? "var(--accent)"
+                            : "#cb8d38"
+                      }
                     />
                     {v &&
-                      v.width > 1 &&
-                      (i === 0 || prev?.value !== v.value) && (
+                      (v.width > 1 || !defined(v)) &&
+                      (i === 0 || !prev || !same(prev, v)) && (
                         <text x={x + 2} y={23} fontSize={11} fill="var(--text)">
                           {format(v, 16)}
                         </text>

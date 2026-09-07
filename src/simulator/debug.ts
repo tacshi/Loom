@@ -1,7 +1,7 @@
 import type { Project, SignalRef } from "../model/types";
 import { signalLabel, ref } from "../model/nets";
 import type { Engine } from "./engine";
-import { defined } from "./signal";
+import { defined, format } from "./signal";
 export function debugProfile(p: Project) {
   if (p.debugProfile) return p.debugProfile;
   const c = p.cpu;
@@ -35,7 +35,8 @@ export function sourceChain(e: Engine, id: string, port: string) {
       id: string;
       port: string;
       unknown: boolean;
-      driver?: string;
+      value: string;
+      drivers: string[];
     }[] = [],
     visited = new Set<string>();
   function visit(id: string, port: string) {
@@ -49,15 +50,23 @@ export function sourceChain(e: Engine, id: string, port: string) {
       id,
       port,
       unknown: !defined(v),
-      driver: source ? source.component + ":" + source.port : alias,
+      value: format(v, 2),
+      drivers:
+        source?.map((s) => s.component + ":" + s.port) ??
+        (alias ? [alias] : []),
     });
-    if (source) visit(source.component, source.port);
+    if (source?.length)
+      for (const driver of source) visit(driver.component, driver.port);
     else if (alias) {
       const i = alias.lastIndexOf(":");
       visit(alias.slice(0, i), alias.slice(i + 1));
-    } else if (!defined(v)) {
+    } else if (e.byId.get(id)?.kind === "buffer" || !defined(v)) {
       for (const p of e.pinMap.get(id) ?? [])
-        if (p.direction === "in" && !defined(e.get(id, p.id))) visit(id, p.id);
+        if (
+          p.direction === "in" &&
+          (e.byId.get(id)?.kind === "buffer" || !defined(e.get(id, p.id)))
+        )
+          visit(id, p.id);
     }
   }
   visit(id, port);

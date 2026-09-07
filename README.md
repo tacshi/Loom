@@ -31,6 +31,8 @@ The production app caches its assets after the first successful online load. Pro
 
 The seven-segment examples connect editable NAND decoding, a counter, ROM lookup and CPU output. The I/O CPU drives segment bits through F7. See [the display guide](docs/USER_GUIDE.md#seven-segment-projects).
 
+Sandbox components include editable eight-bit shift registers and priority encoders, momentary buttons, and tri-state buffers with shared-bus resolution. Their examples are in Open example.
+
 The CPU executes through the circuit. Its instruction-level reference model exists only in tests.
 
 ## Checks

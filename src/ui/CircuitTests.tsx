@@ -24,7 +24,7 @@ export default function CircuitTests({
     [inputs, setInputs] = useState<Record<string, number>>({}),
     [outputs, setOutputs] = useState<Record<string, number>>({});
   const inputComponents = circuit.components.filter((c) =>
-      ["input", "portIn"].includes(c.kind),
+      ["input", "portIn", "button"].includes(c.kind),
     ),
     outputComponents = circuit.components.filter((c) =>
       ["probe", "portOut"].includes(c.kind),

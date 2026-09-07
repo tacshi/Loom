@@ -10,15 +10,17 @@ import type {
   Endpoint,
   Diagnostic,
 } from "../model/types";
-import { electricalWires, portAt } from "../model/nets";
+import { portAt } from "../model/nets";
 import { ports } from "../model/components";
 export type Compiled = {
   components: Component[];
   wires: Wire[];
   order: Component[];
-  sources: Map<string, Endpoint>;
+  sources: Map<string, Endpoint[]>;
+  nets: { id: string; width: number; drivers: Endpoint[]; sinks: Endpoint[] }[];
   diagnostics: Diagnostic[];
   aliases: Map<string, string>;
+  boundaries: Set<string>;
 };
 export const key = (e: Endpoint) => e.component + ":" + e.port;
 export function compile(project: Project, root = project.root): Compiled {
@@ -26,6 +28,8 @@ export function compile(project: Project, root = project.root): Compiled {
     wires: Wire[] = [],
     diagnostics: Diagnostic[] = [];
   const aliases = new Map<string, string>();
+  const nets: Compiled["nets"] = [];
+  const boundaries = new Set<string>();
   let expanded = 0;
   function walk(
     id: string,
@@ -79,17 +83,6 @@ export function compile(project: Project, root = project.root): Compiled {
       return;
     }
     for (const net of circuit.nets ?? [])
-      if (
-        net.ports.filter(
-          (e) => portAt(circuit, project, e)?.direction === "out",
-        ).length > 1
-      )
-        diagnostics.push({
-          code: "multipleDrivers",
-          severity: "error",
-          component: prefix + net.ports[0]?.component,
-        });
-    for (const net of circuit.nets ?? [])
       for (const endpoint of net.ports) {
         const port = portAt(circuit, project, endpoint);
         if (!port)
@@ -138,7 +131,9 @@ export function compile(project: Project, root = project.root): Compiled {
               ":" +
               (port.direction === "in" ? "in" : "out"),
           );
-      } else
+      } else {
+        if (prefix && (c.kind === "portIn" || c.kind === "portOut"))
+          boundaries.add(prefix + c.id);
         components.push({
           ...structuredClone(c),
           id: prefix + c.id,
@@ -147,8 +142,20 @@ export function compile(project: Project, root = project.root): Compiled {
               ? "buffer"
               : c.kind,
         });
+      }
     }
-    for (const w of electricalWires(circuit, project))
+    for (const net of circuit.nets ?? [])
+      nets.push({
+        id: prefix + net.id,
+        width: net.width,
+        drivers: net.ports
+          .filter((e) => portAt(circuit, project, e)?.direction === "out")
+          .map(resolve),
+        sinks: net.ports
+          .filter((e) => portAt(circuit, project, e)?.direction === "in")
+          .map(resolve),
+      });
+    for (const w of circuit.wires)
       wires.push({
         ...w,
         id: prefix + w.id,
@@ -167,51 +174,111 @@ export function compile(project: Project, root = project.root): Compiled {
   if (memoryCells > 1_048_576)
     diagnostics.push({ code: "memoryLimit", severity: "error" });
   const byId = new Map(components.map((c) => [c.id, c]));
-  const sources = new Map<string, Endpoint>();
-  for (const w of wires) {
-    const a = byId.get(w.from.component),
-      b = byId.get(w.to.component);
-    const out = a && ports(a).find((p) => p.id === w.from.port),
-      input = b && ports(b).find((p) => p.id === w.to.port);
-    if (!out || !input) {
-      diagnostics.push({
-        code: "missingPort",
-        severity: "error",
-        component: w.to.component,
-        port: w.to.port,
-      });
-      continue;
+  const sources = new Map<string, Endpoint[]>();
+  const netMembership = new Set<string>();
+  for (const net of nets) {
+    for (const [ends, direction] of [
+      [net.drivers, "out"],
+      [net.sinks, "in"],
+    ] as const)
+      for (const end of ends) {
+        if (netMembership.has(key(end)))
+          diagnostics.push({
+            code: "invalidProject",
+            severity: "error",
+            component: end.component,
+            port: end.port,
+          });
+        netMembership.add(key(end));
+        const c = byId.get(end.component),
+          pin = c && ports(c).find((p) => p.id === end.port);
+        if (!pin)
+          diagnostics.push({
+            code: "missingPort",
+            severity: "error",
+            component: end.component,
+            port: end.port,
+          });
+        else if (pin.direction !== direction)
+          diagnostics.push({
+            code: "directionError",
+            severity: "error",
+            component: end.component,
+            port: end.port,
+          });
+        else if (pin.width !== net.width)
+          diagnostics.push({
+            code: "widthMismatch",
+            severity: "error",
+            component: end.component,
+            port: end.port,
+          });
+      }
+  }
+  // Interface pins are electrical continuity, not active buffer drivers. Merge
+  // nets across both sides before ordering gates, avoiding artificial feedback.
+  const roots = nets.map((_, i) => i),
+    boundaryNet = new Map<string, number>();
+  const find = (i: number): number => {
+    let root = i;
+    while (roots[root] !== root) root = roots[root];
+    while (i !== root) {
+      const next = roots[i];
+      roots[i] = root;
+      i = next;
     }
-    if (out.direction !== "out" || input.direction !== "in") {
-      diagnostics.push({
-        code: "directionError",
-        severity: "error",
-        component: b!.id,
-        port: input.id,
-      });
-      continue;
+    return root;
+  };
+  nets.forEach((net, i) => {
+    for (const e of [...net.drivers, ...net.sinks])
+      if (boundaries.has(e.component)) {
+        const old = boundaryNet.get(e.component);
+        if (old !== undefined) roots[find(i)] = find(old);
+        boundaryNet.set(e.component, i);
+      }
+  });
+  const merged = new Map<number, Compiled["nets"][number]>();
+  const members = new Map<
+    number,
+    { drivers: Set<string>; sinks: Set<string> }
+  >();
+  nets.forEach((net, i) => {
+    const root = find(i),
+      group = merged.get(root) ?? { ...net, drivers: [], sinks: [] };
+    const seen = members.get(root) ?? {
+      drivers: new Set<string>(),
+      sinks: new Set<string>(),
+    };
+    for (const side of ["drivers", "sinks"] as const)
+      for (const e of net[side])
+        if (!boundaries.has(e.component) && !seen[side].has(key(e))) {
+          group[side].push(e);
+          seen[side].add(key(e));
+        }
+    merged.set(root, group);
+    members.set(root, seen);
+  });
+  nets.length = 0;
+  for (const net of merged.values()) nets.push(net);
+  for (const net of nets)
+    for (const sink of net.sinks) {
+      if (sources.has(key(sink)))
+        diagnostics.push({
+          code: "invalidProject",
+          severity: "error",
+          component: sink.component,
+          port: sink.port,
+        });
+      sources.set(key(sink), net.drivers);
     }
-    if (out.width !== input.width)
-      diagnostics.push({
-        code: "widthMismatch",
-        severity: "error",
-        component: b!.id,
-        port: input.id,
-        args: { expected: input.width, actual: out.width },
-      });
-    const k = key(w.to);
-    if (sources.has(k) && key(sources.get(k)!) !== key(w.from))
-      diagnostics.push({
-        code: "multipleDrivers",
-        severity: "error",
-        component: b!.id,
-        port: input.id,
-      });
-    sources.set(k, w.from);
+  for (const [id, index] of boundaryNet) {
+    const drivers = merged.get(find(index))!.drivers;
+    sources.set(id + ":in", drivers);
+    sources.set(id + ":out", drivers);
   }
   for (const c of components)
     for (const p of ports(c).filter((p) => p.direction === "in"))
-      if (!sources.has(c.id + ":" + p.id))
+      if (!sources.get(c.id + ":" + p.id)?.length)
         diagnostics.push({
           code: "undriven",
           severity: "warning",
@@ -224,6 +291,7 @@ export function compile(project: Project, root = project.root): Compiled {
     const incoming = new Set<string>();
     for (const p of ports(c).filter(
       (p) =>
+        !boundaries.has(c.id) &&
         p.direction === "in" &&
         !["register", "dff", "counter", "keyboard", "terminal"].includes(
           c.kind,
@@ -232,7 +300,7 @@ export function compile(project: Project, root = project.root): Compiled {
         (c.kind !== "ram" || p.id === "addr"),
     )) {
       const src = sources.get(c.id + ":" + p.id);
-      if (src) incoming.add(src.component);
+      for (const driver of src ?? []) incoming.add(driver.component);
     }
     deps.set(c.id, incoming);
     for (const src of incoming) {
@@ -257,5 +325,14 @@ export function compile(project: Project, root = project.root): Compiled {
         severity: "error",
         component: c.id,
       });
-  return { components, wires, order, sources, diagnostics, aliases };
+  return {
+    components,
+    wires,
+    order,
+    sources,
+    diagnostics,
+    aliases,
+    nets,
+    boundaries,
+  };
 }

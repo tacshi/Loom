@@ -42,6 +42,7 @@ it("rejects FIFO overflow atomically and restores partially known RAM", () => {
   expect(e.memory.get("RAM/Data RAM")![3]).toEqual({
     value: 7,
     known: 3,
+    highZ: 0,
     width: 8,
   });
   expect(e.devices.get("RAM/Keyboard")).toMatchObject({
