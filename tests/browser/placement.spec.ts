@@ -60,6 +60,11 @@ test("outside release, Escape, blur and lost capture discard the preview", async
   page,
 }) => {
   await ready(page);
+  await page.getByRole("button", { name: "Input", exact: true }).evaluate(el => {
+    el.addEventListener("pointerdown", event => {
+      el.setAttribute("data-test-pointer-id", String((event as PointerEvent).pointerId));
+    });
+  });
   for (const cancel of ["outside", "escape", "blur", "capture"]) {
     await start(page);
     await target(page);
@@ -71,8 +76,12 @@ test("outside release, Escape, blur and lost capture discard the preview", async
       await page
         .getByRole("button", { name: "Input", exact: true })
         .evaluate((el) => {
-          for (let id = 1; id < 10; id++)
-            if (el.hasPointerCapture(id)) el.releasePointerCapture(id);
+          const raw = el.getAttribute("data-test-pointer-id");
+          if (raw === null) throw new Error("No pointerdown recorded");
+          const id = Number(raw);
+          if (!el.hasPointerCapture(id)) throw new Error("Pointer capture was not acquired");
+          el.releasePointerCapture(id);
+          if (el.hasPointerCapture(id)) throw new Error("Pointer capture was not released");
         });
     await page.mouse.up();
     await expect(page.locator(".canvas-host")).not.toHaveAttribute(

@@ -56,3 +56,9 @@ Earlier measurements exposed slow full-circuit redraws. Crossing lookup was inde
 - [Safari offline save/reload](verification/safari-offline.png)
 
 The implementation is available locally. Release sign-off should retain the open limits above until those specific checks are completed.
+
+## Performance checks on shared CI runners
+
+The dense electron-animation test records `electron-performance.json` on every run. Its functional companion checks that animation moves only while running and respects reduced motion. Shared runners do not use a universal absolute frame-time limit because their scheduling and GPU capacity vary.
+
+On a controlled reference host, set `LOOM_ELECTRON_P95_BUDGET_MS=60` (or that host's calibrated budget) when running `tests/browser/electrons.spec.ts`. The test validates the configured budget and fails if the measured P95 exceeds it. Sample validity checks remain unconditional.

@@ -184,6 +184,9 @@ test("counter traces are bounded and name edits preserve runtime state", async (
     )
     .toBeGreaterThan(300);
   await page.getByRole("button", { name: "Pause", exact: true }).click();
+  // Pause is acknowledged by the worker. Capture the reference cycle only
+  // after that state (including its final snapshot) has reached the UI.
+  await expect(page.getByRole("button", { name: "Run clock", exact: true })).toBeVisible();
   const cycle = Number(
     (await page.locator("footer").innerText()).match(/Cycle (\d+)/)![1],
   );
