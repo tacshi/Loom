@@ -61,6 +61,40 @@ export function useSimulation(project: Project) {
     });
     return requestId;
   }
+  const heldButtons = useRef(new Map<string, Set<string>>());
+  const latestButtonInput = useRef((id: string, value: number) => { post({type: "input", id, value}); });
+  latestButtonInput.current = (id, value) => { post({type: "input", id, value}); };
+  function releaseButtons(source?: string) {
+    for (const [id, sources] of heldButtons.current) {
+      if (source) sources.delete(source); else sources.clear();
+      if (!sources.size) { heldButtons.current.delete(id); latestButtonInput.current(id, 0); }
+    }
+  }
+  function button(id: string, down: boolean, source = "pointer") {
+    if (down && (isolated || history?.historical)) return;
+    const sources = heldButtons.current.get(id) ?? new Set<string>();
+    const wasDown = sources.size > 0;
+    if (down) sources.add(source); else if (source === "all") sources.clear(); else sources.delete(source);
+    if (sources.size) heldButtons.current.set(id, sources); else heldButtons.current.delete(id);
+    if (wasDown !== (sources.size > 0)) latestButtonInput.current(id, Number(sources.size > 0));
+  }
+  useEffect(() => {
+    const pointerUp = () => releaseButtons("pointer"), blur = () => releaseButtons();
+    const keyUp = (e: KeyboardEvent) => releaseButtons("key:" + e.key);
+    const hidden = () => { if (document.visibilityState === "hidden") releaseButtons(); };
+    window.addEventListener("pointerup", pointerUp, true);
+    window.addEventListener("pointercancel", pointerUp, true);
+    window.addEventListener("keyup", keyUp, true);
+    window.addEventListener("blur", blur);
+    document.addEventListener("visibilitychange", hidden);
+    return () => {
+      releaseButtons();
+      window.removeEventListener("pointerup", pointerUp, true); window.removeEventListener("pointercancel", pointerUp, true);
+      window.removeEventListener("keyup", keyUp, true); window.removeEventListener("blur", blur);
+      document.removeEventListener("visibilitychange", hidden);
+    };
+  }, []);
+  useEffect(() => { heldButtons.current.clear(); }, [project.id, project.root, sig]);
   useEffect(() => {
     const w = new Worker(new URL("./worker.ts", import.meta.url), {
       type: "module",
@@ -183,6 +217,7 @@ export function useSimulation(project: Project) {
       | "backInstruction",
     hz = 10,
   ) => {
+    if (["reset", "back", "backInstruction"].includes(type)) releaseButtons();
     setReason("");
     if (["reset", "back", "backInstruction"].includes(type)) {
       setTrace([]);
@@ -209,6 +244,7 @@ export function useSimulation(project: Project) {
     return promise;
   };
   const seek = (run: number, position: Position) => {
+    releaseButtons();
     setReason("");
     setTrace([]);
     latestSeek.current = post({ type: "seek", run, position });
@@ -222,6 +258,8 @@ export function useSimulation(project: Project) {
     latestRange.current = post({ type: "range", run, start, end, probes });
   };
   return {
+    button,
+    releaseButtons,
     captured,
     clearCaptured: () => setCaptured(undefined),
     isolated,

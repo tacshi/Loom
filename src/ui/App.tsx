@@ -1,4 +1,5 @@
-import { builtinCircuits, shiftExample, encoderExample } from "../examples/components";
+import MomentaryButton from "./MomentaryButton";
+import { builtinCircuits, shiftExample, encoderExample, buttonExample } from "../examples/components";
 import { closure } from "../library/package";
 import Help from "./Help";
 import { sevenSegmentExample } from "../examples/sevenSegment";
@@ -216,6 +217,7 @@ export default function App() {
     }
   }
   async function openProject(p: Project, initialFocus?: string) {
+    sim.releaseButtons();
     setOpeningId(p.id);
     if (persistence.writable && !(await persistence.flush())) {
       setNotice(t("saveFailed"));
@@ -275,6 +277,7 @@ export default function App() {
     if (edit(p => { Object.assign(p.circuits, definitions); p.circuits[activeId].components.push(c); })) setSelected([c.id]);
   }
   function remove() {
+    sim.releaseButtons();
     if (!selected.length) return;
     edit((p) => removeSelection(p, activeId, selected));
     setSelected([]);
@@ -887,6 +890,7 @@ export default function App() {
                 const factories = {
                   shift: shiftExample,
                   encoder: encoderExample,
+                  button: buttonExample,
                   segments: () => sevenSegmentExample(),
                   segmentCounter: () => sevenSegmentExample("counter"),
                   segmentRom: () => sevenSegmentExample("rom"),
@@ -914,6 +918,7 @@ export default function App() {
               }}
             >
               <option value="">{t("examples")}</option>
+              <option value="button">{t("buttonExample")}</option>
               <option value="encoder">{t("encoderExample")}</option>
               <option value="shift">{t("shiftExample")}</option>
               <option value="segments">{t("segmentsExample")}</option>
@@ -1124,6 +1129,7 @@ export default function App() {
               }
             }}
             values={displayValues}
+            button={(id, down) => sim.button(instancePath + id, down)}
             toggle={toggle}
             focus={focus}
             pending={pending}
@@ -1238,6 +1244,12 @@ export default function App() {
           </div>
           {component ? (
             <>
+              {component.kind === "button" && <MomentaryButton
+                held={sim.snapshot.values[instancePath + component.id + ":out"]?.value === 1}
+                disabled={!persistence.writable || sim.isolated || !!sim.history?.historical}
+                change={(down, source) => sim.button(instancePath + component.id, down, source)}
+                label={t("holdButton")}
+              />}
               <div className="selection-title">
                 <span className="type-dot" />
                 {t(component.kind)}
@@ -1258,7 +1270,7 @@ export default function App() {
                   }
                 />
               </label>
-              {component.kind !== "sevenSegment" && (
+              {!["sevenSegment", "button"].includes(component.kind) && (
                 <label>
                   {t("width")}
                   <input

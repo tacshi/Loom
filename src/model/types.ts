@@ -1,6 +1,7 @@
 import type { CourseState } from "../course/types";
 export type Point = { x: number; y: number };
 export type Kind =
+  | "button"
   | "input"
   | "constant"
   | "probe"

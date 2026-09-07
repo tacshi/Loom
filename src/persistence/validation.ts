@@ -2,6 +2,7 @@ import { validateV2 } from "./v2Validation";
 import type { Project, Kind } from "../model/types";
 const kinds = new Set<Kind>([
   "input",
+  "button",
   "constant",
   "probe",
   "not",

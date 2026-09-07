@@ -47,6 +47,7 @@ export type CanvasProps = {
   segment: (id: string, index: number, at: Point) => void;
   branch: (id: string, at: Point) => void;
   toggle?: (id: string) => void;
+  button?: (id: string, down: boolean) => void;
   enter?: (id: string) => void;
   values?: Record<string, string>;
   path?: string;
@@ -72,6 +73,7 @@ function Canvas({
   segment,
   branch,
   toggle,
+  button,
   enter,
   values = {},
   path = "",
@@ -699,6 +701,7 @@ function Canvas({
                     selected={false}
                     dark={dark}
                     value={value}
+                    button={button}
                     segments={
                       c.kind === "sevenSegment"
                         ? ["a", "b", "c", "d", "e", "f", "g", "dp"]
@@ -913,6 +916,7 @@ type GlyphProps = {
   selected: boolean;
   dark: boolean;
   value?: string;
+  button?: CanvasProps["button"];
   segments?: string;
   pending?: Endpoint;
   scale: number;
@@ -929,6 +933,7 @@ const ComponentGlyph = memo(
     selected,
     dark,
     value,
+    button,
     segments,
     pending,
     scale,
@@ -979,7 +984,13 @@ const ComponentGlyph = memo(
           fill={colors.text}
           ellipsis
         />
-        {c.kind === "sevenSegment" ? (
+        {c.kind === "button" ? (
+          <Group onMouseDown={e => {e.cancelBubble=true;}} onPointerDown={e => { if(readOnly || e.evt.button !== 0)return; e.cancelBubble=true; (e.evt.target as Element)?.setPointerCapture?.(e.evt.pointerId); button?.(c.id,true); }}
+            onPointerUp={e => {e.cancelBubble=true;button?.(c.id,false);}} onPointerCancel={() => button?.(c.id,false)}>
+            <Rect x={30} y={g.h / 2 - 24} width={60} height={36} cornerRadius={6} fill={value === "1" ? "#25815c" : colors.surface} stroke={colors.line} />
+            <Text x={30} y={g.h / 2 - 16} width={60} align="center" text={value === "1" ? "1" : "0"} fill={value === "1" ? "#fff" : colors.text} listening={false} />
+          </Group>
+        ) : c.kind === "sevenSegment" ? (
           <SevenSegment
             width={g.w}
             height={g.h}
@@ -996,6 +1007,7 @@ const ComponentGlyph = memo(
               value ??
               {
                 input: "0",
+                button: "0",
                 constant: "1",
                 probe: "—",
                 not: "¬",
@@ -1086,6 +1098,7 @@ const ComponentGlyph = memo(
     a.selected === b.selected &&
     a.dark === b.dark &&
     a.value === b.value &&
+    (a.c.kind !== "button" || a.button === b.button) &&
     a.segments === b.segments &&
     a.pending === b.pending &&
     a.scale === b.scale &&
@@ -1169,6 +1182,7 @@ export default memo(
     a.focus === b.focus &&
     a.readOnly === b.readOnly &&
     a.panMode === b.panMode &&
+    a.button === b.button &&
     a.running === b.running &&
     a.notice === b.notice,
 );

@@ -127,3 +127,7 @@ Canvas notices do not move the circuit. Selecting an already visible component p
 **8-input priority encoder** is under Arithmetic & buses. It reports the highest asserted request (7 wins over 0). With no request, valid and index are zero. The example exposes eight switches and output probes.
 
 “8 路优先编码器”输出编号最大的有效请求；无请求时 valid 和 index 均为 0。
+
+**Momentary button** drives 1 while held and 0 when released. Press its center on the canvas or use **Hold** in the Inspector with the pointer, Space or Enter. Drag its outer body to move it. It releases on cancellation, focus loss and reset; it does not clock the circuit automatically. The counter-reset example demonstrates it. Held state is recorded in runtime history, not saved as a project default.
+
+“瞬时按钮”按住时输出 1，松开时输出 0；属性中的“按住”支持空格和回车。失去焦点、取消或复位会释放按钮。按钮本身不会推进时钟。

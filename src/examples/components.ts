@@ -58,7 +58,8 @@ export function shiftExample(): Project {
 export function priorityEncoder(): Project {
   const b = new GateBuilder("8-input priority encoder"),
     requests = b.bits(b.input("requests", 8), 8);
-  let index = b.constant(0, 3), valid = requests[0];
+  let index = b.constant(0, 3),
+    valid = requests[0];
   for (let i = 1; i < 8; i++) {
     const next = b.node("mux", 3, "Priority " + i);
     b.connect(...index, next[0], "a");
@@ -66,7 +67,8 @@ export function priorityEncoder(): Project {
     b.connect(...requests[i], next[0], "sel");
     index = next;
     const any = b.node("or", 1, "Any request " + i);
-    b.connect(...valid, any[0], "a"); b.connect(...requests[i], any[0], "b");
+    b.connect(...valid, any[0], "a");
+    b.connect(...requests[i], any[0], "b");
     valid = any;
   }
   b.output("index", index, 3);
@@ -103,3 +105,16 @@ export const builtinCircuits = [
     create: shiftRegister,
   },
 ];
+
+export function buttonExample(): Project {
+  const b = new Builder("Momentary counter reset");
+  b.add("Enable", "input", 0, 0, 1, 1);
+  b.add("Reset", "button", 0, 160);
+  b.add("Count", "counter", 200, 0, 8);
+  b.add("Value", "probe", 400, 0, 8);
+  b.connect("Enable", "out", "Count", "en");
+  b.connect("Reset", "out", "Count", "rst");
+  b.connect("Count", "q", "Value", "in");
+  rerouteAutomatic(b.c, b.p);
+  return b.p;
+}

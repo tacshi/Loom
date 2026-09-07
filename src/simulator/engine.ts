@@ -108,6 +108,7 @@ export class Engine {
     this.memory.clear();
     if (!this.valid) return;
     for (const c of this.compiled.components) {
+      if (c.kind === "button") this.inputs.delete(c.id);
       const device = initialDevice(c.kind);
       if (device) this.devices.set(c.id, device);
       if (["register", "dff", "counter"].includes(c.kind))
@@ -140,6 +141,9 @@ export class Engine {
       const a = () => read("a"),
         b = () => read("b");
       switch (c.kind) {
+        case "button":
+          put("out", signal(this.inputs.get(c.id) ?? 0, 1));
+          break;
         case "input":
         case "constant":
         case "portIn":

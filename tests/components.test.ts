@@ -45,3 +45,16 @@ it("priority encoder checks every request byte and preserves highest priority", 
     );
   }
 }, 15000);
+
+it("momentary input resets released but history can restore a held state", async () => {
+  const { buttonExample } = await import("../src/examples/components");
+  const e = new Engine(buttonExample());
+  e.setInput("Reset", 1);
+  const held = e.capture();
+  expect(e.get("Reset", "out").value).toBe(1);
+  expect(e.cycle).toBe(0);
+  e.reset();
+  expect(e.get("Reset", "out").value).toBe(0);
+  e.restore(held);
+  expect(e.get("Reset", "out").value).toBe(1);
+});
