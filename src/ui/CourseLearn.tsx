@@ -1,6 +1,5 @@
-import { format, type Signal } from "../simulator/signal";
-import { signalLabel } from "../model/nets";
-import { useEffect, useRef, useState } from "react";
+import { chapters, type LearningStage } from "../course/lessons";
+import { useEffect, useRef, useState, useMemo } from "react";
 import type { Project } from "../model/types";
 import { emptyProject } from "../model/types";
 import type { CourseCheck, ExerciseId, CourseResponse } from "../course/types";
@@ -19,39 +18,29 @@ export default function CourseLearn({
   lang,
   open,
   edit,
-  inspect,
-  reference,
   t,
   isolated,
+  stage,
+  onScene,
+  onResults,
+  runToken,
+  cancelCheckRef,
 }: {
+  stage: LearningStage;
+  onScene: (p: Project | undefined, stage: LearningStage) => void;
+  onResults: (result: CourseCheck) => void;
+  runToken: number;
+  cancelCheckRef: React.RefObject<() => void>;
   isolated: boolean;
   t: (key: string) => string;
   project: Project;
   lang: "en" | "zh";
   open: (p: Project) => Promise<void>;
   edit: (f: (p: Project) => void) => boolean;
-  inspect: (r: CourseCheck) => void;
-  reference: (p: Project) => void;
 }) {
   const zh = lang === "zh",
     label = (en: string, cn: string) => (zh ? cn : en),
     index = zh ? 1 : 0;
-  const signalValue = (value: unknown, expected?: unknown) => {
-    if (
-      value &&
-      typeof value === "object" &&
-      "value" in value &&
-      "known" in value
-    ) {
-      if ("width" in value && "highZ" in value) return format(value as Signal);
-      const v = value as { value: number; known: number };
-      const target = expected as { known?: number } | undefined;
-      return v.known === 0 || (target && v.known !== target.known)
-        ? "X"
-        : String(v.value);
-    }
-    return typeof value === "string" ? JSON.stringify(value) : String(value);
-  };
   const message = (text: string) => {
     const messages: Record<string, string> = {
       "Complete prerequisite checks first": "请先通过前置练习的检查。",
@@ -79,9 +68,18 @@ export default function CourseLearn({
       .map((k) => t(k))
       .join(", ");
   };
+  const [predictions, setPredictions] = useState<(number | undefined)[]>([
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    ]),
+    [revealPrediction, setRevealPrediction] = useState(false);
+  const [lessonsOpen, setLessonsOpen] = useState(false),
+    [step, setStep] = useState(0);
   const [checking, setChecking] = useState<ExerciseId>();
   const [selected, setSelected] = useState<ExerciseId>(
-      project.course?.active ?? "nand",
+      project.course?.active ?? "signals",
     ),
     [result, setResult] = useState<CourseCheck>(),
     [busy, setBusy] = useState(false),
@@ -92,10 +90,15 @@ export default function CourseLearn({
     request = useRef(0),
     current = useRef(project);
   current.current = project;
+  cancelCheckRef.current = () => {
+    request.current++;
+    stop.current();
+    setBusy(false);
+  };
   const callbacks = useRef({ edit });
   callbacks.current = { edit };
   useEffect(() => {
-    setSelected(project.course?.active ?? "nand");
+    setSelected(project.course?.active ?? "signals");
     setResult(undefined);
     setError("");
     stop.current();
@@ -116,14 +119,39 @@ export default function CourseLearn({
     };
   }, [project.circuits, project.root, project.course?.drafts, selected]);
   const spec = exercise(selected),
-    active = project.course?.active === selected,
     record = project.course?.accepted[selected],
     passed =
       !!record &&
       record.hash === hash &&
       record.exerciseRevision === spec.revision &&
       !project.course?.needsVerification;
+  useEffect(() => {
+    setStep(0);
+    setPredictions([undefined, undefined, undefined, undefined]);
+    setRevealPrediction(false);
+    const id = project.course?.active;
+    if (id) {
+      const saved =
+        project.course?.stages?.[id] ??
+        (project.course?.accepted[id] ? "challenge" : "demonstration");
+      onScene(
+        saved === "challenge" ? undefined : exercise(id).demonstration(),
+        saved,
+      );
+    }
+  }, [project.id, project.course?.active]);
+  const lastRun = useRef(runToken);
+  useEffect(() => {
+    if (lastRun.current === runToken) return;
+    lastRun.current = runToken;
+    if (project.course && stage === "challenge") check();
+  }, [runToken]);
+  const interfacePorts = useMemo(() => {
+    const p = spec.reference();
+    return p.circuits[p.root].ports;
+  }, [spec]);
   function check(reverify = false) {
+    if (!reverify && stage !== "challenge") return;
     stop.current();
     const w = new Worker(new URL("../course/worker.ts", import.meta.url), {
       type: "module",
@@ -173,7 +201,21 @@ export default function CourseLearn({
           });
         } else if (data.result) {
           const r = data.result;
+          const root = current.current.course?.drafts[selected];
+          if (
+            !root ||
+            current.current.id !== project.id ||
+            current.current.course?.active !== selected ||
+            (await electricalHash(current.current, root)) !==
+              (await electricalHash(project, project.course!.drafts[selected]!))
+          )
+            throw new Error("Circuit changed; check again");
+          if (id !== request.current) return;
           setResult(r);
+          onResults({
+            ...r,
+            message: r.message ? message(r.message) : undefined,
+          });
           if (r.status === "passed") {
             const checkedProject = current.current;
             const next = structuredClone(checkedProject);
@@ -207,249 +249,251 @@ export default function CourseLearn({
         <h2>{label("Build your own computer", "构建自己的计算机")}</h2>
         <p>
           {label(
-            "Build logic, reuse your verified components, and run a calculator on your own CPU.",
-            "构建逻辑、复用验证后的元件，并在自己的 CPU 上运行计算器。",
+            "Start with on/off signals. Build gates, memory, and a computer that runs your calculator.",
+            "从开关信号开始，构建逻辑门、存储器，直到运行计算器的计算机。",
           )}
         </p>
-        <button
-          className="primary"
-          onClick={() => {
-            const p = newCourse();
-            if (zh) {
-              p.name = "构建自己的计算机";
-              p.circuits[p.root].name = exercise("nand").title[1];
-            }
-            void open(p);
-          }}
-        >
+        <button className="primary" onClick={() => {const p=newCourse();p.name=label("Build your own computer","构建自己的计算机");void open(p);}}>
           {label("Start course", "开始课程")}
         </button>
       </section>
     );
+  const chooseStage = (next: LearningStage) => {
+    setStep(0);
+    setResult(undefined);
+    setError("");
+    stop.current();
+    request.current++;
+    setBusy(false);
+    const scene = next === "challenge" ? undefined : spec.demonstration();
+    if (scene && next === "practice") {
+      scene.circuits[scene.root].wires = [];
+      scene.circuits[scene.root].nets = [];
+    }
+    onScene(scene, next);
+  };
   return (
     <section className="course-learn">
       <div className="course-heading">
-        <h2>{label("Build your own computer", "构建自己的计算机")}</h2>
-        <button onClick={() => void open(emptyProject())}>
-          {label("Open sandbox", "打开自由工程")}
+        <h2>{spec.title[index]}</h2>
+        <button
+          aria-expanded={lessonsOpen}
+          onClick={() => setLessonsOpen(!lessonsOpen)}
+        >
+          {label("Lessons", "课程目录")}
         </button>
       </div>
-      <nav aria-label={label("Course exercises", "课程练习")}>
-        {exercises.map((e, i) => (
-          <button
-            key={e.id}
-            className={selected === e.id ? "active" : ""}
-            onClick={() => {
-              setSelected(e.id);
-              setResult(undefined);
-            }}
-          >
-            {i + 1}. {e.title[index]}
-            {project.course!.accepted[e.id] &&
-            !project.course!.needsVerification
-              ? " ✓"
-              : ""}
-          </button>
-        ))}
-      </nav>
+      {lessonsOpen && (
+        <nav aria-label={label("Course exercises", "课程练习")}>
+          {Object.entries(chapters).map(([chapter, title]) => (
+            <section key={chapter}>
+              <h3>{title[index]}</h3>
+              {exercises
+                .filter((e) => e.lesson.chapter === chapter)
+                .map((e) => (
+                  <button
+                    key={e.id}
+                    disabled={!available(project, e.id)}
+                    aria-current={e.id === selected ? "step" : undefined}
+                    onClick={() => {
+                      edit((p) => activateExercise(p, e.id));
+                      setLessonsOpen(false);
+                    }}
+                  >
+                    {e.title[index]}
+                    {project.course?.accepted[e.id] ? " ✓" : ""}
+                  </button>
+                ))}
+            </section>
+          ))}
+        </nav>
+      )}
       {project.course.needsVerification && (
-        <div role="status">
+        <>
           <p>
             {label(
-              "Recheck imported course work to unlock dependent exercises.",
-              "重新检查导入的课程成果以解锁后续练习。",
+              "Check imported progress before continuing.",
+              "继续学习前，请验证导入的进度。",
             )}
           </p>
-          <button disabled={busy || isolated} onClick={() => check(true)}>
-            {label("Reverify course", "重新验证课程")}
+          <button onClick={() => check(true)} disabled={busy}>
+            {label("Verify progress", "验证进度")}
           </button>
-        </div>
-      )}
-      <h3>{spec.title[index]}</h3>
-      <p>{spec.objective[index]}</p>
-          {selected === "nand" && <p>{label("To connect pins, click an output, then an input.", "连接引脚时，先点击输出，再点击输入。")}</p>}
-      {!available(project, selected) && (
-        <p>
-          {label("Complete first: ", "请先完成：")}
-          {spec.prerequisites.map((id) => exercise(id).title[index]).join(", ")}
-        </p>
-      )}
-      {!active ? (
-        <button
-          disabled={!available(project, selected) || busy || isolated}
-          onClick={() => {
-            const p = structuredClone(project);
-            activateExercise(p, selected);
-            void open(p);
-          }}
-        >
-          {project.course.drafts[selected]
-            ? label("Resume exercise", "继续练习")
-            : label("Start exercise", "开始练习")}
-        </button>
-      ) : (
-        <>
-          <details>
-            <summary>{label("Interface", "接口")}</summary>
-            {project.circuits[project.root].ports.map((p) => (
-              <p key={p.id}>
-                {p.id} · {p.direction} · {p.width}b
-              </p>
-            ))}
-            {["cpu", "calculator"].includes(selected) && (
-              <p>
-                {label(
-                  "Keep the supplied storage IDs. Instructions are opcode in bits 8–15 and operand in bits 0–7; fetch then execute.",
-                  "保留提供的存储元件 ID。指令高 8 位是操作码、低 8 位是操作数；先取指再执行。",
-                )}
-              </p>
-            )}
-            {selected === "control" && (
-              <p>
-                {label(
-                  "Control bits 0–7: fetch, execute, accumulator enable, carry enable, memory write, halt enable, output enable, take jump. active = NOT halt. Opcodes 14–255 are invalid.",
-                  "控制位 0–7：取指、执行、累加器使能、进位使能、内存写入、停机使能、输出使能、跳转。active = NOT halt。操作码 14–255 非法。",
-                )}
-              </p>
-            )}
-            {["alu", "cpu", "control", "calculator"].includes(selected) && (
-              <p>
-                {label(
-                  "Opcodes: 0 NOP, 1 LDI, 2 LDA, 3 STA, 4 ADD, 5 SUB, 6 AND, 7 OR, 8 XOR, 9 JMP, 10 JZ, 11 JC, 12 OUT, 13 HLT. SUB carry means no borrow.",
-                  "操作码：0 NOP、1 LDI、2 LDA、3 STA、4 ADD、5 SUB、6 AND、7 OR、8 XOR、9 JMP、10 JZ、11 JC、12 OUT、13 HLT。SUB 的 carry 表示无借位。",
-                )}
-              </p>
-            )}
-            {selected === "seven-segment" && (
-              <p>
-                {label(
-                  "Glyphs: 0–9, A, b, C, d, E, F. Hex masks in that order: 3F 06 5B 4F 66 6D 7D 07 7F 6F 77 7C 39 5E 79 71. Connect segments to the supplied digit as well as the output port.",
-                  "字形：0–9、A、b、C、d、E、F。对应十六进制段码：3F 06 5B 4F 66 6D 7D 07 7F 6F 77 7C 39 5E 79 71。将段码同时连接到提供的数码管和输出端口。",
-                )}
-              </p>
-            )}
-            {["io", "calculator"].includes(selected) && (
-              <p>
-                {label(
-                  "Addresses: 00–EF RAM; F0 keyboard ready, F1 keyboard data, F2 terminal write, F3 clear bits (terminal bit 0/display bit 1), F4 X, F5 Y, F6 pixel, F7 segments. F1 consumes only on a qualified rising-edge read.",
-                  "地址：00–EF RAM；F0 键盘就绪，F1 键盘数据，F2 终端写入，F3 清除位（终端第 0 位/显示第 1 位），F4 X，F5 Y，F6 像素，F7 段码。F1 仅在有效上升沿读取时消耗字节。",
-                )}
-              </p>
-            )}
-          </details>
-          <button
-            className="primary"
-            disabled={busy || isolated || project.course.needsVerification}
-            onClick={() => check()}
-          >
-            {busy
-              ? label("Checking…", "检查中…")
-              : label("Check circuit", "检查电路")}
-          </button>
-          {passed && (
-            <p role="status">
-              {label("Verified component saved.", "已保存验证后的元件。")}
-            </p>
-          )}
-          {!passed && result && result.status !== "passed" && (
-            <div role="status">
-              <p>
-                {label("Check result: ", "检查结果：")}
-                {label(
-                  result.status,
-                  {
-                    blocked: "前置检查未完成",
-                    invalid: "电路无效",
-                    failed: "行为不符",
-                    passed: "通过",
-                    limit: "达到执行上限",
-                  }[result.status],
-                )}
-              </p>
-              {result.message && <p>{message(result.message)}</p>}
-              {result.results.find((r) => r.failure) &&
-                (() => {
-                  const failure = result.results.find(
-                    (r) => r.failure,
-                  )!.failure!;
-                  const caseIndex = result.results.findIndex((r) => r.failure);
-                  const inputs =
-                    result.cases[caseIndex]?.steps[failure.step]?.inputs ?? [];
-                  return (
-                    <>
-                      <p>
-                        {inputs
-                          .map((i) => signalLabel(i.ref) + " = " + i.value)
-                          .join(", ")}
-                      </p>
-                      <p>
-                        {label("Signal: ", "信号：")}
-                        {signalLabel(failure.assertion.ref)}
-                      </p>
-                      <p>
-                        {label("Cycle", "周期")} {failure.cycle} ·{" "}
-                        {label("Expected", "预期")}{" "}
-                        {signalValue(failure.expected)} ·{" "}
-                        {label("Actual", "实际")}{" "}
-                        {signalValue(failure.actual, failure.expected)}
-                      </p>
-                      <button
-                        disabled={result.hash !== hash}
-                        onClick={() => inspect(result)}
-                      >
-                        {label("Inspect failure", "检查失败")}
-                      </button>
-                    </>
-                  );
-                })()}
-            </div>
-          )}
-          {passed && selected === "seven-segment" && (
-            <button
-              onClick={() => void open(counterWithAcceptedDecoder(project))}
-            >
-              {label("Try in counter", "用于计数器")}
-            </button>
-          )}
-          {passed && nextExercise(selected) && (
-            <button
-              className="primary"
-              onClick={() => {
-                const p = structuredClone(project);
-                activateExercise(p, nextExercise(selected)!.id);
-                void open(p);
-              }}
-            >
-              {label("Continue", "继续")}
-            </button>
-          )}
-          {passed && !nextExercise(selected) && (
-            <p>
-              {label(
-                "Your computer passed the calculator checks.",
-                "你的计算机已通过计算器检查。",
-              )}
-            </p>
-          )}
         </>
       )}
-      {busy && (
-        <div role="status">
-          <p>
-            {label("Checking ", "正在检查 ")}
-            {checking ? exercise(checking).title[index] : spec.title[index]}…
-          </p>
+      <div
+        className="learning-stages"
+        aria-label={label("Learning stages", "学习阶段")}
+      >
+        {(["demonstration", "practice", "challenge"] as const).map((s, i) => (
           <button
-            onClick={() => {
-              request.current++;
-              stop.current();
-              setBusy(false);
-              setChecking(undefined);
-            }}
+            key={s}
+            aria-current={stage === s ? "step" : undefined}
+            onClick={() => chooseStage(s)}
           >
-            {label("Cancel check", "取消检查")}
+            {
+              [
+                label("Explore", "观察"),
+                label("Practice", "练习"),
+                label("Challenge", "挑战"),
+              ][i]
+            }
           </button>
-        </div>
+        ))}
+      </div>
+      <p>{spec.lesson.concept[index]}</p>
+      {stage === "demonstration" ? (
+        <>
+          <p>{spec.lesson.tryIt[index]}</p>
+          {selected === "nand" && (
+            <div className="nand-prediction">
+              <h3>{label("Predict NAND", "预测与非结果")}</h3>
+              <table>
+                <thead>
+                  <tr>
+                    <th>a b</th>
+                    <th>{label("Your output", "你的输出")}</th>
+                    <th>{label("Result", "结果")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[0, 1, 2, 3].map((n) => (
+                    <tr key={n}>
+                      <td>{n.toString(2).padStart(2, "0")}</td>
+                      <td>
+                        <button
+                          aria-label={`${label("Predict", "预测")} ${n.toString(2).padStart(2, "0")}`}
+                          onClick={() => {
+                            setPredictions((v) =>
+                              v.map((x, i) =>
+                                i === n ? (x === undefined ? 0 : 1 - x) : x,
+                              ),
+                            );
+                            setRevealPrediction(false);
+                          }}
+                        >
+                          {predictions[n] ?? "?"}
+                        </button>
+                      </td>
+                      <td>
+                        {revealPrediction
+                          ? predictions[n] === (n === 3 ? 0 : 1)
+                            ? "✓"
+                            : label("Try again", "再试一次")
+                          : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <button
+                disabled={predictions.some((n) => n === undefined)}
+                onClick={() => setRevealPrediction(true)}
+              >
+                {label("Check prediction", "检查预测")}
+              </button>
+            </div>
+          )}
+          <button className="primary" onClick={() => chooseStage("practice")}>
+            {label("Try building it", "动手构建")}
+          </button>
+        </>
+      ) : (
+        <>
+          <p className="lesson-objective">{spec.objective[index]}</p>
+          {stage === "practice" ? (
+            <div className="guided-step">
+              <strong>
+                {label("Step", "步骤")} {step + 1}/{spec.lesson.steps.length}
+              </strong>
+              <p>{spec.lesson.steps[step][index]}</p>
+              <button disabled={step === 0} onClick={() => setStep(step - 1)}>
+                {label("Previous", "上一步")}
+              </button>
+              <button
+                onClick={() =>
+                  step + 1 < spec.lesson.steps.length
+                    ? setStep(step + 1)
+                    : chooseStage("challenge")
+                }
+              >
+                {step + 1 < spec.lesson.steps.length
+                  ? label("Next step", "下一步")
+                  : label("Start independent challenge", "开始独立挑战")}
+              </button>
+            </div>
+          ) : (
+            <>
+              <p>
+                {label(
+                  "Build your own solution, then use Run tests above the canvas.",
+                  "独立构建解法，再使用画布上方的“运行测试”。",
+                )}
+              </p>
+              {busy && project.course.needsVerification && (
+                <p role="status">
+                  {label("Checking", "正在检查")}{" "}
+                  {checking && exercise(checking).title[index]}{" "}
+                  <button
+                    onClick={() => {
+                      request.current++;
+                      stop.current();
+                      setBusy(false);
+                    }}
+                  >
+                    {label("Cancel", "取消")}
+                  </button>
+                </p>
+              )}
+              {passed && (
+                <>
+                  {selected === "seven-segment" && (
+                    <button
+                      onClick={() =>
+                        void open(counterWithAcceptedDecoder(project))
+                      }
+                    >
+                      {label("Try in counter", "用于计数器")}
+                    </button>
+                  )}
+                  {selected === "calculator" && (
+                    <p>
+                      {label(
+                        "Your computer passed the calculator checks.",
+                        "你的计算机已通过计算器检查。",
+                      )}
+                    </p>
+                  )}
+                  <p role="status">
+                    {label("Verified component saved.", "已保存验证后的元件。")}
+                  </p>
+                  {nextExercise(selected) && (
+                    <button
+                      className="primary"
+                      onClick={() =>
+                        edit((p) =>
+                          activateExercise(p, nextExercise(selected)!.id),
+                        )
+                      }
+                    >
+                      {label("Continue", "继续")}
+                    </button>
+                  )}
+                </>
+              )}
+              {result && result.status !== "passed" && (
+                <p role="status">
+                  {result.message
+                    ? message(result.message)
+                    : label(
+                        "Inspect the highlighted test below, then revise your circuit.",
+                        "查看下方突出显示的测试，然后修改电路。",
+                      )}
+                </p>
+              )}
+            </>
+          )}
+        </>
       )}
       {error && <p role="alert">{message(error)}</p>}
       <details>
@@ -463,17 +507,21 @@ export default function CourseLearn({
           </details>
         ))}
       </details>
-      <button
-        disabled={isolated}
-        onClick={() => {
-          const p = courseReference(selected);
-          p.courseReference = true;
-          p.name = spec.title[index] + label(" · Reference", " · 参考");
-          p.circuits[p.root].tests = spec.checks();
-          reference(p);
-        }}
-      >
-        {label("Inspect reference", "查看参考电路")}
+      <details>
+        <summary>{label("Interface", "接口")}</summary>
+        {interfacePorts.map((port) => (
+          <p key={port.id}>
+            {port.name} ·{" "}
+            {label(
+              port.direction === "in" ? "input" : "output",
+              port.direction === "in" ? "输入" : "输出",
+            )}{" "}
+            · {port.width} b
+          </p>
+        ))}
+      </details>
+      <button onClick={() => void open(emptyProject())}>
+        {label("Open sandbox", "打开沙盒")}
       </button>
     </section>
   );

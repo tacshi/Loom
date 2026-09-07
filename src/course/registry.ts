@@ -1,3 +1,4 @@
+import { lessons } from "./lessons";
 import { sevenSegmentDecoder, segmentPins } from "../examples/sevenSegment";
 import { assemble } from "../cpu/assembler";
 import {
@@ -143,11 +144,56 @@ done:
 LDI 55
 OUT
 HLT`;
+function foundation(id: ExerciseId): Project {
+  const b = new GateBuilder(id),
+    a = b.input("a");
+  if (id === "signals") b.output("out", a);
+  else if (id === "invert-basics") {
+    const n = b.node("not", 1, "Invert");
+    b.connect(...a, n[0], "a");
+    b.output("out", n);
+  } else {
+    const v = b.input("b"),
+      n = b.node("and", 1, "Both");
+    b.connect(...a, n[0], "a");
+    b.connect(...v, n[0], "b");
+    if (id === "nand") {
+      const inv = b.node("not", 1, "Invert");
+      b.connect(...n, inv[0], "a");
+      b.output("out", inv);
+    } else b.output("out", n);
+  }
+  return layoutGateProject(b.p);
+}
+export function starterProject(id: ExerciseId): Project {
+  const p = courseReference(id),
+    c = p.circuits[p.root];
+  c.wires = [];
+  c.nets = [];
+  c.tests = [];
+  c.vectors = [];
+  c.components = c.components.filter((n) =>
+    [
+      "portIn",
+      "portOut",
+      "register",
+      "ram",
+      "rom",
+      "keyboard",
+      "terminal",
+      "display",
+      "sevenSegment",
+    ].includes(n.kind),
+  );
+  return p;
+}
 const cache = new Map<ExerciseId, Project>();
 export function courseReference(id: ExerciseId): Project {
   let p = cache.get(id);
   if (p) return structuredClone(p);
-  if (
+  if (["signals", "and-basics", "invert-basics", "nand"].includes(id))
+    p = foundation(id);
+  else if (
     [
       "nand",
       "not",
@@ -522,11 +568,29 @@ function checks(id: ExerciseId): TestCase[] {
 }
 const rows: [ExerciseId, Copy, Copy, [Copy, Copy, Copy]][] = [
   [
+    "signals",
+    ["Signals and wires", "信号与导线"],
+    ["Make the output match the input.", "让输出与输入相同。"],
+    lessons.signals.steps as [Copy, Copy, Copy],
+  ],
+  [
+    "and-basics",
+    ["Both inputs must be on (AND)", "两个输入都为开（与）"],
+    ["Output 1 only when both inputs are 1.", "仅在两个输入都为 1 时输出 1。"],
+    lessons["and-basics"].steps as [Copy, Copy, Copy],
+  ],
+  [
+    "invert-basics",
+    ["Flip the signal (NOT)", "翻转信号（非）"],
+    ["Make the output opposite to the input.", "让输出与输入相反。"],
+    lessons["invert-basics"].steps as [Copy, Copy, Copy],
+  ],
+  [
     "nand",
-    ["Binary switches & NAND", "二进制开关与 NAND"],
+    ["Build NAND", "构建与非门"],
     [
-      "Connect two signals to NAND and predict all four results.",
-      "连接两个信号到 NAND，预测四种结果。",
+      "Build NOT AND using an AND gate followed by NOT.",
+      "将与门接入非门，构建与非逻辑。",
     ],
     [
       [
@@ -538,14 +602,14 @@ const rows: [ExerciseId, Copy, Copy, [Copy, Copy, Copy]][] = [
         "改变一个输入，观察 a、b 和 out。",
       ],
       [
-        "Connect a.out → NAND.a, b.out → NAND.b, then NAND.out → out.in.",
-        "连接 a.out → NAND.a、b.out → NAND.b，再连接 NAND.out → out.in。",
+        "Connect a and b to AND, AND to NOT, and NOT to out.",
+        "把 a 和 b 接到与门，与门接到非门，非门接到 out。",
       ],
     ],
   ],
   [
     "not",
-    ["NOT", "非门"],
+    ["Build NOT from NAND", "用与非构建非门"],
     ["Build inversion using NAND.", "用 NAND 构建取反逻辑。"],
     [
       ["Invert 0 to 1 and 1 to 0.", "将 0 变成 1，将 1 变成 0。"],
@@ -558,7 +622,7 @@ const rows: [ExerciseId, Copy, Copy, [Copy, Copy, Copy]][] = [
   ],
   [
     "and-or",
-    ["AND and OR", "与门和或门"],
+    ["Build AND and OR from NAND", "用与非构建与门和或门"],
     ["Build two outputs: AND and OR.", "构建与、或两个输出。"],
     [
       ["NAND already contains an inverted AND.", "NAND 是取反后的 AND。"],
@@ -896,13 +960,31 @@ const rows: [ExerciseId, Copy, Copy, [Copy, Copy, Copy]][] = [
 export const exercises: Exercise[] = rows.map(
   ([id, title, objective, hints], i) => ({
     id,
-    revision: ["half-adder", "io", "calculator"].includes(id) ? 2 : 1,
+    revision:
+      id === "nand"
+        ? 3
+        : ["half-adder", "io", "calculator"].includes(id)
+          ? 2
+          : 1,
+    lesson: lessons[id],
+    demonstration: () => courseReference(id),
+    starter: () => starterProject(id),
+    observed: () =>
+      courseReference(id).circuits[courseReference(id).root].ports.map((p) =>
+        ref(p.componentId, p.direction === "in" ? "out" : "in"),
+      ),
     title,
     objective,
     hints,
     prerequisites: i ? [rows[i - 1][0]] : [],
     allowed: [
-      ...base,
+      ...base.filter(
+        (k) =>
+          !["signals", "and-basics", "invert-basics", "nand"].includes(id) ||
+          ["input","probe","portIn","portOut"].includes(k),
+      ),
+      ...(["and-basics", "nand"].includes(id) ? ["and" as const] : []),
+      ...(["invert-basics", "nand"].includes(id) ? ["not" as const] : []),
       ...(id === "seven-segment" ? ["sevenSegment" as const] : []),
       ...(i >= rows.findIndex((r) => r[0] === "register")
         ? ["register" as const]

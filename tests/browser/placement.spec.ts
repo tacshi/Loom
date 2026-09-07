@@ -252,6 +252,7 @@ test("course palette restrictions and reference read-only state apply to placeme
   await ready(page);
   await page.getByRole("button", { name: "Learn", exact: true }).click();
   await page.getByRole("button", { name: "Start course", exact: true }).click();
+  await page.getByRole("button", { name: "Challenge", exact: true }).click();
   await page.getByRole("button", { name: "Components", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "ROM", exact: true }),
@@ -259,16 +260,16 @@ test("course palette restrictions and reference read-only state apply to placeme
   await expect(
     page.getByRole("button", { name: "8-input priority encoder", exact: true }),
   ).toHaveCount(0);
-  await start(page, "NAND");
+  await start(page, "Input");
   await target(page);
   await page.mouse.up();
   await page.getByRole("button", { name: "Learn", exact: true }).click();
   await page
-    .getByRole("button", { name: "Inspect reference", exact: true })
+    .getByRole("button", { name: "Explore", exact: true })
     .click();
   await page.getByRole("button", { name: "Components", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "NAND", exact: true }),
+    page.getByRole("button", { name: "Input", exact: true }),
   ).toBeDisabled();
   await expect(page.locator(".canvas-host")).not.toHaveAttribute(
     "data-placement",

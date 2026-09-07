@@ -17,3 +17,5 @@ Browser and CLI share validation, compilation, logic evaluation, state semantics
 ## Course checks
 
 `loom course-check course.loom.json --json` revalidates imported completion claims and checks the active exercise against the built-in registry. It does not modify the file. Results include prerequisite/construction failures, behavioral failures, passing checks and execution limits. Exit code 0 means all reported checks passed; 1 means a course check did not pass; malformed input uses 2.
+
+Course files use the current 23-lesson curriculum (`course.curriculum: 2`). `course-check` validates foundation AND/NOT construction and verified NAND reuse, including packaged dependency contents. Test JSON reports include per-step `checkpoints` with applied inputs and expected/actual assertions. The aggregate `course-check` report includes checkpoint counts rather than duplicating these playback details for every completed lesson; replay snapshots are not serialized.

@@ -13,7 +13,7 @@ test("shift-register example exposes editable internals and parallel loading", a
     await page.getByRole("button", { name, exact: true }).click();
     await page.getByLabel("Value", { exact: true }).fill(value);
   }
-  await page.getByRole("button", { name: "Step", exact: true }).click();
+  await page.getByRole("button", { name: "Advance clock", exact: true }).click();
   await page
     .getByRole("button", { name: "Parallel output Probe", exact: true })
     .click();
@@ -124,7 +124,7 @@ test("shared bus displays Z, driven data, contention and recovery", async ({
   await expect(page.locator(".diagnostics")).toContainText("Driver A:out");
   await expect(page.locator(".diagnostics")).toContainText("Driver B:out");
   await expect(
-    page.getByRole("button", { name: "Run", exact: true }),
+    page.getByRole("button", { name: "Run clock", exact: true }),
   ).toBeEnabled();
   await page
     .getByRole("button", { name: "Enable B Input", exact: true })

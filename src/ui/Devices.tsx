@@ -5,7 +5,9 @@ export default function Devices({
   snapshot,
   submit,
   t,
+  readOnly = false,
 }: {
+  readOnly?: boolean;
   snapshot: Snapshot;
   submit: (id: string, text: string) => void;
   t: (s: string) => string;
@@ -20,6 +22,7 @@ export default function Devices({
             <form
               onSubmit={(e) => {
                 e.preventDefault();
+                if(readOnly)return;
                 const text = draft[id] ?? "";
                 if (
                   new TextEncoder().encode(text).length + d.queue.length >
@@ -30,7 +33,7 @@ export default function Devices({
                 setDraft({ ...draft, [id]: "" });
               }}
             >
-              <textarea
+              <textarea disabled={readOnly}
                 aria-label={t("keyboardInput") + " " + id}
                 value={draft[id] ?? ""}
                 onChange={(e) => setDraft({ ...draft, [id]: e.target.value })}
@@ -42,7 +45,7 @@ export default function Devices({
                 <button
                   type="button"
                   disabled={
-                    !draft[id] ||
+                    readOnly || !draft[id] ||
                     new TextEncoder().encode(draft[id] ?? "").length +
                       d.queue.length +
                       1 >
@@ -58,7 +61,7 @@ export default function Devices({
                 <button
                   type="submit"
                   disabled={
-                    !draft[id] ||
+                    readOnly || !draft[id] ||
                     new TextEncoder().encode(draft[id] ?? "").length +
                       d.queue.length >
                       256

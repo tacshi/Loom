@@ -18,19 +18,20 @@ test("calculator, rewind, isolated failure, and test capture", async ({
     .fill("12+34\n255+255\n0-255");
   await page.getByRole("button", { name: "Send line", exact: true }).click();
   await page.getByLabel("Clock speed", { exact: true }).selectOption("100000");
-  await page.getByRole("button", { name: "Run", exact: true }).click();
+  await page.getByRole("button", { name: "Run clock", exact: true }).click();
   const terminal = page.getByRole("log", {
     name: "Terminal output RAM/Terminal",
   });
   await expect(terminal).toHaveText("46\n510\n-255\n", { timeout: 20000 });
   await page.getByRole("button", { name: "Pause", exact: true }).click();
   await page.getByRole("button", { name: "Debug", exact: true }).click();
+  await page.getByRole("button", { name: "Waveforms", exact: true }).click();
   await page.getByLabel("Seek cycle", { exact: true }).fill("100");
   await expect(
     page.getByText("Inspecting history", { exact: true }),
   ).toBeVisible();
   await expect(terminal).toHaveText("");
-  await page.getByRole("button", { name: "Run", exact: true }).click();
+  await page.getByRole("button", { name: "Run clock", exact: true }).click();
   await expect(terminal).toHaveText("46\n510\n-255\n", { timeout: 20000 });
   await page.getByRole("button", { name: "Pause", exact: true }).click();
   await expect(page.getByLabel("Run", { exact: true })).toHaveValue("2");

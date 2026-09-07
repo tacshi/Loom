@@ -14,8 +14,14 @@ import { canonical } from "../model/nets";
 import type { CourseCheck, ExerciseId } from "./types";
 export function newCourse(): Project {
   const p = emptyProject("Build your own computer");
-  p.course = { id: "build-computer", active: "nand", drafts: {}, accepted: {} };
-  activateExercise(p, "nand");
+  p.course = {
+    id: "build-computer",
+    curriculum: 2,
+    active: "signals",
+    drafts: {},
+    accepted: {},
+  };
+  activateExercise(p, "signals");
   return p;
 }
 export function available(p: Project, id: ExerciseId) {
@@ -36,6 +42,7 @@ export function acceptedRoots(p: Project): string[] {
   const at = exercises.findIndex((e) => e.id === p.course?.active);
   return exercises
     .slice(0, at + 1)
+    .filter((e) => !["signals", "and-basics", "invert-basics"].includes(e.id))
     .flatMap((e) =>
       p.course?.accepted[e.id] &&
       p.circuits[p.course.accepted[e.id]!.acceptedRoot]?.ports.length
@@ -99,39 +106,9 @@ export function activateExercise(p: Project, id: ExerciseId) {
   }
   if (!p.course.drafts[id]) {
     const r = courseReference(id),
-      c = structuredClone(r.circuits[r.root]);
+      c = structuredClone(exercise(id).starter().circuits[r.root]);
     c.id = uid();
     c.name = exercise(id).title[0];
-    c.wires = [];
-    c.nets = [];
-    c.tests = [];
-    c.vectors = [];
-    const supplied = new Set([
-      "portIn",
-      "portOut",
-      ...exercise(id).allowed.filter((k) =>
-        [
-          "register",
-          "ram",
-          "rom",
-          "keyboard",
-          "terminal",
-          "display",
-          "sevenSegment",
-        ].includes(k),
-      ),
-    ]);
-    c.components = c.components.filter((n) => supplied.has(n.kind));
-    if (id === "nand")
-      c.components.push({
-        id: "NAND",
-        name: "NAND",
-        kind: "nand",
-        width: 1,
-        x: r.circuits[r.root].components.find((n) => n.kind === "nand")!.x,
-        y: r.circuits[r.root].components.find((n) => n.kind === "nand")!.y,
-        params: {},
-      });
     p.circuits[c.id] = c;
     p.course.drafts[id] = c.id;
     // Previously verified components are supplied as disconnected, immutable building blocks.
@@ -140,6 +117,9 @@ export function activateExercise(p: Project, id: ExerciseId) {
       for (const [lesson, record] of Object.entries(p.course.accepted)) {
         if (
           [
+            "signals",
+            "and-basics",
+            "invert-basics",
             "nand",
             "seven-segment",
             "half-adder",

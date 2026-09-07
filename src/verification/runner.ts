@@ -16,6 +16,17 @@ export type TestFailure = {
   expected: unknown;
   actual: unknown;
 };
+export type CheckpointOutcome = {
+  step: number;
+  cycle: number;
+  inputs: NonNullable<import("../model/types").TestStep["inputs"]>;
+  assertions: {
+    assertion: TestAssertion;
+    expected: unknown;
+    actual: unknown;
+    passed: boolean;
+  }[];
+};
 export type TestResult = {
   id: string;
   name: string;
@@ -24,6 +35,7 @@ export type TestResult = {
   failure?: TestFailure;
   error?: string;
   trace: Snapshot[];
+  checkpoints?: CheckpointOutcome[];
 };
 export const componentKey = (r: SignalRef) =>
   [...r.instancePath, r.componentId].join("/");
@@ -86,7 +98,9 @@ export function runCase(
 ): TestResult {
   validateTest(test);
   const e = new Engine(project, root),
-    trace: Snapshot[] = [];
+    trace: Snapshot[] = [],
+    checkpoints: CheckpointOutcome[] = [];
+  const appliedInputs = new Map<string, { ref: SignalRef; value: number }>();
   const result = (
     status: TestResult["status"],
     extra: Partial<TestResult> = {},
@@ -96,6 +110,7 @@ export function runCase(
     status,
     cycles: e.cycle,
     trace,
+    checkpoints,
     ...extra,
   });
   if (!e.valid)
@@ -123,6 +138,7 @@ export function runCase(
         if (!c || !["input", "portIn", "button"].includes(c.kind))
           return result("invalid", { error: "testInput" });
         e.setInput(c.id, input.value);
+        appliedInputs.set(signalLabel(input.ref), input);
       }
       for (const input of step.keyboard ?? [])
         e.enqueue(componentKey(input.component), input.text);
@@ -140,6 +156,15 @@ export function runCase(
           if (trace.length > 64) trace.shift();
         }
       }
+      const checkpoint: CheckpointOutcome = {
+        step: i,
+        cycle: e.cycle,
+        inputs: [...appliedInputs.values()],
+        assertions: [],
+      };
+      checkpoints.push(checkpoint);
+
+      let failure: TestFailure | undefined;
       for (const assertion of step.assertions) {
         const id = componentKey(assertion.ref),
           c = e.byId.get(id),
@@ -163,11 +188,11 @@ export function runCase(
         )
           return result("invalid", { error: "testInput" });
         const { expected, actual, passed } = assertionValue(e, assertion);
+        checkpoint.assertions.push({ assertion, expected, actual, passed });
         if (!passed)
-          return result("failed", {
-            failure: { step: i, cycle: e.cycle, assertion, expected, actual },
-          });
+          failure ??= { step: i, cycle: e.cycle, assertion, expected, actual };
       }
+      if (failure) return result("failed", { failure });
     }
     return result("passed");
   } catch (error) {

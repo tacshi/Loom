@@ -22,10 +22,18 @@ function submit(
   p.course!.active = id;
   return p;
 }
+async function foundationCourse() {
+  const p = newCourse();
+  for (const id of ["signals","and-basics","invert-basics"] as const) {
+    if(id!=="signals")activateExercise(p,id);
+    submit(p,id); await acceptCheck(p,await checkCourse(p,id));
+  }
+  activateExercise(p,"nand");return p;
+}
 it("all course starters fail and all submitted references can advance in one saved course", async () => {
   const p = newCourse();
   for (const e of exercises) {
-    if (e.id !== "nand") activateExercise(p, e.id);
+    if (e.id !== "signals") activateExercise(p, e.id);
     expect((await checkCourse(p, e.id)).status, e.id + " starter").not.toBe(
       "passed",
     );
@@ -41,7 +49,7 @@ it("all course starters fail and all submitted references can advance in one sav
   expect(Object.keys(imported.course!.accepted)).toHaveLength(exercises.length);
 }, 60000);
 it("ignores edited project tests, rejects hidden forbidden gates, and prevents references awarding credit", async () => {
-  const p = submit(newCourse(), "nand");
+  const p = submit(await foundationCourse(), "nand");
   p.circuits[p.root].tests = [];
   p.circuits[p.root].wires = [];
   p.circuits[p.root].nets = [];
@@ -49,21 +57,21 @@ it("ignores edited project tests, rejects hidden forbidden gates, and prevents r
   submit(p, "nand");
   const d = exercise("not").reference();
   p.circuits = { ...p.circuits, ...d.circuits };
-  d.circuits[d.root].components[0].kind = "not";
+  d.circuits[d.root].components[0].kind = "or";
   p.circuits[d.root] = d.circuits[d.root];
   const n = createComponent("instance", 0, 0);
   n.definitionId = d.root;
   p.circuits[p.root].components.push(n);
-  expect((await checkCourse(p, "nand")).message).toContain("not");
+  expect((await checkCourse(p, "nand")).message).toContain("or");
   p.courseReference = true;
   expect((await checkCourse(p, "nand")).status).toBe("invalid");
 });
 it("preserves accepted snapshots and rejects stale checks after an electrical edit", async () => {
-  const p = submit(newCourse(), "nand"),
+  const p = submit(await foundationCourse(), "nand"),
     r = await checkCourse(p, "nand");
   await acceptCheck(p, r);
   const record = structuredClone(p.course!.accepted.nand!);
-  p.circuits[p.root].components.find((n) => n.kind === "nand")!.kind = "and";
+  p.circuits[p.root].components.find((n) => n.kind === "and")!.kind = "or";
   expect(await electricalHash(p, p.root)).not.toBe(record.hash);
   expect(p.course!.accepted.nand).toEqual(record);
   await expect(acceptCheck(p, r)).rejects.toThrow("changed");
@@ -74,7 +82,7 @@ it("preserves accepted snapshots and rejects stale checks after an electrical ed
   expect(imported.course!.accepted.nand).toBeUndefined();
 });
 it("checks declared width variants rather than assuming a one-bit circuit scales", async () => {
-  const p = submit(newCourse(), "nand"),
+  const p = submit(await foundationCourse(), "nand"),
     c = p.circuits[p.root];
   c.parameters = [{ name: "width", min: 1, max: 8, default: 1 }];
   // All interface and gate widths must be bound; partial widening is invalid.
@@ -84,7 +92,7 @@ it("checks declared width variants rather than assuming a one-bit circuit scales
       "width";
   }
   expect((await checkCourse(p, "nand")).status).toBe("invalid");
-  c.components.find((n) => n.kind === "nand")!.widthParameter = "width";
+  for (const n of c.components.filter(n=>["and","not"].includes(n.kind))) n.widthParameter = "width";
   expect((await checkCourse(p, "nand")).verifiedWidths).toEqual([
     1, 2, 3, 4, 5, 6, 7, 8,
   ]);
@@ -114,7 +122,7 @@ it("the calculator fails when its NAND adder input or I/O read path is disconnec
 
 it("carries the learner’s accepted NAND into NOT and records the actual immutable dependency", async () => {
   const { Builder } = await import("../src/examples/adder");
-  const p = submit(newCourse(), "nand");
+  const p = submit(await foundationCourse(), "nand");
   await acceptCheck(p, await checkCourse(p, "nand"));
   activateExercise(p, "not");
   const c = p.circuits[p.root],
@@ -139,7 +147,7 @@ it("carries the learner’s accepted NAND into NOT and records the actual immuta
 });
 
 it("layout, labels and root input switches preserve accepted electrical identity", async () => {
-  const p = submit(newCourse(), "nand"),
+  const p = submit(await foundationCourse(), "nand"),
     before = await electricalHash(p, p.root),
     c = p.circuits[p.root];
   c.components[0].name = "Renamed";
@@ -190,7 +198,7 @@ it("trusted checks catch reset, carry, opcode-bit and phase wiring faults", asyn
 }, 15000);
 
 it("keeps separate draft assembly text across exercise switches and export", async () => {
-  const p = submit(newCourse(), "nand");
+  const p = submit(await foundationCourse(), "nand");
   await acceptCheck(p, await checkCourse(p, "nand"));
   p.source = "; unfinished first draft";
   p.assembledSource = "";
@@ -203,4 +211,16 @@ it("keeps separate draft assembly text across exercise switches and export", asy
   await reverifyCourse(loaded);
   activateExercise(loaded, "not");
   expect(loaded.source).toBe("; second draft");
+});
+
+it("does not trust altered NAND internals or forged dependency labels", async () => {
+  const p = submit(await foundationCourse(), "nand");
+  await acceptCheck(p, await checkCourse(p,"nand"));
+  activateExercise(p,"not");
+  const { prepareCourseSubmission } = await import("../scripts/course-submission");
+  prepareCourseSubmission(p,"not");
+  expect((await checkCourse(p,"not")).status).toBe("passed");
+  const dependency = p.circuits[p.course!.accepted.nand!.acceptedRoot];
+  dependency.components.find(c=>c.kind==='and')!.kind='or';
+  expect((await checkCourse(p,"not")).status).toBe('invalid');
 });

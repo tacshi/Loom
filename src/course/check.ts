@@ -53,12 +53,62 @@ export async function checkCourse(
       throw new Error(
         "Match the exercise interface: port IDs, directions and widths",
       );
-    for (const d of Object.values(closure(draft, draft.root)))
-      for (const n of d.components)
-        if (n.kind !== "instance" && !spec.allowed.includes(n.kind))
+    const trusted = new Set<string>();
+    const dependencyFingerprints = new Map<string, string>();
+    const index = exercises.findIndex((e) => e.id === id);
+    for (const prior of exercises.slice(0, index)) {
+      if (["signals", "and-basics", "invert-basics"].includes(prior.id))
+        continue;
+      const record = p.course.accepted[prior.id];
+      if (!record || record.exerciseRevision !== prior.revision) continue;
+      const acceptedLibrary = p.circuits[record.acceptedRoot]?.library;
+      if (
+        acceptedLibrary?.id !== "course-" + prior.id ||
+        (await electricalHash(p, record.acceptedRoot)) !== record.hash
+      )
+        continue;
+      // Packaging remaps definition IDs. Trust the approved identity and actual
+      // electrical content, never an embedded library label alone.
+      for (const candidate of Object.values(draft.circuits)) {
+        const directIdentity =
+          candidate.library?.id === acceptedLibrary.id &&
+          candidate.library.hash === acceptedLibrary.hash;
+        const packagedIdentity =
+          verifySnapshot &&
+          candidate.id !== draft.root &&
+          candidate.library?.hash ===
+            draft.circuits[draft.root].library?.hash &&
+          Object.values(p.course.accepted[id]?.dependencies ?? {}).includes(
+            acceptedLibrary.hash,
+          );
+        if (
+          !(directIdentity || packagedIdentity) ||
+          candidate.components.length !==
+            p.circuits[record.acceptedRoot].components.length
+        )
+          continue;
+        let fingerprint = dependencyFingerprints.get(candidate.id);
+        if (!fingerprint) {
+          fingerprint = await electricalHash(p, candidate.id);
+          dependencyFingerprints.set(candidate.id, fingerprint);
+        }
+        if (fingerprint === record.hash) trusted.add(candidate.id);
+      }
+    }
+    const visited = new Set<string>();
+    function validateParts(root: string) {
+      if (visited.has(root)) return;
+      visited.add(root);
+      if (root !== draft.root && trusted.has(root)) return;
+      for (const n of draft.circuits[root].components) {
+        if (n.kind === "instance") validateParts(n.definitionId!);
+        else if (!spec.allowed.includes(n.kind))
           throw new Error(
             "Component not allowed: " + n.kind + " (" + n.name + ")",
           );
+      }
+    }
+    validateParts(draft.root);
     result.cases = spec.checks();
     if (["cpu", "calculator"].includes(id)) {
       const undriven = compile(draft, draft.root).diagnostics.find(

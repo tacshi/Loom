@@ -1,5 +1,8 @@
 import type { Project } from "../model/types";
 const ids = new Set([
+  "signals",
+  "and-basics",
+  "invert-basics",
   "nand",
   "not",
   "and-or",
@@ -31,6 +34,7 @@ export function validateCourse(p: Project) {
   if (
     !object(c) ||
     c.id !== "build-computer" ||
+    c.curriculum !== 2 ||
     !ids.has(c.active) ||
     !object(c.drafts) ||
     !object(c.accepted) ||
@@ -69,6 +73,25 @@ export function validateCourse(p: Project) {
       }
     }
   }
+  if (
+    c.stages !== undefined &&
+    (!object(c.stages) ||
+      Object.entries(c.stages).some(
+        ([id, stage]) =>
+          !ids.has(id) ||
+          !["demonstration", "practice", "challenge"].includes(stage),
+      ))
+  )
+    throw new Error("invalidProject");
+  if (
+    c.practice !== undefined &&
+    (!object(c.practice) ||
+      Object.entries(c.practice).some(
+        ([id, root]) =>
+          !ids.has(id) || typeof root !== "string" || !p.circuits[root],
+      ))
+  )
+    throw new Error("invalidProject");
   for (const [id, root] of Object.entries(c.drafts))
     if (
       !ids.has(id) ||

@@ -20,6 +20,7 @@ test("production simulation soak with save, rewind and exported-circuit checks",
   await page.getByLabel("Open example…", { exact: true }).selectOption("echo");
   await page.getByLabel("Clock speed", { exact: true }).selectOption("1000");
   await page.getByRole("button", { name: "Debug", exact: true }).click();
+  await page.getByRole("button", { name: "Waveforms", exact: true }).click();
   const terminal = page.getByRole("log", {
     name: "Terminal output RAM/Terminal",
   });
@@ -33,7 +34,7 @@ test("production simulation soak with save, rewind and exported-circuit checks",
     )
       await page.getByRole("button", { name: "Pause", exact: true }).click();
     await expect(
-      page.getByRole("button", { name: "Run", exact: true }),
+      page.getByRole("button", { name: "Run clock", exact: true }),
     ).toBeVisible();
     const head = await page
       .getByLabel("Seek cycle", { exact: true })
@@ -59,7 +60,7 @@ test("production simulation soak with save, rewind and exported-circuit checks",
       .getByLabel("Keyboard input RAM/Keyboard", { exact: true })
       .fill(text);
     await page.getByRole("button", { name: "Send input", exact: true }).click();
-    await page.getByRole("button", { name: "Run", exact: true }).click();
+    await page.getByRole("button", { name: "Run clock", exact: true }).click();
     await expect(terminal).toHaveText(expected, { timeout: 10000 });
     await page.getByRole("button", { name: "Pause", exact: true }).click();
     await page
@@ -118,7 +119,7 @@ test("production simulation soak with save, rewind and exported-circuit checks",
       Math.round((Date.now() - started) / 1000),
     );
     index++;
-    await page.getByRole("button", { name: "Run", exact: true }).click();
+    await page.getByRole("button", { name: "Run clock", exact: true }).click();
   }
   await checkpoint();
   while (Date.now() - started < minutes * 60000) {

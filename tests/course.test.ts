@@ -32,23 +32,23 @@ for (const lesson of exercises)
   );
 it("starter fails, accepted work survives layout changes and imported claims require rechecking", async () => {
   const p = newCourse();
-  expect((await checkCourse(p, "nand")).status).not.toBe("passed");
+  expect((await checkCourse(p, "signals")).status).not.toBe("passed");
   const ref = exercises[0].reference();
   p.circuits = { ...p.circuits, ...ref.circuits };
   p.root = ref.root;
-  p.course!.drafts.nand = ref.root;
-  const result = await checkCourse(p, "nand");
+  p.course!.drafts.signals = ref.root;
+  const result = await checkCourse(p, "signals");
   expect(result.status).toBe("passed");
   await acceptCheck(p, result);
   const hash = await electricalHash(p, p.root);
   p.circuits[p.root].components[0].x += 20;
   expect(await electricalHash(p, p.root)).toBe(hash);
   p.course!.needsVerification = true;
-  expect((await checkCourse(p, "not")).status).toBe("blocked");
+  expect((await checkCourse(p, "and-basics")).status).toBe("blocked");
   await reverifyCourse(p);
-  expect(p.course!.accepted.nand).toBeDefined();
-  activateExercise(p, "not");
-  expect(p.course!.active).toBe("not");
+  expect(p.course!.accepted.signals).toBeDefined();
+  activateExercise(p, "and-basics");
+  expect(p.course!.active).toBe("and-basics");
 });
 
 it("NAND course CPU agrees with the independent instruction oracle at every instruction", async () => {

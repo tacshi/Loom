@@ -2,6 +2,9 @@ import type { Circuit, Kind, Project, TestCase } from "../model/types";
 import type { TestResult } from "../verification/runner";
 export type Copy = [string, string];
 export type ExerciseId =
+  | "signals"
+  | "and-basics"
+  | "invert-basics"
   | "nand"
   | "not"
   | "and-or"
@@ -41,6 +44,9 @@ export type CourseState = {
     >
   >;
   id: "build-computer";
+  curriculum: 2;
+  stages?: Partial<Record<ExerciseId, import("./lessons").LearningStage>>;
+  practice?: Partial<Record<ExerciseId, string>>;
   active: ExerciseId;
   drafts: Partial<Record<ExerciseId, string>>;
   accepted: Partial<Record<ExerciseId, CourseRecord>>;
@@ -54,6 +60,10 @@ export type Exercise = {
   hints: [Copy, Copy, Copy];
   prerequisites: ExerciseId[];
   allowed: Kind[];
+  lesson: import("./lessons").Lesson;
+  demonstration: () => Project;
+  starter: () => Project;
+  observed: () => import("../model/types").SignalRef[];
   reference: () => Project;
   checks: () => TestCase[];
 };

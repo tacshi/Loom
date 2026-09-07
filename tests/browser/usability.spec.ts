@@ -1,3 +1,4 @@
+import { courseAt } from "../courseFixture";
 import { placeComponent } from "./placeComponent";
 import { test, expect } from "@playwright/test";
 import { Builder } from "../../src/examples/adder";
@@ -98,12 +99,7 @@ test("undoing a failed edit shows verified status without the obsolete failure",
   const { newCourse, acceptCheck } = await import("../../src/course/session");
   const { exercise } = await import("../../src/course/registry");
   const { checkCourse } = await import("../../src/course/check");
-  const p = newCourse(),
-    r = exercise("nand").reference();
-  Object.assign(p.circuits, r.circuits);
-  p.root = r.root;
-  p.course!.drafts.nand = r.root;
-  await acceptCheck(p, await checkCourse(p, "nand"));
+  const p = await courseAt("nand",true), r = { circuits: p.circuits, root: p.root };
   await page.goto("/");
   await page.getByRole("button", { name: "Projects", exact: true }).click();
   await page.locator("input[type=file]").setInputFiles({
@@ -114,23 +110,23 @@ test("undoing a failed edit shows verified status without the obsolete failure",
   await expect(page.getByLabel("Project", { exact: true })).toHaveValue(p.name);
   await page.getByRole("button", { name: "Learn", exact: true }).click();
   await page
-    .getByRole("button", { name: "Reverify course", exact: true })
+    .getByRole("button", { name: "Verify progress", exact: true })
     .click();
   await expect(
     page.getByText("Verified component saved.", { exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Circuit", exact: true }).click();
-  const gate = r.circuits[r.root].components.find((c) => c.kind === "nand")!;
+  const gate = r.circuits[r.root].components.find((c) => c.kind === "and")!;
   await page
-    .getByRole("button", { name: gate.name + " NAND", exact: true })
+    .getByRole("button", { name: gate.name + " AND", exact: true })
     .click();
   await page.keyboard.press("Delete");
   await page.getByRole("button", { name: "Learn", exact: true }).click();
   await page
-    .getByRole("button", { name: "Check circuit", exact: true })
+    .getByRole("button", { name: "Run tests", exact: true })
     .click();
   await expect(
-    page.getByRole("button", { name: "Inspect failure", exact: true }),
+    page.locator(".test-mismatch"),
   ).toBeVisible();
   await page.getByRole("button", { name: "Undo", exact: true }).click();
   await expect(

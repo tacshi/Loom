@@ -26,14 +26,14 @@ test("electron overlay moves only while running and respects reduced motion", as
       return { count, hash };
     });
   expect((await pixels()).count).toBe(0);
-  await page.getByRole("button", { name: "Run", exact: true }).click();
+  await page.getByRole("button", { name: "Run clock", exact: true }).click();
   await expect.poll(async () => (await pixels()).count).toBeGreaterThan(0);
   const first = (await pixels()).hash;
   await expect.poll(async () => (await pixels()).hash).not.toBe(first);
   await page.getByRole("button", { name: "Pause", exact: true }).click();
   await expect.poll(async () => (await pixels()).count).toBe(0);
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.getByRole("button", { name: "Run", exact: true }).click();
+  await page.getByRole("button", { name: "Run clock", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Pause", exact: true }),
   ).toBeVisible();
@@ -65,7 +65,7 @@ test("dense running circuit animation frame measurement", async ({
   await expect(page.getByLabel("Project", { exact: true })).toHaveValue(
     project.name,
   );
-  await page.getByRole("button", { name: "Run", exact: true }).click();
+  await page.getByRole("button", { name: "Run clock", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Pause", exact: true }),
   ).toBeVisible();

@@ -188,10 +188,10 @@ test("dense circuit interaction measurements", async ({ page }, testInfo) => {
   });
   dragFrames.sort((a, b) => a - b);
 
-  await page.getByRole("button", { name: "Run", exact: true }).click();
+  await page.getByRole("button", { name: "Run clock", exact: true }).click();
   await page.getByRole("button", { name: "Pause", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "Run", exact: true }),
+    page.getByRole("button", { name: "Run clock", exact: true }),
   ).toBeVisible();
   await page
     .getByRole("textbox", { name: "Project", exact: true })

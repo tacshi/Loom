@@ -160,7 +160,7 @@ test("verified learner decoder opens in a counter and course remains available",
   test.setTimeout(60000);
   const p = newCourse();
   for (const spec of exercises) {
-    if (spec.id !== "nand") activateExercise(p, spec.id);
+    if (spec.id !== "signals") activateExercise(p, spec.id);
     prepareCourseSubmission(p, spec.id);
     await acceptCheck(p, await checkCourse(p, spec.id));
     if (spec.id === "seven-segment") break;
@@ -169,7 +169,7 @@ test("verified learner decoder opens in a counter and course remains available",
   await importProject(page, Buffer.from(exportProject(p)));
   await page.getByRole("button", { name: "Learn", exact: true }).click();
   await page
-    .getByRole("button", { name: "Reverify course", exact: true })
+    .getByRole("button", { name: "Verify progress", exact: true })
     .click();
   const tryCounter = page.getByRole("button", {
     name: "Try in counter",
@@ -187,7 +187,7 @@ test("verified learner decoder opens in a counter and course remains available",
   await expect(page.getByLabel("Project", { exact: true })).toHaveValue(
     "Hexadecimal counter",
   );
-  await page.getByRole("button", { name: "Step", exact: true }).click();
+  await page.getByRole("button", { name: "Advance clock", exact: true }).click();
   await expect.poll(() => pixels(page, green)).toBeGreaterThan(100);
   await expect(page.getByText("Saved locally", { exact: true })).toBeVisible();
   await page.screenshot({ path: info.outputPath("learner-counter.png") });
@@ -209,7 +209,7 @@ test("CPU example opens on its digit, steps writes and resets", async ({
   );
   await expect.poll(() => pixels(page, green)).toBe(0);
   for (let i = 0; i < 4; i++) {
-    await page.getByRole("button", { name: "Step", exact: true }).click();
+    await page.getByRole("button", { name: "Advance clock", exact: true }).click();
     await expect(page.locator("footer")).toContainText("Cycle " + (i + 1));
   }
   await expect.poll(() => pixels(page, green)).toBeGreaterThan(500);

@@ -18,7 +18,7 @@ test("10000 expanded components remain inspectable with 1000 visible symbols", a
     "10000 expanded · 1000 visible",
   );
   await expect(
-    page.getByRole("button", { name: "Run", exact: true }),
+    page.getByRole("button", { name: "Run clock", exact: true }),
   ).toBeEnabled();
   await page.getByRole("button", { name: "Circuit", exact: true }).click();
   await page

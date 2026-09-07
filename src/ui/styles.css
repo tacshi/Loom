@@ -1633,3 +1633,56 @@ button.primary {
 .component-item { touch-action: none; user-select: none; cursor: grab; }
 .component-item:active { cursor: grabbing; }
 .component-item:disabled { cursor: default; }
+
+/* Learning presents one action at a time; test playback shares the canvas. */
+.library > div[hidden] { display: none; }
+.learning-stages { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px; }
+.learning-stages button { padding:7px 3px; font-size:12px; }
+.learning-stages [aria-current], .course-learn [aria-current] { background:var(--accent-soft); color:var(--accent); }
+.course-learn nav section { padding:6px 0; }
+.course-learn nav button { width:100%; }
+.course-learn nav h3 { margin:6px 0; }
+.guided-step { border-left:3px solid var(--accent); padding-left:10px; display:flex; flex-wrap:wrap; gap:8px; }
+.guided-step p { width:100%; }
+.lesson-objective { font-weight:600; }
+.visual-tests { padding:12px; border-top:1px solid var(--border); background:var(--surface); }
+.visual-test-header, .test-focus > div { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.visual-test-header h2 { margin-right:auto; }
+.visual-tests button, .debugger button { white-space:normal; overflow-wrap:anywhere; }
+.test-case-table { max-height:220px; overflow:auto; margin-top:8px; }
+.test-case-table table { margin:0; font-size:12px; }
+.test-case-table td { vertical-align:top; padding:7px; }
+.test-case-table th { position:sticky; top:0; background:var(--surface); z-index:1; }
+.test-case-table tr.active { background:var(--accent-soft); }
+.test-case-table td > div { display:flex; flex-wrap:wrap; gap:5px; }
+.signal-value { display:inline-flex; align-items:center; gap:5px; white-space:nowrap; }
+.bit-lamp { width:9px; height:9px; border:1px solid var(--muted); border-radius:50%; background:var(--surface); }
+.signal-1 .bit-lamp { background:var(--accent); border-color:var(--accent); }
+.bus-value { display:inline-block; }
+.bus-value summary { cursor:pointer; }
+.bus-value code { overflow-wrap:anywhere; }
+.test-output { max-width:260px; white-space:pre-wrap; overflow-wrap:anywhere; margin:0; }
+.test-focus { margin-top:10px; padding:10px; border-top:1px solid var(--border); }
+.test-focus > div { margin-top:7px; }
+.test-mismatch { border-left:3px solid var(--danger); padding-left:8px; }
+.behavior-signals { display:flex; gap:12px; flex-wrap:wrap; padding:10px; }
+.behavior-signal { display:flex; align-items:center; gap:8px; flex-wrap:wrap; border:1px solid var(--border); border-radius:6px; padding:9px; max-width:100%; }
+.behavior-signal small { color:var(--muted); }
+.behavior-signal input { width:100px; }
+.before-value { color:var(--muted); font-size:12px; }
+.signal-problem { width:100%; text-align:left; color:var(--danger); }
+.debugger > p { margin:8px 12px; }
+.debugger-header { flex-wrap:wrap; }
+.debugger-header h2 { margin-right:auto; }
+.source-chain { padding:10px; border-top:1px solid var(--border); }
+.source-chain button { text-align:left; border:1px solid var(--border); margin:4px; }
+.technical-debugger { min-width:0; }
+@media (prefers-reduced-motion:reduce) { .visual-tests *, .behavior-signals * { animation:none !important; transition:none !important; } }
+.example-guide {padding:10px 14px;border-bottom:1px solid var(--border);font-size:13px;}
+.example-guide summary {cursor:pointer;font-weight:600;}
+.example-guide p {margin-top:6px;}
+.debugger:has(.behavior-signals) { height:auto; min-height:0; }
+.current-instruction { font-family:"IBM Plex Mono",monospace; font-size:12px; padding:6px; overflow-wrap:anywhere; }
+.nand-prediction table { margin:8px 0; }
+.workspace[aria-busy="true"] .canvas-host { opacity:0.5; }
+.case-pages { display:flex; align-items:center; gap:8px; margin-top:8px; }

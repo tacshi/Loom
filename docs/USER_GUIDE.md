@@ -2,7 +2,7 @@
 
 ## Guided course
 
-Use **Learn → Start course** for the connected NAND-to-computer journey. Your drafts and verified components stay in one course project. See [the v3 course guide](V3.md) for prerequisites, hints, references, checking, and component revisions.
+Use **Learn → Start course** for 23 lessons from signals and wires through a computer. Explore a demonstration, practice with guidance, then solve an independent challenge. The early lessons teach AND and NOT before building NAND. See [Learning and visual tests](LEARNING.md) for the complete flow.
 
 ## Editing
 
@@ -37,11 +37,11 @@ Select connected logic and choose **Create subcircuit**. Boundary connections be
 
 ## Simulation and debugging
 
-**Step** advances one rising clock edge; **Run/Pause** controls continuous execution. **Reset** restores declared register values, clears RAM and waveform history, and retains ROM contents and input switches.
+**Advance clock** advances one rising clock edge; **Run clock/Pause** controls continuous execution. Early combinational lessons instead use **Run tests** to show input cases and expected/actual outputs. **Reset** restores declared register values, clears RAM and waveform history, and retains ROM contents and input switches.
 
 Input switches can be toggled by double-clicking or edited numerically. Inspect signals as binary, decimal, or hexadecimal. `X` means unknown; binary format shows which individual bits are known.
 
-Select a component, choose **Watch signal…**, and open **Debug**. Traces retain at most 512 samples and show the latest 80. A value breakpoint pauses after a settled clock edge. The Memory tab shows the selected RAM/ROM instance.
+Open **Debug** for named inputs and outputs. Use **Trace this output** to inspect upstream signals. Choose **Waveforms** to inspect history or **Breakpoints** to configure stops. Select a component and choose **Watch signal…** to add another trace. Traces retain at most 512 samples and show the latest 80. A value breakpoint pauses after a settled clock edge. The Memory tab shows the selected RAM/ROM instance.
 
 Click a diagnostic to locate its source. Structural errors prevent execution. Undriven inputs remain unknown instead of silently becoming zero.
 
@@ -79,7 +79,7 @@ Browser storage can be cleared or evicted. Keep independent `.loom.json` exports
 
 **Libraries.** Libraries exports a circuit and its nested dependencies as a `.loom-component.json` package. Each installed version has an immutable SHA-256 content hash. Add to project embeds copies, so the catalog is not required when reopening offline. A pinned instance offers Make editable local copy. Export the edited copy with a newer version number and use Review update in the old project. Review interface mappings and tests before applying behavior changes. This is distinct from equivalent-component replacement.
 
-**History.** Debug offers retained runs, cycle/event seeking, backward cycle/instruction steps, and two measurement cursors. Seek pauses execution. Continuing from history branches into a new run; select an older run to compare it. Up to four runs share a 10,000-cycle and 64 MiB accounted-storage budget. Complete checkpoint segments are evicted. History is never saved in project files. Topology, parameter and ROM edits reset the simulation session; positions and names preserve it. Inspect transaction rows for clock-qualified device reads and writes.
+**History.** Debug → Waveforms offers retained runs, cycle/event seeking, backward cycle/instruction steps, and two measurement cursors. Seek pauses execution. Continuing from history branches into a new run; select an older run to compare it. Up to four runs share a 10,000-cycle and 64 MiB accounted-storage budget. Complete checkpoint segments are evicted. History is never saved in project files. Topology, parameter and ROM edits reset the simulation session; positions and names preserve it. Inspect transaction rows for clock-qualified device reads and writes.
 
 **Memory and devices.** Select a RAM or ROM component to inspect its paged editor. Pause before changing words or importing a `.bin` or hexadecimal `.hex`/`.txt` image. Imports start at the selected address; binary words default to little endian. RAM changes are runtime events and can be rewound. ROM changes update the project and reset history. Devices shows only the selected simulation's peripherals. Send input queues exact UTF-8 bytes; Send line appends a newline. The keyboard queue holds 256 bytes. The terminal retains its most recent 65,536 bytes and the display has 64 × 32 monochrome pixels.
 
@@ -104,7 +104,7 @@ After the course's bus-selection lesson, build and check the decoder. **Try in c
 
 In the ROM example, select **Lookup** in Circuit. Download the [plain-hex lookup table](../public/rom/seven-segment.hex), set **Start address** to 0, then choose **Import memory**. Import replaces only the words starting at the selected address. **Export hex** and **Export binary** save the entire ROM. Hex files contain whitespace-separated hexadecimal words, not Intel HEX records. This eight-bit table has one byte per word; byte order does not change it.
 
-The CPU example starts at 2 Hz and writes each glyph to F7, then halts. Run or Step to follow the sequence. Edit its commented assembly in Program and choose Assemble & load to run your version. Project export/import preserves circuits and ROM images; runtime history is session-only.
+The CPU example starts at 2 Hz and writes each glyph to F7, then halts. Use Run clock or Advance clock to follow the sequence. Edit its commented assembly in Program and choose Assemble & load to run your version. Project export/import preserves circuits and ROM images; runtime history is session-only.
 
 七段数码管示例包括逻辑译码器、计数器、ROM 查表和 CPU 驱动显示。位 0–6 对应 a–g，位 7 对应小数点。课程译码器通过检查后，选择“用于计数器”可在独立工程中运行自己的元件。ROM 文件从所选地址开始导入；导出包含全部 ROM。F7 为段码寄存器，写入 0 可熄灭显示。
 

@@ -12,7 +12,7 @@ import { exportProject } from "../src/persistence/serialization";
 const p = newCourse();
 p.name = "Course verification fixture";
 for (const e of exercises) {
-  if (e.id !== "nand") activateExercise(p, e.id);
+  if (e.id !== "signals") activateExercise(p, e.id);
   prepareCourseSubmission(p, e.id);
   const checked = await checkCourse(p, e.id);
   if (checked.status !== "passed")

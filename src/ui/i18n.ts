@@ -1,5 +1,78 @@
 export type Language = "en" | "zh";
 export const messages: Record<string, [string, string]> = {
+  loadingCase: ["Loading case…","正在载入测试…"],
+  showComponent: ["Show component","查看元件"],
+  previousCases: ["Previous cases","前一页测试"],
+  nextCases: ["Next cases","后一页测试"],
+  currentInstruction: ["Instruction", "指令"],
+  advanceClock: ["Advance clock", "推进时钟"],
+
+  runClock: ["Run clock", "运行时钟"],
+
+  indeterminateSignal: ["This value is not known. Inspect its input signals.", "此值尚不确定。检查它的输入信号。"],
+
+  noInputSignal: ["No signal reaches this input. Show its connections.", "没有信号到达此输入。查看它的连接。"],
+
+  previousValue: ["Before", "之前"],
+
+  storedValue: ["Stored", "已存储"],
+
+  toggleInput: ["Toggle input", "切换输入"],
+
+  tryInputs: ["Change an input and watch the outputs.", "改变输入，观察输出。"],
+
+  chooseOutput: ["Select a component or add an output probe to observe its value.", "选择元件或添加输出探针，观察它的值。"],
+
+  breakpointsView: ["Breakpoints", "断点"],
+
+  waveformsView: ["Waveforms", "波形"],
+
+  inputsOutputs: ["Inputs & outputs", "输入与输出"],
+
+  circuitBehavior: ["Circuit behavior", "电路行为"],
+
+  bits: ["bits", "位"],
+
+  bitOff: ["0 · off", "0 · 关"],
+
+  bitOn: ["1 · on", "1 · 开"],
+
+  unknownSignal: ["X · unknown", "X · 未知"],
+
+  floatingSignal: ["Z · no driver", "Z · 无驱动"],
+
+  traceOutput: ["Trace this output", "追踪此输出"],
+
+  caseWaiting: ["Not shown", "未显示"],
+
+  caseFailed: ["Mismatch", "不符"],
+
+  casePassed: ["Passed", "通过"],
+
+  showCase: ["Show case", "显示测试"],
+
+  testOutputs: ["Outputs", "输出"],
+
+  testInputs: ["Inputs", "输入"],
+
+  testCase: ["Case", "测试"],
+
+  noTestCases: ["No test results yet. Try the inputs or add a saved test.", "还没有测试结果。请尝试输入或添加测试。"],
+
+  returnToEditing: ["Return to editing", "返回编辑"],
+
+  showResult: ["Show result", "查看结果"],
+
+  nextCase: ["Next case", "下个测试"],
+
+  pauseTests: ["Pause cases", "暂停测试"],
+
+  playTests: ["Play cases", "播放测试"],
+
+  runVisualTests: ["Run tests", "运行测试"],
+
+  visualTests: ["Visual tests", "可视化测试"],
+
   placementInstructions: ["Drag onto the canvas, or press Enter to position with arrow keys.", "拖到画布上，或按回车后用方向键定位。"],
   placementKeys: ["Arrow keys to move · Enter to place · Esc to cancel", "方向键移动 · 回车放置 · Esc 取消"],
   addressParameter: ["Address-width parameter", "地址位宽参数"],

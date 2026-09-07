@@ -60,13 +60,13 @@ export function sourceChain(e: Engine, id: string, port: string) {
     else if (alias) {
       const i = alias.lastIndexOf(":");
       visit(alias.slice(0, i), alias.slice(i + 1));
-    } else if (e.byId.get(id)?.kind === "buffer" || !defined(v)) {
+    } else if (
+      !(["register", "counter", "dff", "ram", "rom"] as string[]).includes(
+        e.byId.get(id)?.kind ?? "",
+      )
+    ) {
       for (const p of e.pinMap.get(id) ?? [])
-        if (
-          p.direction === "in" &&
-          (e.byId.get(id)?.kind === "buffer" || !defined(e.get(id, p.id)))
-        )
-          visit(id, p.id);
+        if (p.direction === "in") visit(id, p.id);
     }
   }
   visit(id, port);

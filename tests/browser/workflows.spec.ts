@@ -17,8 +17,11 @@ test("NAND full-adder truth table and persisted hierarchy", async ({
     .getByRole("button", { name: "Run circuit tests", exact: true })
     .click();
   const dialog = page.getByRole("dialog");
-  await expect(dialog.getByText("Passed", { exact: true })).toHaveCount(8);
-  await dialog.getByRole("button", { name: "Close", exact: true }).click();
+  await dialog.getByRole("button",{name:"Run circuit tests",exact:true}).click();
+  await expect(page.locator(".visual-tests tbody tr")).toHaveCount(8);
+  await page.getByRole("button",{name:"Show result",exact:true}).click();
+  await expect(page.locator(".visual-tests tbody").getByText("Passed",{exact:true})).toHaveCount(8);
+  await page.getByRole("button",{name:"Return to editing",exact:true}).click();
   await page.reload();
   await expect(
     page.getByRole("textbox", { name: "Project", exact: true }),
@@ -27,7 +30,7 @@ test("NAND full-adder truth table and persisted hierarchy", async ({
   await page.getByRole("button", { name: "A Input", exact: true }).click();
   await page.getByLabel("Bit width", { exact: true }).fill("8");
   await expect(
-    page.getByRole("button", { name: "Run", exact: true }),
+    page.getByRole("button", { name: "Run clock", exact: true }),
   ).toBeDisabled();
 });
 test("CPU executes sum, rejects bad assembly, and supports source breakpoints", async ({
@@ -51,7 +54,7 @@ test("CPU executes sum, rejects bad assembly, and supports source breakpoints", 
     })
     .click();
   await page.getByLabel("Clock speed", { exact: true }).selectOption("1000");
-  await page.getByRole("button", { name: "Run", exact: true }).click();
+  await page.getByRole("button", { name: "Run clock", exact: true }).click();
   await expect(
     page.getByText("Breakpoint reached", { exact: true }),
   ).toBeVisible();
@@ -64,7 +67,7 @@ test("CPU executes sum, rejects bad assembly, and supports source breakpoints", 
       exact: true,
     })
     .click();
-  await page.getByRole("button", { name: "Run", exact: true }).click();
+  await page.getByRole("button", { name: "Run clock", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Output 55", exact: true }),
   ).toBeVisible();
@@ -169,8 +172,9 @@ test("counter traces are bounded and name edits preserve runtime state", async (
     .getByRole("button", { name: "Count Counter", exact: true })
     .click();
   await page.getByLabel("Watch signal…", { exact: true }).selectOption("q");
+  await page.getByRole("button",{name:"Waveforms",exact:true}).click();
   await page.getByLabel("Clock speed", { exact: true }).selectOption("1000");
-  await page.getByRole("button", { name: "Run", exact: true }).click();
+  await page.getByRole("button", { name: "Run clock", exact: true }).click();
   await expect
     .poll(async () =>
       Number(
@@ -183,7 +187,7 @@ test("counter traces are bounded and name edits preserve runtime state", async (
   const cycle = Number(
     (await page.locator("footer").innerText()).match(/Cycle (\d+)/)![1],
   );
-  await expect(page.locator(".signal-track svg > g")).toHaveCount(80);
+  await expect(page.locator('.signal-track:has([title="Count:q"]) svg > g')).toHaveCount(80);
   await page
     .getByRole("textbox", { name: "Name", exact: true })
     .fill("Renamed counter");
@@ -192,7 +196,7 @@ test("counter traces are bounded and name edits preserve runtime state", async (
     page.getByRole("button", { name: "Connect q", exact: true }),
   ).toContainText(String(cycle % 256));
   await page.getByRole("button", { name: "Reset", exact: true }).click();
-  await expect(page.locator(".signal-track svg > g")).toHaveCount(0);
+  await expect(page.locator('.signal-track:has([title="Count:q"]) svg > g')).toHaveCount(0);
 });
 test("replacement rejects a gate with different behavior", async ({ page }) => {
   await ready(page);

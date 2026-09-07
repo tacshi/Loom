@@ -43,7 +43,8 @@ async function main() {
     const results = await reverifyCourse(p);
     const active = await checkCourse(p, p.course.active);
     results.push(active);
-    process.stdout.write(canonical({ course: p.course.id, results }) + "\n");
+    const compact = results.map(r => ({ ...r, results: r.results.map(({checkpoints, ...test}) => ({...test, checkpointCount: checkpoints?.length ?? 0})) }));
+    process.stdout.write(canonical({ course: p.course.id, results: compact }) + "\n");
     return results.every((r) => r.status === "passed") ? 0 : 1;
   }
   const diagnostics = compile(p, root).diagnostics;

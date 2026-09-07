@@ -1,3 +1,4 @@
+import { exampleGuides } from "../examples/guides";
 import { validateCourse } from "../course/validation";
 // Shape and resource limits only. Electrical faults remain compiler diagnostics.
 import type {
@@ -112,6 +113,7 @@ export function validateTest(t: TestCase) {
   }
 }
 export function validateV2(p: Project) {
+  if (p.exampleId !== undefined && !Object.hasOwn(exampleGuides, p.exampleId)) throw new Error("invalidProject");
   validateCourse(p);
   let members = 0,
     steps = 0;

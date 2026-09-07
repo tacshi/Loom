@@ -1,5 +1,15 @@
 # Loom v3 verification
 
+## Guided curriculum verification — 2026-09-07
+
+- The current curriculum has 23 lessons with separate demonstration, practice and challenge flows. Practice persistence/undo and imported verified NAND dependency identity are covered by regressions.
+- Unit suite: 159 tests passed. Production PWA and CLI builds passed. The regenerated completed-course fixture passed all 24 reported CLI checks (23 accepted lessons plus the active draft).
+- The full 23-lesson browser submission journey passed. The production Chromium suite's five integration failures were corrected and its affected tests passed on rerun.
+- Focused Chromium/WebKit learning, layout, placement and routing checks: 83 passed, one WebKit-only touch-injection case skipped. Final replay/cancellation/paging checks: 20 passed. Final localized-title/layout check: eight passed.
+- Inspected the rendered input controls and test playback in the in-app browser, plus English desktop and Chinese narrow-screen screenshots. These are implementation checks, not a human beginner usability study. Firefox was not rerun for this redesign.
+
+## Earlier recorded verification
+
 Date: 2026-09-06. Version: 0.3.0. No migrations or publication performed. The verified implementation was prepared for commit at the user’s request.
 
 ## Implemented outcome

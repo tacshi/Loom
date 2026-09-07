@@ -16,7 +16,7 @@ import { exportProject } from "../src/persistence/serialization";
 it("accepts a decoder after mux8 and reuses the immutable learner circuit in a separate counter", async () => {
   const p = newCourse();
   for (const spec of exercises) {
-    if (spec.id !== "nand") activateExercise(p, spec.id);
+    if (spec.id !== "signals") activateExercise(p, spec.id);
     if (spec.id === "seven-segment")
       expect((await checkCourse(p, spec.id)).status).not.toBe("passed");
     prepareCourseSubmission(p, spec.id);
@@ -48,7 +48,7 @@ it("trusted decoder checks reject disconnection, swapped segments, decimal point
   const draft = () => {
     const p = structuredClone(reference);
     p.course = {
-      id: "build-computer",
+      id: "build-computer", curriculum: 2,
       active: "seven-segment",
       drafts: { "seven-segment": p.root },
       accepted: {},

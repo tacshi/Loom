@@ -48,30 +48,14 @@ for (const size of [
           })
           .click();
       };
-      await connect(
-        label("a Input port", "a 输入端口"),
-        "out",
-        label("NAND NAND", "NAND 与非门"),
-        "a",
-      );
-      await connect(
-        label("b Input port", "b 输入端口"),
-        "out",
-        label("NAND NAND", "NAND 与非门"),
-        "b",
-      );
-      await connect(
-        label("NAND NAND", "NAND 与非门"),
-        "out",
-        label("out Output port", "out 输出端口"),
-        "in",
-      );
+      await page.getByRole("button", { name: label("Challenge", "挑战"), exact: true }).click();
+      await connect(label("a Input port","a 输入端口"),"out",label("out Output port","out 输出端口"),"in");
       await page
         .getByRole("button", { name: label("Learn", "学习"), exact: true })
         .click();
       await page
         .getByRole("button", {
-          name: label("Check circuit", "检查电路"),
+          name: label("Run tests", "运行测试"),
           exact: true,
         })
         .click();
@@ -84,8 +68,8 @@ for (const size of [
       await page
         .getByRole("button", { name: label("Continue", "继续"), exact: true })
         .click();
-      await expect(page.locator(".course-learn h3")).toHaveText(
-        label("NOT", "非门"),
+      await expect(page.locator(".course-heading h2")).toHaveText(
+        label("Both inputs must be on (AND)", "两个输入都为开（与）"),
       );
       const name = page.getByLabel(label("Project", "工程"), { exact: true });
       await name.fill(label("Keyboard draft", "键盘草稿"));

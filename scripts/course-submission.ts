@@ -9,6 +9,7 @@ export function prepareCourseSubmission(p: Project, id: ExerciseId) {
   p.root = r.root;
   p.course!.drafts[id] = r.root;
   p.course!.active = id;
+  p.course!.stages = {...p.course!.stages,[id]:"challenge"};
   p.cpu = r.cpu;
   p.source = r.source;
   p.sourceMap = r.sourceMap;

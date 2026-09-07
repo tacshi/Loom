@@ -54,7 +54,7 @@ test("rotated custom pins reroute attached wires and reject overlapping pin slot
   await page.getByLabel("Pin side q", { exact: true }).selectOption("bottom");
   await page.getByLabel("Pin slot q", { exact: true }).fill("2");
   await page.getByRole("button", { name: "Apply layout", exact: true }).click();
-  await page.getByRole("button", { name: "Step", exact: true }).click();
+  await page.getByRole("button", { name: "Advance clock", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Connect q", exact: true }),
   ).toContainText("1");

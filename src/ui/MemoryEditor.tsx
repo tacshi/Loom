@@ -9,7 +9,9 @@ export default function MemoryEditor({
   write,
   importWords,
   t,
+  readOnly = false,
 }: {
+  readOnly?: boolean;
   component: Component;
   id: string;
   values: number[];
@@ -99,7 +101,7 @@ export default function MemoryEditor({
           <option value="little">{t("littleEndian")}</option>
           <option value="big">{t("bigEndian")}</option>
         </select>
-        <button disabled={running} onClick={() => file.current?.click()}>
+        <button disabled={running || readOnly} onClick={() => file.current?.click()}>
           {t("importMemory")}
         </button>
         <button onClick={() => download(true)}>{t("exportBinary")}</button>
@@ -155,7 +157,7 @@ export default function MemoryEditor({
               aria-label={t("memoryWord") + " " + (address + i)}
               key={`${address + i}:${v}:${base}`}
               defaultValue={v < 0 ? "X" : v.toString(base).toUpperCase()}
-              disabled={running}
+              disabled={running || readOnly}
               onBlur={(e) => {
                 if (
                   e.target.value ===

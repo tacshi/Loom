@@ -258,6 +258,7 @@ export function useSimulation(project: Project) {
     latestRange.current = post({ type: "range", run, start, end, probes });
   };
   return {
+    setInput: (id: string, value: number) => post({type:"input",id,value}),
     button,
     releaseButtons,
     captured,

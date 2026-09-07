@@ -170,6 +170,7 @@ export type CpuBinding = {
   invalid: string;
 };
 export type Project = {
+  exampleId?: import("../examples/guides").ExampleId;
   schemaVersion: 2;
   course?: CourseState;
   courseReference?: boolean;
