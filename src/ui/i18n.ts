@@ -81,6 +81,7 @@ export const messages: Record<string, [string, string]> = {
   triState: ["Tri-state buffer", "三态缓冲器"],
   conflictBits: ["bits (hex)", "冲突位（十六进制）"],
   busContention: ["Bus contention", "总线驱动冲突"],
+  nonFloatingKnown: ["Non-floating bits known", "非高阻位均已知"],
   highZMask: ["High-impedance mask", "高阻位掩码"],
   button: ["Momentary button", "瞬时按钮"],
   holdButton: ["Hold", "按住"],

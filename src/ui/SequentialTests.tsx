@@ -416,7 +416,7 @@ export default function SequentialTests({
               <label>
                 {t("knownMask")}
                 <input
-                  placeholder={t("allKnown")}
+                  placeholder={t(assertionType === "signal" && highZ !== "" && Number(highZ) !== 0 ? "nonFloatingKnown" : "allKnown")}
                   value={known}
                   onChange={(e) => setKnown(e.target.value)}
                 />
