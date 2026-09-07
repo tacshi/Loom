@@ -1,7 +1,8 @@
+import { placeComponent } from "./placeComponent";
 import { test, expect } from "@playwright/test";
 test("component edits and history", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Input", exact: true }).click();
+  await placeComponent(page, "Input");
   await expect(
     page.getByRole("textbox", { name: "Name", exact: true }),
   ).toBeVisible();

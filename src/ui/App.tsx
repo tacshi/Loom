@@ -1,3 +1,5 @@
+import { type PlacementDraft } from "./useCanvasPlacement";
+import type { PointerEvent as ReactPointerEvent, KeyboardEvent as ReactKeyboardEvent } from "react";
 import MomentaryButton from "./MomentaryButton";
 import { builtinCircuits, shiftExample, encoderExample, buttonExample, busExample } from "../examples/components";
 import { closure } from "../library/package";
@@ -239,42 +241,112 @@ export default function App() {
     setShowProjects(false);
     setFit(fit + 1);
   }
-  function add(kind: Kind) {
-    if (allowedKinds(project) && !allowedKinds(project)!.includes(kind)) return;
-    const n = circuit.components.length;
-    const c = createComponent(
-      kind,
-      80 + (n % 4) * 180,
-      60 + Math.floor(n / 4) * 120,
+  const [placement, setPlacement] = useState<PlacementDraft>();
+  const placementBlocked =
+    !persistence.writable ||
+    !!circuit.library ||
+    !!project.courseReference ||
+    sim.isolated ||
+    !!openingId;
+  useEffect(() => {
+    setPlacement(undefined);
+  }, [project.id, activeId, instancePath, placementBlocked]);
+  function placementAllowed(draft: PlacementDraft) {
+    if (
+      placementBlocked ||
+      draft.projectId !== project.id ||
+      draft.circuitId !== activeId
+    )
+      return false;
+    if (draft.component.kind === "instance")
+      return (
+        !project.course ||
+        (!draft.definitions &&
+          acceptedRoots(project).includes(draft.component.definitionId!))
+      );
+    return (
+      !allowedKinds(project) ||
+      allowedKinds(project)!.includes(draft.component.kind)
     );
-    c.name = t(kind);
-    placeNew(c);
-    edit((p) => p.circuits[activeId].components.push(c));
+  }
+  function placementSource(
+    source: { kind: Kind } | { builtin: string } | { definition: string },
+  ) {
+    const prepare = (): PlacementDraft | undefined => {
+      if (placementBlocked) return;
+      let component;
+      let definitions: Project["circuits"] | undefined;
+      if ("kind" in source) {
+        component = createComponent(source.kind, 0, 0);
+        component.name = t(source.kind);
+      } else if ("builtin" in source) {
+        if (project.course) return;
+        const definition = builtinCircuits
+          .find((b) => b.id === source.builtin)!
+          .create();
+        component = createComponent("instance", 0, 0);
+        component.definitionId = definition.root;
+        component.name = t(source.builtin);
+        definitions = closure(definition, definition.root);
+      } else {
+        const definition = project.circuits[source.definition];
+        if (!definition) return;
+        component = createComponent("instance", 0, 0);
+        component.definitionId = definition.id;
+        component.name = definition.name;
+      }
+      const draft = {
+        component,
+        definitions,
+        projectId: project.id,
+        circuitId: activeId,
+      };
+      return placementAllowed(draft) ? draft : undefined;
+    };
+    return {
+      disabled: placementBlocked,
+      "aria-description": t("placementInstructions"),
+      onPointerDown: (e: ReactPointerEvent<HTMLButtonElement>) => {
+        if (e.button !== 0 || !e.isPrimary) return;
+        const draft = prepare();
+        if (!draft) return;
+        const sourceElement = e.currentTarget,
+          pointerId = e.pointerId;
+        sourceElement.setPointerCapture(pointerId);
+        setPending(undefined);
+        setPlacement({
+          ...draft,
+          start: { x: e.clientX, y: e.clientY },
+          pointerId,
+          releaseCapture: () => {
+            if (sourceElement.hasPointerCapture(pointerId))
+              sourceElement.releasePointerCapture(pointerId);
+          },
+        });
+      },
+      onKeyDown: (e: ReactKeyboardEvent<HTMLButtonElement>) => {
+        if (e.repeat || !["Enter", " "].includes(e.key)) return;
+        e.preventDefault();
+        const draft = prepare();
+        if (draft) {
+          setPending(undefined);
+          setPlacement(draft);
+        }
+      },
+    };
+  }
+  function commitPlacement(draft: PlacementDraft, at: Point) {
+    if (!placementAllowed(draft)) return false;
+    const c = { ...draft.component, ...at };
+    if (
+      !edit((p) => {
+        if (draft.definitions) Object.assign(p.circuits, draft.definitions);
+        p.circuits[activeId].components.push(c);
+      })
+    )
+      return false;
     setSelected([c.id]);
-  }
-  function placeNew(c: ReturnType<typeof createComponent>, target = project) {
-    const n = circuit.components.length;
-    const bounds = geometry(c, target);
-    for (let attempt = n; ; attempt++) {
-      c.x = 80 + (attempt % 4) * 180;
-      c.y = 60 + Math.floor(attempt / 4) * 120;
-      if (!circuit.components.some(other => {
-        const g = geometry(other, project);
-        return c.x < other.x + g.w + 40 && c.x + bounds.w + 40 > other.x &&
-          c.y < other.y + g.h + 40 && c.y + bounds.h + 40 > other.y;
-      })) break;
-    }
-  }
-  function addBuiltin(id: string) {
-    if (project.course) return;
-    const entry = builtinCircuits.find(b => b.id === id)!;
-    const definition = entry.create();
-    const c = createComponent("instance", 0, 0);
-    c.definitionId = definition.root;
-    c.name = t(id);
-    const definitions = closure(definition, definition.root);
-    placeNew(c, { ...project, circuits: { ...project.circuits, ...definitions } });
-    if (edit(p => { Object.assign(p.circuits, definitions); p.circuits[activeId].components.push(c); })) setSelected([c.id]);
+    return true;
   }
   function remove() {
     sim.releaseButtons();
@@ -794,7 +866,7 @@ export default function App() {
                           <button
                             key={k}
                             className="component-item"
-                            onClick={() => add(k)}
+                            {...placementSource({ kind: k })}
                             title={t(k)}
                             aria-label={t(k)}
                           >
@@ -835,7 +907,7 @@ export default function App() {
                           </button>
                         ))}
                       {!project.course && builtinCircuits.filter(b => b.category === category.id && t(b.id).toLowerCase().includes(search.toLowerCase())).map(b => (
-                        <button key={b.id} className="component-item" onClick={() => addBuiltin(b.id)} aria-label={t(b.id)} title={t(b.id)}>
+                        <button key={b.id} className="component-item" {...placementSource({ builtin: b.id })} aria-label={t(b.id)} title={t(b.id)}>
                           <span className="symbol">{b.symbol}</span><span>{t(b.id)}</span>
                         </button>
                       ))}
@@ -861,15 +933,8 @@ export default function App() {
                     .map((c) => (
                       <button
                         key={c.id}
-                        onClick={() => {
-                          const instance = createComponent("instance", 80, 80);
-                          instance.definitionId = c.id;
-                          instance.name = c.name;
-                          edit((p) =>
-                            p.circuits[activeId].components.push(instance),
-                          );
-                          setSelected([instance.id]);
-                        }}
+                        className="component-item"
+                        {...placementSource({ definition: c.id })}
                       >
                         {c.name}
                         {c.library ? ` · v${c.library.version}` : ""}
@@ -1102,6 +1167,9 @@ export default function App() {
             </div>
           )}
           <Canvas
+            placement={placement}
+            commitPlacement={commitPlacement}
+            cancelPlacement={() => setPlacement(undefined)}
             notice={notice}
             dismissNotice={() => setNotice("")}
             running={sim.running && !sim.isolated}

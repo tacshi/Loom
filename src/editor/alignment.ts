@@ -1,4 +1,5 @@
-import { snap } from "../model/types";
+import { snap, type Circuit, type Project } from "../model/types";
+import { geometry, ports, pinPosition } from "../model/components";
 export type Alignment = { position: number; line: number };
 export function nearestAlignment(
   values: number[],
@@ -31,4 +32,36 @@ export function nearestAlignment(
     }
   }
   return result;
+}
+
+export function alignmentTargets(
+  circuit: Circuit,
+  project: Project,
+  excluded: string[] = [],
+) {
+  const x = new Set<number>(),
+    y = new Set<number>();
+  const ignored = new Set(excluded);
+  for (const c of circuit.components) {
+    if (ignored.has(c.id)) continue;
+    const g = geometry(c, project);
+    [c.x, c.x + g.w / 2, c.x + g.w].forEach((n) => x.add(n));
+    [
+      c.y,
+      c.y + g.h / 2,
+      c.y + g.h,
+      ...ports(c, project).map((p) => pinPosition(c, p.id, project).y),
+    ].forEach((n) => y.add(n));
+  }
+  for (const wire of circuit.wires) {
+    if (ignored.has(wire.from.component) || ignored.has(wire.to.component))
+      continue;
+    for (let i = 1; i < wire.points.length; i++) {
+      const a = wire.points[i - 1],
+        b = wire.points[i];
+      if (a.x === b.x) x.add(a.x);
+      if (a.y === b.y) y.add(a.y);
+    }
+  }
+  return { x: [...x].sort((a, b) => a - b), y: [...y].sort((a, b) => a - b) };
 }

@@ -1,3 +1,4 @@
+import { placeComponent } from "./placeComponent";
 import { test, expect, type Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { Builder } from "../../src/examples/adder";
@@ -88,7 +89,7 @@ test("ROM binary import export preserves byte order and rejects malformed input"
 }) => {
   await page.goto("/");
   await expect(page.getByText("Saved locally", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "ROM", exact: true }).click();
+  await placeComponent(page, "ROM");
   await page.getByLabel("Bit width", { exact: true }).fill("16");
   const memory = page.locator(".memory-panel");
   await memory.getByLabel("Byte order", { exact: true }).selectOption("big");

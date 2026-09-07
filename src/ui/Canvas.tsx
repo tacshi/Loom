@@ -1,3 +1,5 @@
+import { snapPlacement } from "../editor/placement";
+import { useCanvasPlacement, type PlacementProps } from "./useCanvasPlacement";
 import { activeSignal } from "../editor/electrons";
 import SevenSegment from "./SevenSegment";
 import Electrons from "./Electrons";
@@ -29,10 +31,10 @@ import {
   type Endpoint,
 } from "../model/types";
 import { geometry, ports, pinPosition, pinNormal } from "../model/components";
-import { nearestAlignment, type Alignment } from "../editor/alignment";
+import { alignmentTargets as collectAlignmentTargets, type Alignment } from "../editor/alignment";
 import { crossings,wireMetrics } from "../editor/crossings";
 import { orthogonal, moveSegment, previewMove } from "../editor/routing";
-export type CanvasProps = {
+export type CanvasProps = PlacementProps & {
   project: Project;
   circuit: Circuit;
   selected: string[];
@@ -85,6 +87,9 @@ function Canvas({
   notice,
   dismissNotice,
   markerMove,
+  placement,
+  commitPlacement,
+  cancelPlacement,
 }: CanvasProps) {
   const networkLayer = useRef<Konva.Layer>(null);
   const dragLayer = useRef<Konva.Layer>(null);
@@ -97,6 +102,7 @@ function Canvas({
     stage = useRef<Konva.Stage>(null);
   const [size, setSize] = useState({ width: 800, height: 600 });
   const [view, setView] = useState({ x: 60, y: 60, scale: 1 });
+  const { preview: placementPreview, previewProject } = useCanvasPlacement({ placement, commitPlacement, cancelPlacement, host, project, circuit, view, readOnly });
   // Safari may defer animation frames after native file dialogs. Paused edits
   // must paint on commit rather than wait for Konva's next animation frame.
   useEffect(() => {
@@ -227,35 +233,7 @@ function Canvas({
     );
     setView({ x: 50 - minX * scale, y: 50 - minY * scale, scale });
   }, [fitToken, circuit.id, focus]);
-  const alignmentTargets = useMemo(() => {
-    const x = new Set<number>(),
-      y = new Set<number>();
-    for (const c of circuit.components) {
-      if (selected.includes(c.id)) continue;
-      const g = geometry(c, project);
-      [c.x, c.x + g.w / 2, c.x + g.w].forEach((n) => x.add(n));
-      [
-        c.y,
-        c.y + g.h / 2,
-        c.y + g.h,
-        ...ports(c, project).map((p) => pinPosition(c, p.id, project).y),
-      ].forEach((n) => y.add(n));
-    }
-    for (const w of circuit.wires) {
-      if (
-        selected.includes(w.from.component) ||
-        selected.includes(w.to.component)
-      )
-        continue;
-      for (let i = 1; i < w.points.length; i++) {
-        const a = w.points[i - 1],
-          b = w.points[i];
-        if (a.x === b.x) x.add(a.x);
-        if (a.y === b.y) y.add(a.y);
-      }
-    }
-    return { x: [...x].sort((a, b) => a - b), y: [...y].sort((a, b) => a - b) };
-  }, [circuit, project, selected]);
+  const alignmentTargets = useMemo(() => collectAlignmentTargets(circuit, project, selected), [circuit, project, selected]);
   const alignmentRef = useRef(alignmentTargets);
   alignmentRef.current = alignmentTargets;
   const intersections = useMemo(
@@ -325,6 +303,10 @@ function Canvas({
     <div
       className="canvas-host"
       ref={host}
+      data-placement={placementPreview ? "preview" : undefined}
+      data-placement-x={placementPreview?.position.x}
+      data-placement-y={placementPreview?.position.y}
+      data-placement-guides={placementPreview?.guides.map(g => `${g.axis}:${g.value}`).join(",")}
       style={{ cursor: space ? "grab" : pending ? "crosshair" : "default" }}
     >
       <Stage
@@ -334,7 +316,8 @@ function Canvas({
         y={view.y}
         scaleX={view.scale}
         scaleY={view.scale}
-        draggable={space}
+        draggable={space && !placement}
+        listening={!placement}
         onDragStart={(e) => {
           if (e.target === stage.current) cacheScene();
         }}
@@ -635,38 +618,10 @@ function Canvas({
                   }}
                   onDragMove={(e) => {
                     const raw = { x: e.target.x(), y: e.target.y() };
-                    const result = { x: snap(raw.x), y: snap(raw.y) };
-                    const gs: { axis: "x" | "y"; value: number }[] = [];
-                    for (const axis of ["x", "y"] as const) {
-                      const own =
-                        axis === "x"
-                          ? [0, g.w / 2, g.w]
-                          : [
-                              0,
-                              g.h / 2,
-                              g.h,
-                              ...ports(c, project).map(
-                                (p) => pinPosition(c, p.id, project).y - c.y,
-                              ),
-                            ];
-                      const previous = held.current[axis];
-                      const target =
-                        previous &&
-                        Math.abs(raw[axis] - previous.position) <
-                          12 / view.scale
-                          ? previous
-                          : nearestAlignment(
-                              alignmentRef.current[axis],
-                              raw[axis],
-                              own,
-                              8 / view.scale,
-                            );
-                      if (target) {
-                        result[axis] = target.position;
-                        gs.push({ axis, value: target.line });
-                      }
-                      held.current[axis] = target;
-                    }
+                    const { position: result, guides: gs } = snapPlacement(raw, alignmentRef.current, {
+                      x: [0, g.w / 2, g.w],
+                      y: [0, g.h / 2, g.h, ...ports(c, project).map(p => pinPosition(c, p.id, project).y - c.y)],
+                    }, view.scale, held.current);
                     e.target.position(result);
                     setGuides(gs);
                     setDragged({
@@ -861,7 +816,10 @@ function Canvas({
             const at=pinPosition(c,p.id,project),delta=dragged&&selected.includes(c.id)?dragged.delta:{x:0,y:0};
             return <Circle key={'pin-mask:'+c.id+':'+p.id} x={at.x+delta.x} y={at.y+delta.y} radius={5} fill={pending?.component===c.id&&pending.port===p.id?'#e0ad58':colors.surface} stroke={pending?'#39a672':colors.line} strokeWidth={2} listening={false}/>;
           }))}
-          {guides.map((g) => (
+          {placementPreview && placement && <Group x={placementPreview.position.x} y={placementPreview.position.y} opacity={0.6} listening={false}>
+            <ComponentGlyph c={placement.component} project={previewProject} selected={false} dark={dark} scale={view.scale} readOnly={true} cacheGlyph={false} space={false} waypoints={[]} pin={() => {}} />
+          </Group>}
+          {(placementPreview?.guides ?? guides).map((g) => (
             <Line
               key={g.axis}
               points={
@@ -897,8 +855,9 @@ function Canvas({
           )}
         </Layer>
       </Stage>
+      {placement && !placement.start && <div role="status" className="wire-hint">{t("placementKeys")}</div>}
       {notice && <div role="status" className="notice canvas-notice">{notice}<button aria-label={t("dismissNotice")} onClick={dismissNotice}>×</button></div>}
-      {!circuit.components.length && (
+      {!circuit.components.length && !placementPreview && (
         <div className="canvas-empty">
           <div className="empty-gate">&</div>
           <h2>{t("emptyTitle")}</h2>

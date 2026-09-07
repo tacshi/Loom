@@ -1,3 +1,4 @@
+import { placeComponent } from "./placeComponent";
 import { test, expect } from "@playwright/test";
 import { Builder } from "../../src/examples/adder";
 import { readFile } from "node:fs/promises";
@@ -64,7 +65,7 @@ test("selecting a visible input preserves the counter display location", async (
   expect(await bounds()).toEqual(before);
 });
 
-test("adding a component chooses space clear of existing bodies", async ({
+test("adding a component preserves the chosen canvas position", async ({
   page,
 }) => {
   const b = new Builder("Placement");
@@ -80,7 +81,7 @@ test("adding a component chooses space clear of existing bodies", async ({
     b.p.name,
   );
   await page.getByRole("button", { name: "Components", exact: true }).click();
-  await page.getByRole("button", { name: "NAND", exact: true }).click();
+  const position = await placeComponent(page, "NAND", 420, 320);
   await page.getByRole("button", { name: "Projects", exact: true }).click();
   const d = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export file", exact: true }).click();
@@ -88,12 +89,7 @@ test("adding a component chooses space clear of existing bodies", async ({
   const added = p.circuits[p.root].components.find(
     (c: any) => c.kind === "nand",
   );
-  expect(
-    added.x >= 420 ||
-      added.x + 160 <= 260 ||
-      added.y >= 180 ||
-      added.y + 120 <= 60,
-  ).toBe(true);
+  expect(added).toMatchObject(position);
 });
 
 test("undoing a failed edit shows verified status without the obsolete failure", async ({

@@ -1,3 +1,4 @@
+import { placeComponent } from "./placeComponent";
 import { test, expect, type Page } from "@playwright/test";
 async function ready(page: Page) {
   await page.goto("/");
@@ -214,8 +215,8 @@ test("keyboard copy, paste and undo preserve a coherent selection", async ({
   page,
 }) => {
   await ready(page);
-  await page.getByRole("button", { name: "Input", exact: true }).click();
-  await page.getByRole("button", { name: "Input", exact: true }).click();
+  await placeComponent(page, "Input");
+  await placeComponent(page, "Input", 420, 200);
   await page.getByRole("button", { name: "Select", exact: true }).click();
   await page.keyboard.press("ControlOrMeta+A");
   await page.keyboard.press("ControlOrMeta+C");

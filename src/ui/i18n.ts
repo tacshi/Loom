@@ -1,5 +1,7 @@
 export type Language = "en" | "zh";
 export const messages: Record<string, [string, string]> = {
+  placementInstructions: ["Drag onto the canvas, or press Enter to position with arrow keys.", "拖到画布上，或按回车后用方向键定位。"],
+  placementKeys: ["Arrow keys to move · Enter to place · Esc to cancel", "方向键移动 · 回车放置 · Esc 取消"],
   addressParameter: ["Address-width parameter", "地址位宽参数"],
   parameterInUse: ["Remove the parameter bindings before deleting it.", "请先移除参数绑定，再删除参数。"],
   parameterName: ["Parameter name", "参数名称"],
@@ -519,8 +521,8 @@ export const messages: Record<string, [string, string]> = {
   selected: ["selected", "已选择"],
   emptyTitle: ["Start with a signal.", "从一个信号开始。"],
   emptyBody: [
-    "Add an input, a gate, and a probe from the library.",
-    "从元件库添加输入、逻辑门和探针。",
+    "Drag an input, a gate, and a probe onto the canvas.",
+    "将输入、逻辑门和探针拖到画布上。",
   ],
   selectHint: [
     "Select a component to inspect its ports and properties.",
