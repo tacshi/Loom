@@ -273,6 +273,24 @@ export function route(
     throw new Error("routeBlocked");
   return points;
 }
+// Normalize input-first wiring once so preview and commit use identical routes.
+export function connectionRoute(
+  circuit: Circuit,
+  project: Project,
+  start: Endpoint,
+  end: Endpoint,
+  waypoints: Point[] = [],
+  horizontal = true,
+) {
+  const direction = validDirection(project, circuit, start);
+  if (direction === validDirection(project, circuit, end))
+    throw new Error("directionError");
+  const from = direction === "out" ? start : end;
+  const to = direction === "out" ? end : start;
+  return { from, to, points: route(circuit, project, from, to,
+    direction === "out" ? waypoints : waypoints.toReversed(), horizontal) };
+}
+
 export function protectTerminals(points: Point[]): Point[] {
   if (points.length < 2) return points;
   const ps = structuredClone(points),

@@ -58,6 +58,7 @@ import NetInspector from "./NetInspector";
 import { categories, ports, validateAppearance, geometry } from "../model/components";
 import {
   route,
+  connectionRoute,
   moveComponents,
   moveSegment,
   routeClear,
@@ -393,7 +394,7 @@ export default function App() {
     const ids = selected.includes(id) ? selected : [id];
     return edit((p) => moveComponents(p.circuits[activeId], p, ids, delta));
   }
-  function pin(e: Endpoint, waypoints: Point[] = []) {
+  function pin(e: Endpoint, waypoints: Point[] = [], horizontal = true) {
     if (!persistence.writable) {
       setNotice(t("readOnly"));
       return;
@@ -407,21 +408,8 @@ export default function App() {
       setPending(undefined);
       return;
     }
-    const dir = validDirection(project, circuit, pending);
-    if (dir === validDirection(project, circuit, e)) {
-      setNotice(t("directionError"));
-      return;
-    }
-    const from = dir === "out" ? pending : e,
-      to = dir === "out" ? e : pending;
     try {
-      const points = route(
-        circuit,
-        project,
-        from,
-        to,
-        dir === "out" ? waypoints : waypoints.toReversed(),
-      );
+      const { from, to, points } = connectionRoute(circuit, project, pending, e, waypoints, horizontal);
       edit((p) =>
         addConnection(p, activeId, {
           id: uid(),
@@ -437,7 +425,7 @@ export default function App() {
       setNotice(t(error instanceof Error ? error.message : "routeBlocked"));
     }
   }
-  function branch(id: string, at: Point) {
+  function branch(id: string, at: Point, horizontal = true) {
     const w = circuit.wires.find((w) => w.id === id);
     if (!pending || !w) return;
     if (validDirection(project, circuit, pending) !== "in") {
@@ -448,7 +436,7 @@ export default function App() {
     try {
       const points = route(circuit, project, w.from, to, [
         { x: Math.round(at.x / 20) * 20, y: Math.round(at.y / 20) * 20 },
-      ]);
+      ], horizontal);
       edit((p) =>
         addConnection(p, activeId, {
           id: uid(),

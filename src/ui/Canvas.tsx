@@ -33,7 +33,7 @@ import {
 import { geometry, ports, pinPosition, pinNormal } from "../model/components";
 import { alignmentTargets as collectAlignmentTargets, type Alignment } from "../editor/alignment";
 import { crossings,wireMetrics } from "../editor/crossings";
-import { orthogonal, moveSegment, previewMove } from "../editor/routing";
+import { orthogonal, moveSegment, previewMove, connectionRoute, route, validDirection } from "../editor/routing";
 export type CanvasProps = PlacementProps & {
   project: Project;
   circuit: Circuit;
@@ -45,10 +45,10 @@ export type CanvasProps = PlacementProps & {
   dark: boolean;
   fitToken: number;
   pending?: Endpoint;
-  pin: (e: Endpoint, waypoints?: Point[]) => void;
+  pin: (e: Endpoint, waypoints?: Point[], horizontal?: boolean) => void;
   cancel: () => void;
   segment: (id: string, index: number, at: Point) => void;
-  branch: (id: string, at: Point) => void;
+  branch: (id: string, at: Point, horizontal?: boolean) => void;
   toggle?: (id: string) => void;
   button?: (id: string, down: boolean) => void;
   enter?: (id: string) => void;
@@ -111,6 +111,7 @@ function Canvas({
   const [spaceHeld, setSpace] = useState(false);
   const space = spaceHeld || panMode;
   const cancelledDrag = useRef(false);
+  const suppressWireMenu = useRef(false);
   const [wireDrag, setWireDrag] = useState<{
     id: string;
     index: number;
@@ -119,6 +120,7 @@ function Canvas({
   const [waypoints, setWaypoints] = useState<Point[]>([]);
   const [cursor, setCursor] = useState<Point>({ x: 0, y: 0 });
   const [horizontal, setHorizontal] = useState(true);
+  const [wireTarget, setWireTarget] = useState<{ endpoint?: Endpoint; wireId?: string; at?: Point }>();
   const [marquee, setMarquee] = useState<{ start: Point; end: Point }>();
   const [guides, setGuides] = useState<{ axis: "x" | "y"; value: number }[]>(
     [],
@@ -152,6 +154,7 @@ function Canvas({
   }, []);
   useEffect(() => {
     setWaypoints([]);
+    setWireTarget(undefined);
   }, [pending]);
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -262,13 +265,26 @@ function Canvas({
   const startAt = start
     ? pinPosition(start, pending!.port, project)
     : undefined;
-  const preview = startAt
-    ? [
-        startAt,
-        ...waypoints,
-        ...orthogonal(waypoints.at(-1) ?? startAt, cursor, horizontal).slice(1),
-      ]
-    : [];
+  const preview = useMemo(() => {
+    if (!startAt || !pending) return [];
+    try {
+      if (wireTarget?.endpoint) {
+        const end = wireTarget.endpoint;
+        if (end.component === pending.component && end.port === pending.port) return [];
+        return connectionRoute(circuit, project, pending, end, waypoints, horizontal).points;
+      }
+      if (wireTarget?.wireId && wireTarget.at) {
+        const wire = circuit.wires.find(w => w.id === wireTarget.wireId);
+        if (!wire || validDirection(project, circuit, pending) !== "in") return [];
+        return route(circuit, project, wire.from, pending, [wireTarget.at], horizontal);
+      }
+      return [startAt, ...waypoints,
+        ...orthogonal(waypoints.at(-1) ?? startAt, cursor, horizontal).slice(1)];
+    } catch {
+      // A blocked or incompatible target has no valid route to preview.
+      return [];
+    }
+  }, [pending, circuit, project, waypoints, cursor, horizontal, wireTarget]);
   const moving = useMemo(
     () =>
       dragged
@@ -303,6 +319,27 @@ function Canvas({
     <div
       className="canvas-host"
       ref={host}
+      onMouseDownCapture={(e) => {
+        if (e.button !== 2 && !(e.button === 0 && e.ctrlKey)) return;
+        // Stop the secondary click before a pin can connect or the stage can
+        // add a waypoint. The contextmenu event may arrive after React updates.
+        e.stopPropagation();
+        suppressWireMenu.current = !!pending;
+        if (pending) {
+          e.preventDefault();
+          setWaypoints([]);
+          cancel();
+        }
+      }}
+      onContextMenuCapture={(e) => {
+        if (!pending && !suppressWireMenu.current) return;
+        e.preventDefault();
+        e.stopPropagation();
+        suppressWireMenu.current = false;
+        setWaypoints([]);
+        cancel();
+      }}
+      data-wire-preview={pending ? JSON.stringify(preview) : undefined}
       data-placement={placementPreview ? "preview" : undefined}
       data-placement-x={placementPreview?.position.x}
       data-placement-y={placementPreview?.position.y}
@@ -349,13 +386,28 @@ function Canvas({
             }
           }
         }}
-        onMouseMove={() => {
+        onMouseMove={(e) => {
           const p = world();
+          if (pending) {
+            let node: Konva.Node | null = e.target;
+            let endpoint: Endpoint | undefined, wireId: string | undefined;
+            while (node && node !== stage.current) {
+              endpoint = node.getAttr("wireEndpoint");
+              wireId = node.getAttr("wireId");
+              if (endpoint || wireId) break;
+              node = node.getParent();
+            }
+            const at = { x: snap(p.x), y: snap(p.y) };
+            setWireTarget(old => {
+              if (old?.endpoint?.component === endpoint?.component && old?.endpoint?.port === endpoint?.port && old?.wireId === wireId && (!wireId || (old?.at?.x === at.x && old?.at?.y === at.y))) return old;
+              return endpoint ? { endpoint } : wireId ? { wireId, at } : undefined;
+            });
+          }
           if (pending) setCursor({ x: snap(p.x), y: snap(p.y) });
           if (marquee) setMarquee({ ...marquee, end: p });
         }}
         onMouseUp={finishSelect}
-        onMouseLeave={finishSelect}
+        onMouseLeave={() => { finishSelect(); setWireTarget(undefined); }}
         onWheel={(e) => {
           e.evt.preventDefault();
           const pos = stage.current!.getPointerPosition()!;
@@ -399,6 +451,7 @@ function Canvas({
         </Layer>
         <WireLayer
           layerRef={wireLayer}
+          horizontal={horizontal}
           wires={circuit.wires}
           values={values}
           selection={selected
@@ -473,6 +526,7 @@ function Canvas({
                         points={[a.x, a.y, p.x, p.y]}
                         stroke={color}
                         opacity={0}
+                        wireId={w.id}
                         strokeWidth={metrics.strokeWidth}
                         hitStrokeWidth={metrics.hitStrokeWidth}
                         draggable={!readOnly && !pending && !space}
@@ -498,7 +552,7 @@ function Canvas({
                         onMouseDown={(e) => {
                           if (space) return;
                           e.cancelBubble = true;
-                          if (pending) branch(w.id, world());
+                          if (pending) branch(w.id, world(), horizontal);
                           else setSelected([w.id]);
                         }}
                         onDragEnd={(e) => {
@@ -552,6 +606,7 @@ function Canvas({
         <Electrons wires={circuit.wires} bridges={intersections.bridges} values={values} path={path} running={running} dark={dark} view={view} size={size} />
         <ComponentLayer
           layerRef={networkLayer}
+          horizontal={horizontal}
           circuit={circuit}
           waypoints={waypoints}
           project={project}
@@ -671,6 +726,7 @@ function Canvas({
                     cacheGlyph={circuit.components.length > 200}
                     space={space}
                     waypoints={waypoints}
+                    horizontal={horizontal}
                     pin={pin}
                   />
                 </Group>
@@ -881,6 +937,7 @@ type GlyphProps = {
   pending?: Endpoint;
   scale: number;
   waypoints: Point[];
+  horizontal?: boolean;
   space: boolean;
   readOnly: boolean;
   cacheGlyph: boolean;
@@ -898,6 +955,7 @@ const ComponentGlyph = memo(
     pending,
     scale,
     waypoints,
+    horizontal = true,
     space,
     readOnly,
     cacheGlyph,
@@ -1013,12 +1071,13 @@ const ComponentGlyph = memo(
           return (
             <Group
               key={p.id}
+              wireEndpoint={{ component: c.id, port: p.id }}
               x={at.x - c.x}
               y={at.y - c.y}
               onMouseDown={(e) => {
                 if (space) return;
                 e.cancelBubble = true;
-                pin({ component: c.id, port: p.id }, waypoints);
+                pin({ component: c.id, port: p.id }, waypoints, horizontal);
               }}
             >
               <Circle
@@ -1064,6 +1123,7 @@ const ComponentGlyph = memo(
     a.pending === b.pending &&
     a.scale === b.scale &&
     a.waypoints === b.waypoints &&
+    a.horizontal === b.horizontal &&
     a.space === b.space &&
     a.readOnly === b.readOnly &&
     a.cacheGlyph === b.cacheGlyph,
@@ -1075,6 +1135,7 @@ const ComponentLayer = memo(
   }: {
     layerRef: React.RefObject<Konva.Layer | null>;
     children: React.ReactNode;
+    horizontal: boolean;
     project: Project;
     circuit: Circuit;
     waypoints: Point[];
@@ -1091,6 +1152,7 @@ const ComponentLayer = memo(
   (a, b) =>
     a.project === b.project &&
     a.circuit === b.circuit &&
+    a.horizontal === b.horizontal &&
     a.waypoints === b.waypoints &&
     a.view === b.view &&
     a.values === b.values &&
@@ -1107,6 +1169,7 @@ const WireLayer = memo(
   }: {
     layerRef: React.RefObject<Konva.Layer | null>;
     children: React.ReactNode;
+    horizontal: boolean;
     wires: Circuit["wires"];
     values: CanvasProps["values"];
     selection: string;
@@ -1120,6 +1183,7 @@ const WireLayer = memo(
   },
   (a, b) =>
     a.wires === b.wires &&
+    a.horizontal === b.horizontal &&
     a.values === b.values &&
     a.selection === b.selection &&
     a.pending === b.pending &&

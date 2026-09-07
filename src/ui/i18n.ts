@@ -287,8 +287,8 @@ export const messages: Record<string, [string, string]> = {
   updateAvailable: ["An update is ready.", "新版本已就绪。"],
   saveAndUpdate: ["Save & update", "保存并更新"],
   wireHint: [
-    "Click a pin to connect · Click canvas for a waypoint · R changes routing · Esc cancels",
-    "点击引脚连接 · 点击画布设拐点 · R 切换方向 · Esc 取消",
+    "Click a pin to connect · Click canvas for a waypoint · R changes routing · Right-click or Esc cancels",
+    "点击引脚连接 · 点击画布设拐点 · R 切换方向 · 右键或 Esc 取消",
   ],
   directionError: ["Connect an output to an input.", "请连接输出与输入。"],
   routeBlocked: [
