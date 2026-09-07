@@ -29,7 +29,8 @@ export type Kind =
   | "buffer"
   | "keyboard"
   | "terminal"
-  | "display";
+  | "display"
+  | "sevenSegment";
 export type SignalRef = {
   instancePath: string[];
   componentId: string;

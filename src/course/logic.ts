@@ -167,6 +167,7 @@ const primitives = new Set<Kind>([
   "keyboard",
   "terminal",
   "display",
+  "sevenSegment",
   "instance",
 ]);
 export function gateDefinition(

@@ -69,6 +69,7 @@ export const messages: Record<string, [string, string]> = {
   devices: ["Devices", "外设"],
   keyboard: ["Keyboard FIFO", "键盘队列"],
   terminal: ["Text terminal", "文本终端"],
+  sevenSegment: ["Seven-segment display", "七段数码管"],
   display: ["Pixel display", "像素显示器"],
   keyboardInput: ["Keyboard input", "键盘输入"],
   queuedBytes: ["queued bytes", "个排队字节"],

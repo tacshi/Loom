@@ -1,3 +1,4 @@
+import SevenSegment from "./SevenSegment";
 import Electrons from "./Electrons";
 import {
   memo,
@@ -686,6 +687,13 @@ function Canvas({
                     selected={false}
                     dark={dark}
                     value={value}
+                    segments={
+                      c.kind === "sevenSegment"
+                        ? ["a", "b", "c", "d", "e", "f", "g", "dp"]
+                            .map((id) => values[path + c.id + ":" + id] ?? "X")
+                            .join("")
+                        : undefined
+                    }
                     pending={pending}
                     scale={view.scale}
                     readOnly={readOnly}
@@ -892,6 +900,7 @@ type GlyphProps = {
   selected: boolean;
   dark: boolean;
   value?: string;
+  segments?: string;
   pending?: Endpoint;
   scale: number;
   waypoints: Point[];
@@ -907,6 +916,7 @@ const ComponentGlyph = memo(
     selected,
     dark,
     value,
+    segments,
     pending,
     scale,
     waypoints,
@@ -930,7 +940,7 @@ const ComponentGlyph = memo(
       return () => {
         cached.current?.clearCache();
       };
-    }, [c, project, selected, dark, value, pending, scale, cacheGlyph]);
+    }, [c, project, selected, dark, value, segments, pending, scale, cacheGlyph]);
     const colors = dark
       ? { surface: "#203532", text: "#ecf5ef", line: "#90aa9d" }
       : { surface: "#fff", text: "#223d35", line: "#728e80" };
@@ -956,51 +966,61 @@ const ComponentGlyph = memo(
           fill={colors.text}
           ellipsis
         />
-        <Text
-          x={30}
-          y={g.h / 2 - 17}
-          width={60}
-          align="center"
-          text={
-            value ??
-            {
-              input: "0",
-              constant: "1",
-              probe: "—",
-              not: "¬",
-              and: "&",
-              or: "≥1",
-              xor: "=1",
-              nand: "&̅",
-              nor: "≥1̅",
-              xnor: "=1̅",
-              mux: "MUX",
-              decoder: "DEC",
-              split: "SPLIT",
-              join: "JOIN",
-              adder: "+",
-              subtractor: "−",
-              compare: "= / <",
-              register: "REG",
-              counter: "+1",
-              dff: "D",
-              ram: "RAM",
-              rom: "ROM",
-              portIn: "IN",
-              portOut: "OUT",
-              instance: "ƒ",
-              buffer: "BUF",
-              keyboard: "KBD",
-              terminal: "TERM",
-              display: "PIX",
-            }[c.kind]
-          }
-          wrap="none"
-          height={24}
-          fontSize={value ? 16 : c.kind.length < 6 ? 20 : 12}
-          fill={colors.text}
-          ellipsis
-        />
+        {c.kind === "sevenSegment" ? (
+          <SevenSegment
+            width={g.w}
+            height={g.h}
+            segments={segments ?? "XXXXXXXX"}
+            dark={dark}
+          />
+        ) : (
+          <Text
+            x={30}
+            y={g.h / 2 - 17}
+            width={60}
+            align="center"
+            text={
+              value ??
+              {
+                input: "0",
+                constant: "1",
+                probe: "—",
+                not: "¬",
+                and: "&",
+                or: "≥1",
+                xor: "=1",
+                nand: "&̅",
+                nor: "≥1̅",
+                xnor: "=1̅",
+                mux: "MUX",
+                decoder: "DEC",
+                split: "SPLIT",
+                join: "JOIN",
+                adder: "+",
+                subtractor: "−",
+                compare: "= / <",
+                register: "REG",
+                counter: "+1",
+                dff: "D",
+                ram: "RAM",
+                rom: "ROM",
+                portIn: "IN",
+                portOut: "OUT",
+                instance: "ƒ",
+                buffer: "BUF",
+                keyboard: "KBD",
+                terminal: "TERM",
+                display: "PIX",
+                sevenSegment: "",
+              }[c.kind]
+            }
+            wrap="none"
+            height={24}
+            fontSize={value ? 16 : c.kind.length < 6 ? 20 : 12}
+            fill={colors.text}
+            ellipsis
+          />
+        )}
         {ports(c, project).map((p) => {
           const at = pinPosition(c, p.id, project),
             normal = pinNormal(c, p.id, project);
@@ -1053,6 +1073,7 @@ const ComponentGlyph = memo(
     a.selected === b.selected &&
     a.dark === b.dark &&
     a.value === b.value &&
+    a.segments === b.segments &&
     a.pending === b.pending &&
     a.scale === b.scale &&
     a.waypoints === b.waypoints &&

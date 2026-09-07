@@ -1207,25 +1207,27 @@ export default function App() {
                   }
                 />
               </label>
-              <label>
-                {t("width")}
-                <input
-                  type="number"
-                  min={1}
-                  max={32}
-                  value={component.width}
-                  onChange={(e) =>
-                    edit((p) => {
-                      p.circuits[activeId].components.find(
-                        (c) => c.id === component.id,
-                      )!.width = Math.min(
-                        32,
-                        Math.max(1, Math.trunc(Number(e.target.value))),
-                      );
-                    })
-                  }
-                />
-              </label>
+              {component.kind !== "sevenSegment" && (
+                <label>
+                  {t("width")}
+                  <input
+                    type="number"
+                    min={1}
+                    max={32}
+                    value={component.width}
+                    onChange={(e) =>
+                      edit((p) => {
+                        p.circuits[activeId].components.find(
+                          (c) => c.id === component.id,
+                        )!.width = Math.min(
+                          32,
+                          Math.max(1, Math.trunc(Number(e.target.value))),
+                        );
+                      })
+                    }
+                  />
+                </label>
+              )}
               {(["input", "constant"].includes(component.kind) ||
                 (component.kind === "portIn" && !nav.length)) && (
                 <label>

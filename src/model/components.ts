@@ -15,7 +15,7 @@ export const categories = [
       "compare",
     ],
   },
-  { id: "devices", kinds: ["keyboard", "terminal", "display"] },
+  { id: "devices", kinds: ["keyboard", "terminal", "display", "sevenSegment"] },
   { id: "storage", kinds: ["dff", "register", "counter", "ram", "rom"] },
 ] as const;
 export function ports(c: Component, project?: Project): Port[] {
@@ -36,6 +36,8 @@ export function ports(c: Component, project?: Project): Port[] {
       return [i("read", 1), i("clear", 1), o("data", 8), o("ready", 1)];
     case "terminal":
       return [i("data", 8), i("write", 1), i("clear", 1)];
+    case "sevenSegment":
+      return ["a", "b", "c", "d", "e", "f", "g", "dp"].map((id) => i(id, 1));
     case "display":
       return [
         i("x", 6),

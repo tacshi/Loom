@@ -151,6 +151,7 @@ export class Engine {
         case "buffer":
           put("out", read("in"));
           break;
+        case "sevenSegment":
         case "probe":
         case "portOut":
           break;

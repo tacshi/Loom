@@ -30,6 +30,7 @@ const kinds = new Set<Kind>([
   "keyboard",
   "terminal",
   "display",
+  "sevenSegment",
 ]);
 const object = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
