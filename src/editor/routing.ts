@@ -7,8 +7,30 @@ import {
   type Wire,
   type Endpoint,
 } from "../model/types";
-import { overlapping } from "./crossings";
 import { geometry, pinPosition, ports, pinNormal } from "../model/components";
+// End-to-end contact between different signals looks like a connection too.
+// Perpendicular crossings remain legal and are rendered with bridges.
+function collinearContact(a: Point, b: Point, c: Point, d: Point) {
+  if (a.y === b.y && c.y === d.y && a.y === c.y)
+    return Math.min(Math.max(a.x, b.x), Math.max(c.x, d.x)) >=
+      Math.max(Math.min(a.x, b.x), Math.min(c.x, d.x));
+  if (a.x === b.x && c.x === d.x && a.x === c.x)
+    return Math.min(Math.max(a.y, b.y), Math.max(c.y, d.y)) >=
+      Math.max(Math.min(a.y, b.y), Math.min(c.y, d.y));
+  return false;
+}
+function occupiedSegments(circuit: Circuit, project: Project, wire: Wire, clearance = GRID) {
+  const segments = wire.points.slice(1).map((b, i) => ({ a: wire.points[i], b }));
+  // Reserve current pin approaches even before the other wire has been rerouted.
+  for (const endpoint of [wire.from, wire.to]) {
+    const component = circuit.components.find(c => c.id === endpoint.component);
+    if (!component) continue;
+    const a = pinPosition(component, endpoint.port, project);
+    const normal = pinNormal(component, endpoint.port, project);
+    segments.push({ a, b: { x: a.x + normal.x * clearance, y: a.y + normal.y * clearance } });
+  }
+  return segments;
+}
 export function simplify(points: Point[]): Point[] {
   return points
     .filter((p, i) => !i || p.x !== points[i - 1].x || p.y !== points[i - 1].y)
@@ -166,7 +188,7 @@ function search(
       if (blocked(x, y) && !(x === b.x && y === b.y)) continue;
       const horizontalMove = current.y === y;
       const parallel = (horizontalMove ? rows.get(y) : columns.get(x)) ?? [];
-      if (parallel.some((s) => overlapping(current, { x, y }, s.a, s.b)))
+      if (parallel.some((s) => collinearContact(current, { x, y }, s.a, s.b)))
         continue;
       const crossingCost =
         50 *
@@ -249,7 +271,7 @@ export function route(
         !(w.netId && related.has(w.netId)) &&
         !(w.from.component === from.component && w.from.port === from.port),
     )
-    .flatMap((w) => w.points.slice(1).map((b, i) => ({ a: w.points[i], b })));
+    .flatMap((w) => occupiedSegments(circuit, project, w, GRID * 2));
   const nodes = [
     exit,
     ...waypoints.map((p) => ({ x: snap(p.x), y: snap(p.y) })),
@@ -380,9 +402,8 @@ export function routeClear(
       points
         .slice(1)
         .some((b, i) =>
-          other.points
-            .slice(1)
-            .some((d, j) => overlapping(points[i], b, other.points[j], d)),
+          occupiedSegments(circuit, project, other)
+            .some((segment) => collinearContact(points[i], b, segment.a, segment.b)),
         ),
   );
 }
@@ -400,11 +421,16 @@ export function moveComponents(
   const affected = circuit.wires.filter(
     (w) => ids.includes(w.from.component) || ids.includes(w.to.component),
   );
+  const previousPoints = new Map(affected.map(w => [w.id, w.points]));
+  // Moving automatic wires must not reserve their old geometry while their
+  // neighbors are rerouted. Current terminal approaches remain reserved.
+  for (const w of affected) if (!w.pinned) w.points = [];
   for (const w of affected) {
+    const oldPoints = previousPoints.get(w.id)!;
     const a = ids.includes(w.from.component),
       b = ids.includes(w.to.component);
     if (a && b) {
-      w.points = w.points.map((p) => ({ x: p.x + delta.x, y: p.y + delta.y }));
+      w.points = oldPoints.map((p) => ({ x: p.x + delta.x, y: p.y + delta.y }));
       if (w.junction)
         w.junction = { x: w.junction.x + delta.x, y: w.junction.y + delta.y };
       if (!routeClear(circuit, project, w)) throw new Error("routeBlocked");
@@ -416,7 +442,7 @@ export function moveComponents(
       end = pinPosition(sink, w.to.port, project),
       sn = pinNormal(source, w.from.port, project),
       tn = pinNormal(sink, w.to.port, project);
-    const middle = w.points.slice(1, -1);
+    const middle = oldPoints.slice(1, -1);
     const exit = { x: start.x + sn.x * GRID, y: start.y + sn.y * GRID },
       entry = { x: end.x + tn.x * GRID, y: end.y + tn.y * GRID };
     const candidate = simplify([
