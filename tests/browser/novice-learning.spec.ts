@@ -26,6 +26,7 @@ for (const zh of [false, true]) {
         wrong: 0,
         right: 1,
       },
+      { id: "core-09", keyword: "XOR", wrong: 1, right: 0 },
       {
         id: "core-13",
         keyword: label("Binary writes", "二进制"),
@@ -72,13 +73,27 @@ for (const zh of [false, true]) {
         .getByRole("tab", { name: label("Learn", "学习"), exact: true })
         .click();
       const concept = page.locator(".mission-concept");
-      await expect(concept.locator(":scope > p")).toContainText(
+      await expect(concept.locator(":scope > p").first()).toContainText(
         checkpoint.keyword,
       );
       if (checkpoint.id === "core-03") {
         await expect(
           page.getByText(/Open Components and drag AND|打开「元件」，将与门拖/),
         ).toBeVisible();
+      }
+      if (checkpoint.id === "core-09") {
+        await expect(concept.locator(".mission-approach")).toBeVisible();
+        await expect(concept.locator(".mission-approach")).toContainText(label("four-NAND design is optional", "四个与非门的设计是可选方案"));
+        const hints = page.locator(".mission-hints");
+        await expect(hints).not.toHaveAttribute("open", "");
+        await hints.locator(":scope > summary").click();
+        await expect(hints.locator(":scope > details")).toHaveCount(6);
+        await hints.locator(":scope > details > summary").nth(2).click();
+        await expect(hints.getByRole("button", { name: label("View example", "查看示例"), exact: true })).toBeHidden();
+        await hints.locator(":scope > details > summary").last().click();
+        await expect(hints.getByRole("button", { name: label("View example", "查看示例"), exact: true })).toBeVisible();
+        await hints.locator(":scope > summary").click();
+        await page.locator(".library").screenshot({ path: info.outputPath("xor-approach.png") });
       }
       await concept.locator("summary").click();
       const prediction = concept.locator("fieldset");
@@ -96,7 +111,7 @@ for (const zh of [false, true]) {
           exact: true,
         }),
       ).toHaveCount(0);
-      await expect(page.locator(".mission-position")).toContainText("0/60");
+      await expect(page.locator(".current-lesson .mission-position")).toContainText("0/60");
       expect(
         await concept.evaluate((el) => el.scrollWidth <= el.clientWidth + 2),
       ).toBe(true);

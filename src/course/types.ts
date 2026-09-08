@@ -62,7 +62,7 @@ export type Exercise = {
   revision: number;
   title: Copy;
   objective: Copy;
-  hints: [Copy, Copy, Copy];
+  hints: Copy[];
   prerequisites: ExerciseId[];
   allowed: Kind[];
   lesson: import("./lessons").Lesson;
@@ -93,6 +93,7 @@ export type CourseRequest = {
   exercise: ExerciseId;
   reverify?: boolean;
   prepare?: boolean;
+  practice?: boolean;
   example?: boolean;
 };
 export type CourseResponse = {

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { X } from "lucide-react";
 import { signal } from "../simulator/signal";
 import { signalLabel } from "../model/nets";
 import type { Project, SignalRef } from "../model/types";
@@ -89,7 +90,13 @@ export default function VisualTests({
             <button onClick={v.finish} disabled={!v.rows.length}>
               {t("showResult")}
             </button>
-            <button onClick={cancel ?? v.close}>{t("returnToEditing")}</button>
+            <button
+              onClick={cancel ?? v.close}
+              aria-label={t("returnToEditing")}
+              title={t("returnToEditing")}
+            >
+              <X size={18} aria-hidden="true" />
+            </button>
           </>
         )}
       </div>

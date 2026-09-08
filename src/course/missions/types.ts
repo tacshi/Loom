@@ -11,7 +11,7 @@ export type Mission = {
   goal: Copy;
   concept: Copy;
   supplied: Copy;
-  hints: [Copy, Copy, Copy];
+  hints: Copy[];
   prerequisites: MissionId[];
   mode: "logic" | "clock" | "cpu";
   allowed: Kind[];

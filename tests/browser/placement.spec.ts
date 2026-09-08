@@ -273,7 +273,7 @@ test("course palette restrictions and reference read-only state apply to placeme
   await page.mouse.up();
   await page.getByRole("tab", { name: "Learn", exact: true }).click();
   await page.getByText("Hints",{exact:true}).click();
-  await page.getByText("Hint 3",{exact:true}).click();
+  await page.locator(".mission-hints > details > summary").last().click();
   await page.getByRole("button",{name:"View example",exact:true}).click();
   await page.getByRole("tab", { name: "Components", exact: true }).click();
   await expect(

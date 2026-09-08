@@ -1,4 +1,4 @@
-import { constructionHints } from "./hints";
+import { progressiveHints } from "./hintProgression";
 import { forkDefinition, closure } from "../../library/package";
 import { requirements } from "./requirements";
 import "./special";
@@ -104,21 +104,9 @@ export const missions: Mission[] = [
   if (id === "core-18" || boundary >= 55) allowed.push("sevenSegment");
   if (boundary >= 55) allowed.push("keyboard", "terminal", "display");
   const sourceTask = !!(program || app);
-  if (!requirements[id] || !constructionHints[id])
+  if (!requirements[id] || !progressiveHints[id])
     throw new Error(`Mission requirements missing: ${id}`);
-  const hints: Mission["hints"] = [
-    chapterConcepts[chapter - 1],
-    constructionHints[id],
-    sourceTask
-      ? [
-          "Use the example to inspect a working program, then return to finish your own code.",
-          "通过示例查看可运行的程序，再返回完成自己的代码。",
-        ]
-      : [
-          "Use the example to inspect the relevant connections, then return to finish your own circuit.",
-          "通过示例查看相关连接，再返回完成自己的电路。",
-        ],
-  ];
+  const hints = progressiveHints[id];
   return {
     id,
     chapter,

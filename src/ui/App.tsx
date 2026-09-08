@@ -1,3 +1,5 @@
+import { subcircuitLabel, subcircuitSymbol } from "./subcircuitLabel";
+import { loadProject } from "../persistence/store";
 import CircuitMenu from "./CircuitMenu";
 import { exampleGuides, type ExampleId } from "../examples/guides";
 import { useVisualTests } from "./useVisualTests";
@@ -38,6 +40,7 @@ import Libraries from "./Libraries";
 import { forkDefinition } from "../library/package";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Play,
   CircuitBoard,
   Plus,
   Undo2,
@@ -107,6 +110,7 @@ export default function App() {
   const [libraryTab, setLibraryTab] = useState<
     "components" | "circuit" | "learn"
   >("components");
+  const [lessonHeader, setLessonHeader] = useState<HTMLDivElement | null>(null);
   const clipboard = useRef<Clipboard | undefined>(undefined);
   const [openingId, setOpeningId] = useState<string>();
   const [showReplacement, setShowReplacement] = useState(false);
@@ -227,6 +231,31 @@ export default function App() {
       setOpeningId(undefined);
   }, [openingId, project.id, persistence.writable]);
   const [courseReturn, setCourseReturn] = useState<Project>();
+  const [pausedCourseId, setPausedCourseId] = useState<string | null>(() => localStorage.getItem("loom-paused-course"));
+  useEffect(() => {
+    if (savedDocument.course && savedDocument.id === pausedCourseId) {
+      localStorage.removeItem("loom-paused-course");
+      setPausedCourseId(null);
+    }
+  }, [savedDocument.id, pausedCourseId]);
+  async function pauseCourse(practice?: Project) {
+    const id = savedDocument.id;
+    await openProject(practice ?? emptyProject(t("new")), undefined, () => {
+      localStorage.setItem("loom-paused-course", id);
+      setPausedCourseId(id);
+      setLibraryTab("components");
+    });
+  }
+  async function resumeCourse() {
+    if (!pausedCourseId) return;
+    try {
+      const course = await loadProject(pausedCourseId);
+      if (!course?.course) throw new Error("loadFailed");
+      await openProject(course);
+    } catch {
+      setNotice(t("loadFailed"));
+    }
+  }
   function editDocument(action: (p: Project) => void): boolean {
     if (savedDocument.courseReference) {
       setNotice(
@@ -281,7 +310,7 @@ export default function App() {
     setNav(route);setSelected([ref.componentId]);setFocus(ref.componentId);setFit(x=>x+1);setShowDebug(true);
     if(!visual.active)sim.inspectSource([...ref.instancePath,ref.componentId].join('/'),ref.portId);
   }
-  async function openProject(p: Project, initialFocus?: string) {
+  async function openProject(p: Project, initialFocus?: string, onOpened?: () => void) {
     sim.releaseButtons();cancelCourseCheck.current();
     setOpeningId(p.id);
     if (persistence.writable && !(await persistence.flush())) {
@@ -304,6 +333,7 @@ export default function App() {
     setFocus(initialFocus);
     setShowProjects(false);
     setFit(fit + 1);
+    onOpened?.();
   }
   const [placement, setPlacement] = useState<PlacementDraft>();
   const placementBlocked =
@@ -357,7 +387,7 @@ export default function App() {
         if (!definition) return;
         component = createComponent("instance", 0, 0);
         component.definitionId = definition.id;
-        component.name = definition.name;
+        component.name = subcircuitLabel(definition, lang);
       }
       const draft = {
         component,
@@ -701,6 +731,7 @@ export default function App() {
           {t(openingId ? "loading" : persistence.status === "loadFailed" ? "projectUnavailable" : persistence.status)}
         </span>
         <div className="header-actions">
+          {pausedCourseId && savedDocument.id !== pausedCourseId && (savedDocument.course || libraryTab !== "learn") && <button disabled={!!openingId} onClick={() => void resumeCourse()}>{t("resumeCourse")}</button>}
           {(!savedDocument.course || project.cpu) && (
             <button
               onClick={() => {
@@ -767,10 +798,11 @@ export default function App() {
       )}
       <main inert={!!openingId || modalOpen}>
         <aside className="library" data-course={!!savedDocument.course}>
+          <div ref={setLessonHeader} className="current-lesson" hidden={!savedDocument.course} />
           <LibraryTabs value={libraryTab} select={setLibraryTab} t={t} />
           <div role="tabpanel" id="library-panel-learn" aria-labelledby="library-tab-learn" tabIndex={0} hidden={libraryTab !== "learn"}>
-            <CourseLearn t={t} lang={lang} open={openProject}
-              project={savedDocument} edit={editCourseRecord}
+            <CourseLearn headerTarget={lessonHeader} t={t} lang={lang} open={openProject}
+              project={savedDocument} edit={editCourseRecord} onPassed={() => setLibraryTab("learn")} onPause={() => void pauseCourse()} onPractice={p => void pauseCourse(p)} onResume={pausedCourseId ? () => void resumeCourse() : undefined}
               example={!!learningScene} onExample={showLessonExample} onHint={id=>{setSelected([id]);setFocus(id);setFit(x=>x+1);}} runToken={courseRun} cancelCheckRef={cancelCourseCheck}
               onCheckStopped={()=>visual.close()} onResults={r=>visual.present(r.cases,r.results,true,r.message)} />
           </div>
@@ -931,24 +963,29 @@ export default function App() {
               ).length > 0 && (
                 <section>
                   <h3>{t("subcircuits")}</h3>
-                  {Object.values(project.circuits)
-                    .filter(
-                      (c) =>
-                        c.id !== project.root &&
-                        c.id !== activeId &&
-                        (!savedDocument.course ||
-                          acceptedRoots(savedDocument).includes(c.id)),
-                    )
-                    .map((c) => (
-                      <button
-                        key={c.id}
-                        className="component-item"
-                        {...placementSource({ definition: c.id })}
-                      >
-                        {c.name}
-                        {c.library ? ` · v${c.library.version}` : ""}
-                      </button>
-                    ))}
+                  <div className="component-grid subcircuit-list">
+                    {Object.values(project.circuits)
+                      .filter(
+                        (c) =>
+                          c.id !== project.root &&
+                          c.id !== activeId &&
+                          (!savedDocument.course ||
+                            acceptedRoots(savedDocument).includes(c.id)),
+                      )
+                      .map((c) => (
+                        <button
+                          key={c.id}
+                          className="component-item subcircuit-item"
+                          {...placementSource({ definition: c.id })}
+                          aria-label={`${subcircuitLabel(c, lang)} · ${t("customComponent")}`}
+                          title={c.name + (c.library ? ` · v${c.library.version}` : "")}
+                        >
+                          <span className="custom-badge" aria-hidden="true">{t("customComponent")}</span>
+                          <span className="symbol" aria-hidden="true">{subcircuitSymbol(c)}</span>
+                          <span className="subcircuit-name">{subcircuitLabel(c, lang)}</span>
+                        </button>
+                      ))}
+                  </div>
                 </section>
               )}
             </>
@@ -1080,7 +1117,7 @@ export default function App() {
             </button>
             <div className="sim-controls">
               <div className="test-controls">
-              <button disabled={!!savedDocument.course?.needsVerification || !persistence.writable} onClick={runVisualTests}>{t('runVisualTests')}</button>
+              <button disabled={!!savedDocument.course?.needsVerification || !persistence.writable} onClick={runVisualTests}><Play size={16} aria-hidden="true" />{t('runVisualTests')}</button>
                 {!savedDocument.course && <TestOptions t={t} saved={() => setShowSequences(true)} circuit={() => setShowTests(true)} />}
               </div>
               {(mode !== 'logic' || !savedDocument.course) && <>

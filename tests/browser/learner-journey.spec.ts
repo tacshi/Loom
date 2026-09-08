@@ -38,22 +38,22 @@ test("first mission explains wiring and names locked prerequisites", async ({
   await expect(
     page.getByText(/Click the small pin on the right of a/),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Missions", exact: true }).click();
-  await expect(page.locator('.course-learn [aria-current="step"]')).toHaveText(
+  await page.getByRole("button", { name: "Select lesson", exact: true }).click();
+  await expect(page.locator('.course-learn [aria-current="step"]')).toContainText(
     "Connect a switch to an output",
   );
   const second = page
     .locator(".course-learn nav details")
     .filter({
-      has: page.getByText("One switch, two outputs", { exact: true }),
+      hasText: /^02 · One switch, two outputs/,
     });
   await second.locator("summary").click();
   await expect(second).toContainText(
     "Complete first: Connect a switch to an output",
   );
   await expect(
-    second.getByRole("button", { name: "Locked", exact: true }),
-  ).toBeDisabled();
+    second.getByRole("button", { name: "Free practice", exact: true }),
+  ).toBeEnabled();
 });
 
 test("an optional project leads back to the next unfinished core mission", async ({
@@ -164,7 +164,7 @@ for (const zh of [false, true]) {
         .evaluate((node) => node.scrollWidth <= node.clientWidth + 2),
     ).toBe(true);
     await page.getByText(label("Hints", "提示"), { exact: true }).click();
-    await page.getByText(label("Hint 3", "提示 3"), { exact: true }).click();
+    await page.locator(".mission-hints > details > summary").last().click();
     await page
       .getByRole("button", {
         name: label("View example", "查看示例"),

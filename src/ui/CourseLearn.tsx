@@ -1,6 +1,8 @@
+import { missionApproaches } from "../course/missions/approaches";
+import { createPortal } from "react-dom";
+import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import type { Project } from "../model/types";
-import { emptyProject } from "../model/types";
 import type { CourseCheck, CourseResponse, ExerciseId } from "../course/types";
 import { exercises, exercise } from "../course/registry";
 import {
@@ -14,6 +16,7 @@ import CpuReference from "./CpuReference";
 import MissionConcept from "./MissionConcept";
 import { missionChapters } from "../course/missions/catalog";
 export default function CourseLearn({
+  headerTarget,
   project,
   lang,
   open,
@@ -22,11 +25,16 @@ export default function CourseLearn({
   runToken,
   cancelCheckRef,
   onResults,
+  onPassed,
+  onPause,
+  onResume,
+  onPractice,
   onCheckStopped,
   onExample,
   example,
   onHint,
 }: {
+  headerTarget: HTMLDivElement | null;
   project: Project;
   lang: "en" | "zh";
   open: (p: Project) => Promise<void>;
@@ -35,6 +43,10 @@ export default function CourseLearn({
   runToken: number;
   cancelCheckRef: RefObject<() => void>;
   onResults: (r: CourseCheck) => void;
+  onPassed: () => void;
+  onPause: () => void;
+  onResume?: () => void;
+  onPractice: (p: Project) => void;
   onCheckStopped: () => void;
   onExample: (p: Project | undefined) => void;
   example: boolean;
@@ -101,6 +113,14 @@ export default function CourseLearn({
     setError("");
   }, [project.id, selected]);
   useEffect(() => () => stop.current(), []);
+  useEffect(() => {
+    if (!lessonsOpen) return;
+    const dismiss = (event: PointerEvent) => {
+      if (!missionNav.current?.parentElement?.contains(event.target as Node)) setLessonsOpen(false);
+    };
+    document.addEventListener("pointerdown", dismiss);
+    return () => document.removeEventListener("pointerdown", dismiss);
+  }, [lessonsOpen]);
   useEffect(() => {
     if (lessonsOpen)
       missionNav.current
@@ -214,10 +234,10 @@ export default function CourseLearn({
             if (id !== request.current) return;
             if (current.current !== checkedProject)
               throw new Error("Circuit changed; check again");
-            callbacks.current.edit((p) => {
+            if (callbacks.current.edit((p) => {
               p.course = next.course;
               p.circuits = next.circuits;
-            });
+            })) onPassed();
           }
         }
       } catch (e) {
@@ -237,7 +257,7 @@ export default function CourseLearn({
     };
     w.postMessage({ requestId: id, project, exercise: selected, reverify });
   }
-  function prepare(id: ExerciseId, showExample = false) {
+  function prepare(id: ExerciseId, showExample = false, practice = false) {
     stop.current();
     const token = ++request.current,
       w = new Worker(new URL("../course/worker.ts", import.meta.url), {
@@ -273,7 +293,11 @@ export default function CourseLearn({
         setError(message(data.error));
         return;
       }
-      if (data.scene) onExample(data.scene);
+      if (data.scene && practice) {
+        data.scene.name = label("Free practice: ", "自由练习：") + exercise(id).title[index];
+        onPractice(data.scene);
+        setLessonsOpen(false);
+      } else if (data.scene) onExample(data.scene);
       else if (data.project) {
         onExample(undefined);
         edit((p) => Object.assign(p, data.project));
@@ -295,7 +319,8 @@ export default function CourseLearn({
       requestId: token,
       project,
       exercise: id,
-      prepare: !showExample,
+      practice,
+      prepare: !showExample && !practice,
       example: showExample,
     });
   }
@@ -312,12 +337,16 @@ export default function CourseLearn({
         <button
           className="primary"
           onClick={() => {
+            if (onResume) {
+              onResume();
+              return;
+            }
             const p = newCourse();
             p.name = label("Build your own computer", "构建自己的计算机");
             void open(p);
           }}
         >
-          {label("Start course", "开始课程")}
+          {onResume ? t("resumeCourse") : label("Start course", "开始课程")}
         </button>
       </section>
     );
@@ -348,79 +377,42 @@ export default function CourseLearn({
     );
   return (
     <section className="course-learn">
-      <div className="course-heading">
-        <h2>{spec.title[index]}</h2>
-        <button
-          aria-expanded={lessonsOpen}
-          onClick={() => setLessonsOpen(!lessonsOpen)}
-        >
-          {label("Missions", "任务目录")}
-        </button>
-      </div>
-      <p className="mission-position">
-        {label("Chapter", "章节")} {mission.chapter}/10 ·{" "}
-        {label("Core", "主线")} {coreCount}/60
-      </p>
-      {lessonsOpen && (
-        <nav ref={missionNav} aria-label={label("Course missions", "课程任务")}>
-          <p>
-            {label("Core", "主线")} {coreCount}/60 ·{" "}
-            {label("Projects", "选做项目")} {projectCount}/40
-          </p>
-          {missionChapters.map((title, i) => (
-            <section key={i}>
-              <h3>{title[index]}</h3>
-              {exercises
-                .filter((e) => e.mission!.chapter === i + 1)
-                .map((e) => (
-                  <details key={e.id}>
-                    <summary
-                      aria-current={e.id === selected ? "step" : undefined}
-                    >
-                      {e.mission!.track === "project"
-                        ? label("Project: ", "选做：")
-                        : ""}
-                      {e.title[index]}
-                      {!project.course!.needsVerification &&
-                      project.course!.accepted[e.id]?.exerciseRevision ===
-                        e.revision
-                        ? " ✓"
-                        : ""}
-                    </summary>
-                    <p>{e.mission!.goal[index]}</p>
-                    {!available(project, e.id) &&
-                      !project.course!.needsVerification && (
-                        <p>
-                          {label("Complete first: ", "请先完成：")}
-                          {e.prerequisites
-                            .filter(
-                              (id) =>
-                                project.course!.accepted[id]
-                                  ?.exerciseRevision !== exercise(id).revision,
-                            )
-                            .map((id) => exercise(id).title[index])
-                            .join(label(", ", "、"))}
-                        </p>
-                      )}
-                    <button
-                      disabled={
-                        !available(project, e.id) || e.id === selected || busy
-                      }
-                      onClick={() => {
-                        prepare(e.id);
-                      }}
-                    >
-                      {e.id === selected
-                        ? label("Current mission", "当前任务")
-                        : available(project, e.id)
-                          ? label("Open mission", "打开任务")
-                          : label("Locked", "未解锁")}
-                    </button>
-                  </details>
+      {/* Share lesson context across tabs while keeping course operations mounted. */}
+      {headerTarget && createPortal(
+        <div className="course-learn course-context">
+          <div className="mission-picker">
+            <div className="course-heading">
+              <h2><button className="mission-selector" aria-expanded={lessonsOpen} aria-controls="mission-options" aria-description={spec.title[index]} data-number={(mission.track === "project" ? label("Project ", "选做 ") : "") + selected.split("-")[1]} aria-label={label("Select lesson", "选择任务")} onClick={() => setLessonsOpen(!lessonsOpen)}>{spec.title[index]}<ChevronDown size={16} aria-hidden="true" /></button></h2>
+            </div>
+            {lessonsOpen && (
+              <nav id="mission-options" ref={missionNav} aria-label={label("Course missions", "课程任务")} onKeyDown={e => { if (e.key === "Escape") { setLessonsOpen(false); e.currentTarget.parentElement?.querySelector<HTMLButtonElement>(".mission-selector")?.focus(); } }}>
+                {missionChapters.map((title, i) => (
+                  <section key={i}>
+                    <h3>{i + 1} · {title[index]}</h3>
+                    {exercises.filter(e => e.mission!.chapter === i + 1).map(e => {
+                      const unlocked = available(project, e.id),
+                        completed = !project.course!.needsVerification && project.course!.accepted[e.id]?.exerciseRevision === e.revision,
+                        name = `${e.mission!.track === "project" ? label("Project ", "选做 ") : ""}${e.id.split("-")[1]} · ${e.title[index]}${completed ? " ✓" : ""}`;
+                      return unlocked || e.id === selected ? (
+                        <button key={e.id} aria-current={e.id === selected ? "step" : undefined} disabled={busy || example} onClick={() => { if(e.id !== selected) prepare(e.id); else setLessonsOpen(false); }}>{name}</button>
+                      ) : (
+                        <details key={e.id}>
+                          <summary>{name} · {label("Locked", "未解锁")}</summary>
+                          <p>{project.course!.needsVerification ? label("Verify saved progress first.", "请先验证已保存的进度。") : label("Complete first: ", "请先完成：") + e.prerequisites.filter(id => project.course!.accepted[id]?.exerciseRevision !== exercise(id).revision).map(id => exercise(id).title[index]).join(label(", ", "、"))}</p>
+                          <button disabled={busy || example} onClick={() => prepare(e.id, false, true)}>{label("Free practice", "自由练习")}</button>
+                          <p>{label("Opens a separate project without course credit.", "在独立工程中练习，不计入课程进度。")}</p>
+                        </details>
+                      );
+                    })}
+                  </section>
                 ))}
-            </section>
-          ))}
-        </nav>
+              </nav>
+            )}
+          </div>
+          <p className="mission-position">{label("Completed", "已完成")} {coreCount}/60{mission.track === "project" ? label(` · Optional ${projectCount}/40`, ` · 选做 ${projectCount}/40`) : ""}</p>
+          <p className="lesson-objective">{mission.goal[index]}</p>
+        </div>,
+        headerTarget,
       )}
       {example ? (
         <>
@@ -432,7 +424,6 @@ export default function CourseLearn({
       ) : (
         <>
           <MissionConcept key={selected} id={selected} lang={lang} />
-          <p className="lesson-objective">{mission.goal[index]}</p>
           {selected === "core-01" && (
             <p>
               {label(
@@ -457,10 +448,9 @@ export default function CourseLearn({
               )}
             </p>
           )}
-          <details>
-            <summary>{label("Supplied parts", "已提供的部分")}</summary>
-            <p>{mission.supplied[index]}</p>
-          </details>
+          {mission.work !== "program" && !missionApproaches[selected] && !["core-01", "core-02", "core-03", "core-13"].includes(selected) && (
+            <p>{label("Drag the parts you need from Components onto the canvas, then connect their pins.", "从「元件」拖入所需元件，再连接引脚。")}</p>
+          )}
           <div
             className="mission-milestones"
             aria-label={label("Mission checks", "任务检查")}
@@ -547,7 +537,7 @@ export default function CourseLearn({
           {mission.chapter >= 8 && (
             <CpuReference lang={lang} io={mission.chapter >= 10} />
           )}
-          <details>
+          <details className="mission-hints" key={`${project.id}:${selected}`}>
             <summary>{label("Hints", "提示")}</summary>
             {mission.hints.map((hint, i) => (
               <details key={i}>
@@ -555,7 +545,7 @@ export default function CourseLearn({
                   {label("Hint", "提示")} {i + 1}
                 </summary>
                 <p>{hint[index]}</p>
-                {i === 2 &&
+                {i === mission.hints.length - 1 &&
                   project.circuits[project.root].ports.some(
                     (p) => p.direction === "out",
                   ) && (
@@ -571,7 +561,7 @@ export default function CourseLearn({
                       {label("Locate output", "定位输出")}
                     </button>
                   )}
-                {i === 2 && (
+                {i === mission.hints.length - 1 && (
                   <button
                     disabled={busy}
                     onClick={() => prepare(selected, true)}
@@ -585,9 +575,10 @@ export default function CourseLearn({
         </>
       )}
       {error && <p role="alert">{message(error)}</p>}
-      <button onClick={() => void open(emptyProject(t("new")))}>
-        {label("New blank circuit", "新建空白电路")}
+      <button disabled={busy || example} onClick={onPause}>
+        {label("Pause course & experiment", "暂停学习，自由实验")}
       </button>
+      <p className="mission-position">{label("Your course progress will be kept so you can resume later.", "课程进度会保留，可随时继续学习。")}</p>
     </section>
   );
 }

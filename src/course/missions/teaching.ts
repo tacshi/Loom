@@ -93,8 +93,8 @@ const core: Teaching[] = [
       "XOR（异或）表示输入不同，必须恰好一个输入为 1。或与异或仅在两个输入都为 1 时结果不同。",
     ],
     [
-      "For 11, OR outputs 1 but XOR outputs 0. For 01, both output 1. A truth table is a list of every input combination and its expected output.",
-      "11 时，或输出 1，异或输出 0；01 时，两者都输出 1。真值表就是列出每种输入组合及其预期输出。",
+      "Trace 11 through OR AND NOT(AND): OR=1, AND=1, NOT=0, so the final output is 0. For 01: OR=1, AND=0, NOT=1, so the output is 1. Now check 00 and 10 yourself.",
+      "沿 OR AND NOT(AND) 推导 11：或=1，与=1，非=0，最终输出为 0。对于 01：或=1，与=0，非=1，输出为 1。再自己检查 00 和 10。",
     ],
   ),
   lesson(
@@ -896,12 +896,12 @@ const projects: Teaching[] = [
   ),
   lesson(
     [
-      "An instruction decoder must recognize the complete opcode, including required zero bits. A single incorrect bit test can make two instructions look the same.",
-      "指令译码必须识别完整操作码，包括要求为零的位。一个错误位判断就可能把两条指令混淆。",
+      "A working decoder can still fail if its result is not connected to the output. Trace the control bus from the existing decoder to the module output; preserve the decoding logic.",
+      "译码器即使运算正确，结果未连接到输出时仍会失败。沿已有译码器追踪控制总线至模块输出，保留译码逻辑。",
     ],
     [
-      "Compare a failing opcode with a passing one that differs by one bit to locate the wrong condition.",
-      "把失败操作码与只差一位的通过操作码比较，可以定位错误条件。",
+      "If internal control bits change with the opcode but the output has no signal, inspect the missing connection between them.",
+      "如果内部控制位随操作码改变，而输出没有信号，检查两者之间缺失的连接。",
     ],
   ),
   lesson(
@@ -920,8 +920,8 @@ const projects: Teaching[] = [
       "内存映射计数器让硬件状态可以从外设地址读取。读取只观察计数，共享时钟独立推进它。",
     ],
     [
-      "Read the counter, advance the clock, and read again. An unrelated address must still access its own memory or device.",
-      "读取计数、推进时钟、再次读取。其他地址仍必须访问自己的内存或外设。",
+      "Read the counter, advance the clock, and read again. In this standalone counter module, every other address must return zero.",
+      "读取计数、推进时钟、再次读取。在这个独立计数器模块中，其他地址必须返回零。",
     ],
   ),
   lesson(

@@ -10,7 +10,13 @@ onmessage = async ({ data }: { data: CourseRequest }) => {
       progress: { exercise, caseName },
     });
   try {
-    if (data.example) {
+    if (data.practice) {
+      const spec = exercise(data.exercise), scene = spec.starter();
+      delete scene.course;
+      delete scene.courseReference;
+      scene.circuits[scene.root].tests = spec.checks();
+      postMessage({ requestId: data.requestId, scene });
+    } else if (data.example) {
       postMessage({
         requestId: data.requestId,
         scene: exercise(data.exercise).reference(),

@@ -30,7 +30,7 @@ test("a mission requires real wiring, preserves work across examples, and unlock
   await expect(page.locator("footer")).toContainText("1 connections");
   await page.getByRole("tab", { name: "Learn", exact: true }).click();
   await page.getByText("Hints", { exact: true }).click();
-  await page.getByText("Hint 3", { exact: true }).click();
+  await page.locator(".mission-hints > details > summary").last().click();
   await page.getByRole("button", { name: "View example", exact: true }).click();
   await expect(
     page.getByText("Example · read-only", { exact: true }),
@@ -152,34 +152,16 @@ test("the first six missions are solved by placement and wiring, not navigation"
         .getByRole("button", { name: "Next mission", exact: true })
         .click();
   }
-  await page.getByRole("button", { name: "Missions", exact: true }).click();
-  const optional = page
-    .locator(".course-learn nav details")
-    .filter({
-      has: page.getByText("Project: Repair a disconnected indicator", {
-        exact: true,
-      }),
-    });
-  await optional.locator("summary").click();
-  await optional
-    .getByRole("button", { name: "Open mission", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Select lesson", exact: true }).click();
+  await page.getByRole("button", {name:"Project 01 · Repair a disconnected indicator",exact:true}).click();
   await expect(page.locator(".course-heading h2")).toHaveText(
     "Repair a disconnected indicator",
   );
   await expect(
     page.getByRole("button", { name: "Next mission", exact: true }),
   ).toHaveCount(0);
-  await page.getByRole("button", { name: "Missions", exact: true }).click();
-  const nextCore = page
-    .locator(".course-learn nav details")
-    .filter({
-      has: page.getByText("Both switches, using NAND", { exact: true }),
-    });
-  await nextCore.locator("summary").click();
-  await nextCore
-    .getByRole("button", { name: "Open mission", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Select lesson", exact: true }).click();
+  await page.getByRole("button", {name:"07 · Both switches, using NAND",exact:true}).click();
   await expect(page.locator(".course-heading h2")).toHaveText(
     "Both switches, using NAND",
   );

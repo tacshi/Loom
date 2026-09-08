@@ -1,3 +1,4 @@
+import { missionApproaches } from "../course/missions/approaches";
 import { useState } from "react";
 import { missionTeaching } from "../course/missions/teaching";
 import { predictions } from "../course/missions/predictions";
@@ -18,6 +19,7 @@ export default function MissionConcept({
   return (
     <div className="mission-concept">
       <p>{note.concept[i]}</p>
+      {missionApproaches[id] && <p className="mission-approach">{missionApproaches[id]![i]}</p>}
       <details>
         <summary>
           {question

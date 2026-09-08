@@ -411,7 +411,7 @@ footer i {
   display: flex;
   justify-content: space-between;
   margin: 0 18px;
-  padding: 9px 0;
+  padding: 9px 10px;
   border-bottom: 1px solid var(--border);
   font-size: 0.86rem;
 }
@@ -1746,3 +1746,20 @@ button.primary:hover:not(:disabled) {
 .test-options > button { border-radius:0 5px 5px 0; border-left:0; padding:7px 6px; }
 .test-options-popup { position:absolute; top:calc(100% + 6px); left:0; z-index:20; min-width:180px; padding:4px; border:1px solid var(--border); border-radius:6px; background:var(--surface); box-shadow:0 6px 18px #0002; }
 .test-options-popup button { display:flex; width:100%; justify-content:flex-start; border:0; text-align:left; }
+
+.mission-picker { position:relative; }
+.mission-selector { width:100%; text-align:left; justify-content:flex-start; font-weight:600; }
+.mission-selector::before { content:attr(data-number) " ·"; white-space:nowrap; }
+.mission-selector svg { margin-left:auto; flex-shrink:0; }
+.mission-picker nav { position:absolute; top:100%; left:0; width:100%; max-width:100%; max-height:55vh; overflow:auto; z-index:20; padding:10px; background:var(--surface); border:1px solid var(--border); border-radius:6px; box-shadow:0 6px 18px #0002; }
+.mission-picker nav section > button { width:100%; text-align:left; justify-content:flex-start; margin:3px 0; }
+.mission-picker nav [aria-current="step"] { background:var(--accent-soft); color:var(--accent); }
+
+.current-lesson { flex-shrink:0; border-bottom:1px solid var(--border); }
+.course-context { gap:8px; }
+.course-context .lesson-objective { margin:0; font-size:0.9rem; line-height:1.45; font-weight:400; }
+
+.component-item.subcircuit-item { position:relative; }
+.custom-badge { position:absolute; top:3px; right:4px; padding:1px 3px; border-radius:3px; background:var(--accent-soft); color:var(--accent); font-size:8px; line-height:1.2; }
+
+.mission-concept .mission-approach { margin-top:10px; }
