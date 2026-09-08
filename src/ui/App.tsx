@@ -1199,6 +1199,7 @@ export default function App() {
           )}
           {project.exampleId && <details className="example-guide" open><summary>{exampleGuides[project.exampleId].purpose[lang==='zh'?1:0]}</summary><p>{exampleGuides[project.exampleId].action[lang==='zh'?1:0]}</p></details>}
           <Canvas
+            lang={lang}
             placement={placement}
             commitPlacement={commitPlacement}
             cancelPlacement={() => setPlacement(undefined)}

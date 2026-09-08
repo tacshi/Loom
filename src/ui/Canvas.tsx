@@ -1,3 +1,5 @@
+import { componentLabel } from "./componentLabel";
+import type { Language } from "./i18n";
 import { snapPlacement } from "../editor/placement";
 import { useCanvasPlacement, type PlacementProps } from "./useCanvasPlacement";
 import { activeSignal } from "../editor/electrons";
@@ -35,6 +37,7 @@ import { alignmentTargets as collectAlignmentTargets, type Alignment } from "../
 import { crossings,wireMetrics } from "../editor/crossings";
 import { orthogonal, moveSegment, previewMove, connectionRoute, route, validDirection } from "../editor/routing";
 export type CanvasProps = PlacementProps & {
+  lang: Language;
   project: Project;
   circuit: Circuit;
   selected: string[];
@@ -62,6 +65,7 @@ export type CanvasProps = PlacementProps & {
   dismissNotice?: () => void;
 };
 function Canvas({
+  lang,
   project,
   circuit,
   selected,
@@ -107,7 +111,7 @@ function Canvas({
   // must paint on commit rather than wait for Konva's next animation frame.
   useEffect(() => {
     if (!running) stage.current?.draw();
-  }, [project, circuit, selected, values, view, size, dark, pending, running]);
+  }, [project, circuit, selected, values, view, size, dark, pending, running, lang]);
   const [spaceHeld, setSpace] = useState(false);
   const space = spaceHeld || panMode;
   const cancelledDrag = useRef(false);
@@ -608,6 +612,7 @@ function Canvas({
         </WireLayer>
         <Electrons wires={circuit.wires} bridges={intersections.bridges} values={values} path={path} running={running} dark={dark} view={view} size={size} />
         <ComponentLayer
+          lang={lang}
           layerRef={networkLayer}
           horizontal={horizontal}
           circuit={circuit}
@@ -710,6 +715,7 @@ function Canvas({
                   }}
                 >
                   <ComponentGlyph
+                    label={componentLabel(c, project, lang)}
                     c={c}
                     project={project}
                     selected={false}
@@ -876,7 +882,7 @@ function Canvas({
             return <Circle key={'pin-mask:'+c.id+':'+p.id} x={at.x+delta.x} y={at.y+delta.y} radius={5} fill={pending?.component===c.id&&pending.port===p.id?'#e0ad58':colors.surface} stroke={pending?'#39a672':colors.line} strokeWidth={2} listening={false}/>;
           }))}
           {placementPreview && placement && <Group x={placementPreview.position.x} y={placementPreview.position.y} opacity={0.6} listening={false}>
-            <ComponentGlyph c={placement.component} project={previewProject} selected={false} dark={dark} scale={view.scale} readOnly={true} cacheGlyph={false} space={false} waypoints={[]} pin={() => {}} />
+            <ComponentGlyph label={componentLabel(placement.component, previewProject, lang)} c={placement.component} project={previewProject} selected={false} dark={dark} scale={view.scale} readOnly={true} cacheGlyph={false} space={false} waypoints={[]} pin={() => {}} />
           </Group>}
           {(placementPreview?.guides ?? guides).map((g) => (
             <Line
@@ -933,6 +939,7 @@ function Canvas({
 }
 
 type GlyphProps = {
+  label: string;
   c: Circuit["components"][number];
   project: Project;
   selected: boolean;
@@ -951,6 +958,7 @@ type GlyphProps = {
 };
 const ComponentGlyph = memo(
   function ComponentGlyph({
+    label,
     c,
     project,
     selected,
@@ -982,7 +990,7 @@ const ComponentGlyph = memo(
       return () => {
         cached.current?.clearCache();
       };
-    }, [c, project, selected, dark, value, segments, pending, scale, cacheGlyph]);
+    }, [c, project, selected, dark, value, segments, pending, scale, cacheGlyph, label]);
     const colors = dark
       ? { surface: "#203532", text: "#ecf5ef", line: "#90aa9d" }
       : { surface: "#fff", text: "#223d35", line: "#728e80" };
@@ -1000,7 +1008,7 @@ const ComponentGlyph = memo(
           x={12}
           y={g.h - 25}
           width={g.w - 24}
-          text={c.name}
+          text={label}
           wrap="none"
           height={18}
           fontSize={12}
@@ -1119,6 +1127,7 @@ const ComponentGlyph = memo(
     );
   },
   (a, b) =>
+    a.label === b.label &&
     a.c === b.c &&
     a.project === b.project &&
     a.selected === b.selected &&
@@ -1141,6 +1150,7 @@ const ComponentLayer = memo(
   }: {
     layerRef: React.RefObject<Konva.Layer | null>;
     children: React.ReactNode;
+    lang: Language;
     horizontal: boolean;
     project: Project;
     circuit: Circuit;
@@ -1156,6 +1166,7 @@ const ComponentLayer = memo(
     return <Layer ref={layerRef}>{children}</Layer>;
   },
   (a, b) =>
+    a.lang === b.lang &&
     a.project === b.project &&
     a.circuit === b.circuit &&
     a.horizontal === b.horizontal &&
@@ -1201,6 +1212,7 @@ const WireLayer = memo(
 export default memo(
   Canvas,
   (a, b) =>
+    a.lang === b.lang &&
     a.project === b.project &&
     a.circuit === b.circuit &&
     a.selected === b.selected &&
