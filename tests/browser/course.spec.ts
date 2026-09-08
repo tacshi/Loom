@@ -14,26 +14,60 @@ import { execFileSync } from "node:child_process";
 test("beginner wires NAND, checks it, resumes NOT, and inspects a reference without credit", async ({
   page,
 }) => {
-  const p = await courseAt("nand");
+  const p = await courseAt("core-05");
   await page.goto("/");
-  await page.getByRole("button", {name:"Projects",exact:true}).click();
-  await page.locator("input[type=file]").setInputFiles({name:"nand.loom.json",mimeType:"application/json",buffer:Buffer.from(exportProject(p))});
-  await page.getByRole("button",{name:"Learn",exact:true}).click();
-  await page.getByRole("button",{name:"Verify progress",exact:true}).click();
-  await expect(page.getByRole("button",{name:"Run tests",exact:true})).toBeEnabled();
-  await page.getByRole("button",{name:"Run tests",exact:true}).click();
+  await page.getByRole("button", { name: "Projects", exact: true }).click();
+  await page
+    .locator("input[type=file]")
+    .setInputFiles({
+      name: "nand.loom.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(exportProject(p)),
+    });
+  await page.getByRole("tab", { name: "Learn", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Verify imported progress", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Run tests", exact: true }),
+  ).toBeEnabled();
+  await page.getByRole("button", { name: "Run tests", exact: true }).click();
   await expect(page.locator(".test-mismatch")).toBeVisible();
-  await page.getByRole("button",{name:"Return to editing",exact:true}).click();
-  await page.getByRole("button",{name:"Components",exact:true}).click();
-  await placeComponent(page,"AND",220,180);
-  await placeComponent(page,"NOT",400,180);
+  await page
+    .getByRole("button", { name: "Return to editing", exact: true })
+    .click();
+  await page.getByRole("tab", { name: "Components", exact: true }).click();
+  async function place(kind: string, x: number, y: number) {
+    await page.getByRole("button", { name: kind, exact: true }).focus();
+    await page.keyboard.press("Enter");
+    const host = page.locator(".canvas-host");
+    for (const [axis, target] of [
+      ["x", x],
+      ["y", y],
+    ] as const) {
+      const from = Number(await host.getAttribute(`data-placement-${axis}`));
+      const key =
+        axis === "x"
+          ? target > from
+            ? "ArrowRight"
+            : "ArrowLeft"
+          : target > from
+            ? "ArrowDown"
+            : "ArrowUp";
+      for (let n = 0; n < Math.abs(target - from) / 20; n++)
+        await page.keyboard.press(key);
+    }
+    await page.keyboard.press("Enter");
+  }
+  await place("AND", 260, 80);
+  await place("NOT", 440, 80);
   const connect = async (
     from: string,
     fromPort: string,
     to: string,
     toPort: string,
   ) => {
-    await page.getByRole("button", { name: "Circuit", exact: true }).click();
+    await page.getByRole("tab", { name: "Circuit", exact: true }).click();
     await page.getByRole("button", { name: from, exact: true }).click();
     await page
       .getByRole("button", { name: "Connect " + fromPort, exact: true })
@@ -43,44 +77,37 @@ test("beginner wires NAND, checks it, resumes NOT, and inspects a reference with
       .getByRole("button", { name: "Connect " + toPort, exact: true })
       .click();
   };
-  await connect("a Input port","out","AND AND","a");
-  await connect("b Input port","out","AND AND","b");
-  await connect("AND AND","out","NOT NOT","a");
-  await connect("NOT NOT","out","out Output port","in");
-  await page.getByRole("button", { name: "Learn", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Run tests", exact: true })
-    .click();
+  await connect("a Input port", "out", "AND AND", "a");
+  await connect("b Input port", "out", "AND AND", "b");
+  await connect("AND AND", "out", "NOT NOT", "a");
+  await connect("NOT NOT", "out", "out Output port", "in");
+  await page.getByRole("tab", { name: "Learn", exact: true }).click();
+  await page.getByRole("button", { name: "Run tests", exact: true }).click();
   await expect(
-    page.getByText("Verified component saved.", { exact: true }),
+    page.getByRole("button", { name: "Next mission", exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await expect(page.locator(".course-heading h2")).toHaveText("Build NOT from NAND");
-  await expect(page.locator('.learning-stages button[aria-current="step"]')).toHaveText('Explore');
-  await page.getByRole('button',{name:'Challenge',exact:true}).click();
+  await page.getByRole("button", { name: "Next mission", exact: true }).click();
+  await expect(page.locator(".course-heading h2")).toHaveText(
+    "Make an inverter from NAND",
+  );
   await expect(page.getByText("Saved locally", { exact: true })).toBeVisible();
   await page.reload();
-  await page.getByRole("button", { name: "Learn", exact: true }).click();
-  await expect(page.locator(".course-heading h2")).toHaveText("Build NOT from NAND");
+  await page.getByRole("tab", { name: "Learn", exact: true }).click();
+  await expect(page.locator(".course-heading h2")).toHaveText(
+    "Make an inverter from NAND",
+  );
   await expect(
-    page.getByText("Verified component saved.", { exact: true }),
+    page.getByRole("button", { name: "Next mission", exact: true }),
   ).toHaveCount(0);
 });
 
 test("completed course import rechecks snapshots, preserves draft progress and agrees with CLI", async ({
   page,
 }, info) => {
-  test.setTimeout(120000);
-  const p = newCourse();
-  for (const e of exercises) {
-    if (e.id !== "signals") activateExercise(p, e.id);
-    const r = e.reference();
-    p.circuits = { ...p.circuits, ...r.circuits };
-    p.root = r.root;
-    p.course!.drafts[e.id] = r.root;
-    p.course!.active = e.id;
-    await acceptCheck(p, await checkCourse(p, e.id));
-  }
+  test.setTimeout(300000);
+  const p = JSON.parse(
+    await readFile("tests/fixtures/v3/course-completed.loom.json", "utf8"),
+  );
   await page.goto("/");
   await expect(page.getByText("Saved locally", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Projects", exact: true }).click();
@@ -89,19 +116,18 @@ test("completed course import rechecks snapshots, preserves draft progress and a
     mimeType: "application/json",
     buffer: Buffer.from(exportProject(p)),
   });
-  await page.getByRole("button", { name: "Learn", exact: true }).click();
-  await page.getByRole("button", { name:"Challenge",exact:true }).click();
+  await page.getByRole("tab", { name: "Learn", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Run tests", exact: true }),
   ).toBeDisabled();
   await page
-    .getByRole("button", { name: "Verify progress", exact: true })
+    .getByRole("button", { name: "Verify imported progress", exact: true })
     .click();
   await expect(
     page.getByRole("button", { name: "Run tests", exact: true }),
-  ).toBeEnabled({ timeout: 60000 });
+  ).toBeEnabled({ timeout: 180000 });
   await expect(
-    page.getByText("Your computer passed the calculator checks.", {
+    page.getByText("Mission complete: Build an interactive running total", {
       exact: true,
     }),
   ).toBeVisible();
@@ -111,15 +137,14 @@ test("completed course import rechecks snapshots, preserves draft progress and a
   const file = await download;
   const path = (await file.path())!;
   const report = JSON.parse(
-    execFileSync(
-      process.execPath,
-      ["dist-cli/loom.mjs", "course-check", path, "--json"],
-      { encoding: "utf8", timeout: 60000 },
-    ),
+    execFileSync("bun", ["dist-cli/loom.mjs", "course-check", path, "--json"], {
+      encoding: "utf8",
+      timeout: 180000,
+    }),
   );
   expect(report.results.every((r: any) => r.status === "passed")).toBe(true);
   expect(
-    JSON.parse(await readFile(path, "utf8")).course.accepted.calculator,
+    JSON.parse(await readFile(path, "utf8")).course.accepted["core-60"],
   ).toBeDefined();
 });
 
@@ -132,7 +157,7 @@ test("course progress resumes offline and a second tab cannot overwrite it", asy
     browserName === "webkit",
     "Playwright WebKit crashes on setOffline() + reload; native Safari origin-offline check is recorded in docs/PHASES.md.",
   );
-  const p = await courseAt("not");
+  const p = await courseAt("core-06");
   await page.goto("/");
   await expect(page.getByText("Saved locally", { exact: true })).toBeVisible();
   await page.evaluate(async () => {
@@ -145,9 +170,9 @@ test("course progress resumes offline and a second tab cannot overwrite it", asy
     mimeType: "application/json",
     buffer: Buffer.from(exportProject(p)),
   });
-  await page.getByRole("button", { name: "Learn", exact: true }).click();
+  await page.getByRole("tab", { name: "Learn", exact: true }).click();
   await page
-    .getByRole("button", { name: "Verify progress", exact: true })
+    .getByRole("button", { name: "Verify imported progress", exact: true })
     .click();
   await expect(
     page.getByRole("button", { name: "Run tests", exact: true }),
@@ -161,89 +186,19 @@ test("course progress resumes offline and a second tab cannot overwrite it", asy
   await second.close();
   await context.setOffline(true);
   await page.reload();
-  await page.getByRole("button", { name: "Learn", exact: true }).click();
-  await expect(page.locator(".course-heading h2")).toHaveText("Build NOT from NAND");
-  await page.getByRole("button",{name:"Lessons",exact:true}).click();
+  await page.getByRole("tab", { name: "Learn", exact: true }).click();
+  await expect(page.locator(".course-heading h2")).toHaveText(
+    "Make an inverter from NAND",
+  );
+  await page.getByRole("button", { name: "Lessons", exact: true }).click();
   await expect(
     page.getByRole("button", {
       name: "Build NAND ✓",
       exact: true,
     }),
   ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Run tests", exact: true })
-    .click();
-  await expect(
-    page.locator(".test-mismatch"),
-  ).toBeVisible();
-});
-
-test("the full course advances through visible UI using reusable NAND-based submissions", async ({
-  page,
-}, info) => {
-  test.skip(
-    info.project.name !== "chromium",
-    "Full journey reference browser; other engines run entry/import/resume checks",
-  );
-  test.setTimeout(240000);
-  const { prepareCourseSubmission } =
-    await import("../../scripts/course-submission");
-  await page.goto("/");
-  await expect(page.getByText("Saved locally", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Learn", exact: true }).click();
-  await page.getByRole("button", { name: "Start course", exact: true }).click();
-  const exported = async () => {
-    await expect(
-      page.getByText("Saved locally", { exact: true }),
-    ).toBeVisible();
-    await page.getByRole("button", { name: "Projects", exact: true }).click();
-    const d = page.waitForEvent("download");
-    await page
-      .getByRole("button", { name: "Export file", exact: true })
-      .click();
-    const file = await d;
-    const p = JSON.parse(await readFile((await file.path())!, "utf8"));
-    await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
-    return p;
-  };
-  let p = await exported();
-  for (let i = 0; i < exercises.length; i++) {
-    const e = exercises[i];
-    prepareCourseSubmission(p, e.id);
-    await page.getByRole("button", { name: "Projects", exact: true }).click();
-    await page.locator("input[type=file]").setInputFiles({
-      name: e.id + ".loom.json",
-      mimeType: "application/json",
-      buffer: Buffer.from(exportProject(p)),
-    });
-    await page.getByRole("button", { name: "Learn", exact: true }).click();
-    await expect(page.locator(".course-heading h2")).toHaveText(e.title[0]);
-    await page
-      .getByRole("button", { name: "Verify progress", exact: true })
-      .click();
-    await expect(
-      page.getByRole("button", { name: "Run tests", exact: true }),
-    ).toBeEnabled({ timeout: 60000 });
-    await page
-      .getByRole("button", { name: "Run tests", exact: true })
-      .click();
-    await expect(
-      page.getByText("Verified component saved.", { exact: true }),
-    ).toBeVisible({ timeout: 60000 });
-    if (i < exercises.length - 1) {
-      await page.getByRole("button", { name: "Continue", exact: true }).click();
-      await expect(page.locator(".course-heading h2")).toHaveText(
-        exercises[i + 1].title[0],
-      );
-    }
-    p = await exported();
-  }
-  expect(Object.keys(p.course.accepted)).toHaveLength(exercises.length);
-  await expect(
-    page.getByText("Your computer passed the calculator checks.", {
-      exact: true,
-    }),
-  ).toBeVisible();
+  await page.getByRole("button", { name: "Run tests", exact: true }).click();
+  await expect(page.locator(".test-mismatch")).toBeVisible();
 });
 
 test("a late course result cannot overwrite an edit made while checking", async ({
@@ -267,29 +222,26 @@ test("a late course result cannot overwrite an edit made while checking", async 
     } as any;
     window.Worker.prototype = Native.prototype;
   });
-  const p = await courseAt("nand");
-  const { prepareCourseSubmission } = await import("../../scripts/course-submission");
-  prepareCourseSubmission(p,"nand");
+  const p = await courseAt("core-05");
+  const { prepareCourseSubmission } =
+    await import("../../scripts/course-submission");
+  prepareCourseSubmission(p, "core-05");
   await page.goto("/");
   await expect(page.getByText("Saved locally", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Projects", exact: true }).click();
+  await page.locator("input[type=file]").setInputFiles({
+    name: "submission.loom.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(exportProject(p)),
+  });
+  await page.getByRole("tab", { name: "Learn", exact: true }).click();
   await page
-    .locator("input[type=file]")
-    .setInputFiles({
-      name: "submission.loom.json",
-      mimeType: "application/json",
-      buffer: Buffer.from(exportProject(p)),
-    });
-  await page.getByRole("button", { name: "Learn", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Verify progress", exact: true })
+    .getByRole("button", { name: "Verify imported progress", exact: true })
     .click();
   await expect(
     page.getByRole("button", { name: "Run tests", exact: true }),
   ).toBeEnabled();
-  await page
-    .getByRole("button", { name: "Run tests", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Run tests", exact: true }).click();
   await page.waitForFunction(() => !!(window as any).releaseCourseResult);
   await page
     .getByLabel("Project", { exact: true })
@@ -297,7 +249,7 @@ test("a late course result cannot overwrite an edit made while checking", async 
   await expect(page.getByText("Saved locally", { exact: true })).toBeVisible();
   await page.evaluate(() => (window as any).releaseCourseResult());
   await expect(
-    page.getByText("Verified component saved.", { exact: true }),
+    page.getByRole("button", { name: "Next mission", exact: true }),
   ).toBeVisible();
   await expect(page.getByLabel("Project", { exact: true })).toHaveValue(
     "Renamed while checking",

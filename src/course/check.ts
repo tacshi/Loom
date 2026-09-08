@@ -1,3 +1,4 @@
+import { assemble } from "../cpu/assembler";
 import { compile } from "../simulator/compiler";
 import { verifyWidthVariants } from "./variants";
 import type { Project } from "../model/types";
@@ -8,6 +9,7 @@ import {
   dependencyHashes,
   electricalHash,
   available,
+  programSourceHash,
 } from "./session";
 import { closure } from "../library/package";
 import { runCase } from "../verification/runner";
@@ -53,11 +55,35 @@ export async function checkCourse(
       throw new Error(
         "Match the exercise interface: port IDs, directions and widths",
       );
+    if (
+      (/^core-(49|5[0-4]|5[6-9]|60)$/.test(id) ||
+        /^project-(3[3-9]|40)$/.test(id)) &&
+      id !== "core-49" &&
+      draft.source !== draft.assembledSource
+    )
+      throw new Error("sourceChanged");
+    if (spec.mission!.work === "program" && id !== "core-49") {
+      const assembly = assemble(draft.source),
+        rom = c.components.find((n) => n.id === draft.cpu?.rom);
+      if (
+        assembly.errors.length ||
+        !rom ||
+        Array.from({ length: 256 }, (_, i) => assembly.image[i] ?? 0).some(
+          (word, i) => word !== (rom.image?.[i] ?? 0),
+        )
+      )
+        throw new Error("sourceChanged");
+    }
     const trusted = new Set<string>();
     const dependencyFingerprints = new Map<string, string>();
-    const index = exercises.findIndex((e) => e.id === id);
-    for (const prior of exercises.slice(0, index)) {
-      if (["signals", "and-basics", "invert-basics"].includes(prior.id))
+    const copiedSubtrees = new Map<string, Set<string>>();
+    const mission = spec.mission!;
+    const cutoff =
+      mission.track === "core" ? Number(id.slice(5)) - 1 : mission.chapter * 6;
+    for (const prior of exercises.filter(
+      (e) => e.mission!.track === "core" && Number(e.id.slice(5)) <= cutoff,
+    )) {
+      if (["core-01", "core-02", "core-03", "core-04"].includes(prior.id))
         continue;
       const record = p.course.accepted[prior.id];
       if (!record || record.exerciseRevision !== prior.revision) continue;
@@ -70,9 +96,14 @@ export async function checkCourse(
       // Packaging remaps definition IDs. Trust the approved identity and actual
       // electrical content, never an embedded library label alone.
       for (const candidate of Object.values(draft.circuits)) {
+        const candidateOrigin = candidate.library ?? candidate.libraryOrigin;
         const directIdentity =
-          candidate.library?.id === acceptedLibrary.id &&
-          candidate.library.hash === acceptedLibrary.hash;
+          candidateOrigin?.id === acceptedLibrary.id &&
+          candidateOrigin.hash === acceptedLibrary.hash;
+        const copiedProgramPart =
+          spec.mission!.work === "program" &&
+          !!candidate.libraryOrigin &&
+          candidateOrigin?.hash === acceptedLibrary.hash;
         const packagedIdentity =
           verifySnapshot &&
           candidate.id !== draft.root &&
@@ -81,10 +112,14 @@ export async function checkCourse(
           Object.values(p.course.accepted[id]?.dependencies ?? {}).includes(
             acceptedLibrary.hash,
           );
+        const packagedProgramPart =
+          spec.mission!.work === "program" && packagedIdentity;
         if (
-          !(directIdentity || packagedIdentity) ||
-          candidate.components.length !==
-            p.circuits[record.acceptedRoot].components.length
+          !(directIdentity || packagedIdentity || copiedProgramPart) ||
+          (!copiedProgramPart &&
+            !packagedProgramPart &&
+            candidate.components.length !==
+              p.circuits[record.acceptedRoot].components.length)
         )
           continue;
         let fingerprint = dependencyFingerprints.get(candidate.id);
@@ -93,6 +128,27 @@ export async function checkCourse(
           dependencyFingerprints.set(candidate.id, fingerprint);
         }
         if (fingerprint === record.hash) trusted.add(candidate.id);
+        else if (copiedProgramPart || packagedProgramPart) {
+          const subtreeKey =
+            prior.id +
+            ":" +
+            (packagedProgramPart ? "package" : candidateOrigin!.id);
+          let approved = copiedSubtrees.get(subtreeKey);
+          if (!approved) {
+            approved = new Set<string>();
+            for (const original of Object.values(
+              closure(p, record.acceptedRoot),
+            ))
+              if (
+                packagedProgramPart ||
+                (original.library?.id === candidateOrigin!.id &&
+                  original.library.hash === acceptedLibrary.hash)
+              )
+                approved.add(await electricalHash(p, original.id));
+            copiedSubtrees.set(subtreeKey, approved);
+          }
+          if (approved.has(fingerprint)) trusted.add(candidate.id);
+        }
       }
     }
     const visited = new Set<string>();
@@ -100,6 +156,16 @@ export async function checkCourse(
       if (visited.has(root)) return;
       visited.add(root);
       if (root !== draft.root && trusted.has(root)) return;
+      const origin =
+        draft.circuits[root].library ?? draft.circuits[root].libraryOrigin;
+      if (root !== draft.root && origin?.id.startsWith("course-")) {
+        const dependency = origin.id.slice(7);
+        const allowed =
+          dependency.startsWith("core-") &&
+          Number(dependency.slice(5)) <= cutoff;
+        if (!allowed && !(verifySnapshot && dependency === id))
+          throw new Error("courseDependencyUnavailable");
+      }
       for (const n of draft.circuits[root].components) {
         if (n.kind === "instance") validateParts(n.definitionId!);
         else if (!spec.allowed.includes(n.kind))
@@ -110,7 +176,7 @@ export async function checkCourse(
     }
     validateParts(draft.root);
     result.cases = spec.checks();
-    if (["cpu", "calculator"].includes(id)) {
+    if (spec.mission!.mode === "cpu") {
       const undriven = compile(draft, draft.root).diagnostics.find(
         (d) => d.code === "undriven",
       );
@@ -142,6 +208,8 @@ export async function checkCourse(
         result.message = "Width variant did not pass: " + failure.name;
       }
     }
+    if (spec.mission!.work === "program")
+      result.sourceHash = await programSourceHash(p);
     result.hash = await electricalHash(p, draft.root);
     result.dependencies = dependencyHashes(p, id);
   } catch (e) {
@@ -166,6 +234,15 @@ export async function reverifyCourse(
     }
     const copy = structuredClone(p);
     copy.course!.drafts[spec.id] = record.acceptedRoot;
+    if (spec.mission!.work === "program") {
+      if (!record.source) {
+        delete p.course.accepted[spec.id];
+        continue;
+      }
+      copy.source = record.source.source;
+      copy.assembledSource = record.source.assembledSource;
+      copy.sourceMap = record.source.sourceMap;
+    }
     const result = await checkCourse(copy, spec.id, true, progress);
     results.push(result);
     // The electrical hash normalizes remapped definition IDs.

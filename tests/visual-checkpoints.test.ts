@@ -1,5 +1,5 @@
 import { it, expect } from "vitest";
-import { exercise } from "../src/course/registry";
+import { exercise } from "../src/course/referenceExercises";
 import { runCase } from "../src/verification/runner";
 import { replayCheckpoint } from "../src/verification/replay";
 import { Engine } from "../src/simulator/engine";

@@ -23,7 +23,6 @@ export default function SignalValue({
             : t("bitOff");
       return (
         <span className={`signal-value signal-${format(signal)}`}>
-          <span aria-hidden="true" className="bit-lamp" />
           {text}
         </span>
       );
@@ -41,7 +40,7 @@ export default function SignalValue({
     );
   }
   if (typeof value === "string")
-    return <pre className="test-output">{value || "∅"}</pre>;
+    return <pre className="test-output">{value || t("emptyOutput")}</pre>;
   return (
     <span>
       {value === null || value === undefined

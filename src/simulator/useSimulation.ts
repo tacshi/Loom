@@ -11,7 +11,7 @@ import type { Payload, Response, Breakpoint } from "./protocol";
 import type { TimelineInfo, Position } from "./timeline";
 import type { sourceChain } from "./debug";
 import { semanticDocument } from "./state";
-export function useSimulation(project: Project) {
+export function useSimulation(project: Project, enabled = true) {
   const [snapshot, setSnapshot] = useState<Snapshot>({
       cycle: 0,
       values: {},
@@ -96,6 +96,7 @@ export function useSimulation(project: Project) {
   }, []);
   useEffect(() => { heldButtons.current.clear(); }, [project.id, project.root, sig]);
   useEffect(() => {
+    if (!enabled) return;
     const w = new Worker(new URL("./worker.ts", import.meta.url), {
       type: "module",
     });
@@ -188,8 +189,9 @@ export function useSimulation(project: Project) {
       window.removeEventListener("focus", wake);
       document.removeEventListener("visibilitychange", wake);
       w.terminate();
+      if (worker.current === w) worker.current = null;
     };
-  }, [sig, restart]);
+  }, [sig, restart, enabled]);
   // Only actual root input changes generate events; layout edits never branch history.
   const inputValues = JSON.stringify(
     project.circuits[project.root]?.components

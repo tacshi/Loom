@@ -25,7 +25,7 @@ test("calculator, rewind, isolated failure, and test capture", async ({
   await expect(terminal).toHaveText("46\n510\n-255\n", { timeout: 20000 });
   await page.getByRole("button", { name: "Pause", exact: true }).click();
   await page.getByRole("button", { name: "Debug", exact: true }).click();
-  await page.getByRole("button", { name: "Waveforms", exact: true }).click();
+  await page.getByRole("button", { name: "Signal history", exact: true }).click();
   await page.getByLabel("Seek cycle", { exact: true }).fill("100");
   await expect(
     page.getByText("Inspecting history", { exact: true }),
@@ -37,8 +37,9 @@ test("calculator, rewind, isolated failure, and test capture", async ({
   await expect(page.getByLabel("Run", { exact: true })).toHaveValue("2");
   await page.getByLabel("Run", { exact: true }).selectOption("1");
   await expect(terminal).toHaveText("46\n510\n-255\n");
+  await page.getByRole("button", { name: "Test options", exact: true }).click();
   await page
-    .getByRole("button", { name: "Sequential tests", exact: true })
+    .getByRole("button", { name: "Saved tests", exact: true })
     .click();
   const dialog = page.getByRole("dialog");
   await dialog.getByText("Add test case", { exact: true }).click();
@@ -46,7 +47,7 @@ test("calculator, rewind, isolated failure, and test capture", async ({
     .getByLabel("Name", { exact: true })
     .fill("Wrong terminal regression");
   await dialog
-    .getByLabel("Assertion", { exact: true })
+    .getByLabel("What to check", { exact: true })
     .selectOption("terminal");
   await dialog
     .getByLabel("Signal", { exact: true })
@@ -54,7 +55,7 @@ test("calculator, rewind, isolated failure, and test capture", async ({
   await dialog.getByLabel("Expected", { exact: true }).fill("wrong");
   await dialog.getByLabel("Clock cycles", { exact: true }).fill("0");
   await dialog
-    .getByRole("button", { name: "Append step", exact: true })
+    .getByRole("button", { name: "Add step", exact: true })
     .click();
   await dialog
     .getByRole("button", { name: "Save test case", exact: true })
@@ -66,18 +67,19 @@ test("calculator, rewind, isolated failure, and test capture", async ({
     timeout: 20000,
   });
   await dialog
-    .getByRole("button", { name: "Open failure in debugger", exact: true })
+    .getByRole("button", { name: "Inspect failed test", exact: true })
     .click();
   await expect(
     page.getByText("Isolated test run", { exact: true }).first(),
   ).toBeVisible();
   await expect(terminal).toHaveText("");
   await page
-    .getByRole("button", { name: "Return to live run", exact: true })
+    .getByRole("button", { name: "Return to live circuit", exact: true })
     .click();
   await expect(terminal).toHaveText("46\n510\n-255\n");
+  await page.getByRole("button", { name: "Test options", exact: true }).click();
   await page
-    .getByRole("button", { name: "Sequential tests", exact: true })
+    .getByRole("button", { name: "Saved tests", exact: true })
     .click();
   await dialog
     .getByRole("button", {
@@ -88,7 +90,7 @@ test("calculator, rewind, isolated failure, and test capture", async ({
   await dialog.getByText("Add test case", { exact: true }).click();
   await dialog.getByLabel("Name", { exact: true }).fill("Captured inputs");
   await dialog
-    .getByRole("combobox", { name: "Assertion", exact: true })
+    .getByRole("combobox", { name: "What to check", exact: true })
     .selectOption("terminal");
   await dialog
     .getByRole("combobox", { name: "Signal", exact: true })
@@ -122,7 +124,7 @@ test("calculator, rewind, isolated failure, and test capture", async ({
     await download.saveAs(file);
     const report = JSON.parse(
       execFileSync(
-        process.execPath,
+        "bun",
         ["dist-cli/loom.mjs", "test", file, "--json"],
         { encoding: "utf8" },
       ),
@@ -143,7 +145,7 @@ test("library form controls share a baseline and remain reachable in a narrow vi
   await page.getByRole("button", { name: "Libraries", exact: true }).click();
   const dialog = page.getByRole("dialog");
   const controls = [
-    dialog.getByLabel("Definition", { exact: true }),
+    dialog.getByLabel("Circuit definition", { exact: true }),
     dialog.getByLabel("Version", { exact: true }),
     dialog.getByRole("button", { name: "Export component", exact: true }),
     dialog.getByRole("button", { name: "Import component", exact: true }),

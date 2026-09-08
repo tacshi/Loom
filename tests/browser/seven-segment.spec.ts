@@ -20,7 +20,7 @@ test("renders segment states on the canvas and updates when an input changes", a
   await expect(
     page.getByRole("textbox", { name: "Project", exact: true }),
   ).toHaveValue(b.p.name);
-  await page.getByRole("button", { name: "Circuit", exact: true }).click();
+  await page.getByRole("tab", { name: "Circuit", exact: true }).click();
   const litPixels = () =>
     page.locator(".canvas-host canvas").evaluateAll((nodes) => {
       let count = 0;

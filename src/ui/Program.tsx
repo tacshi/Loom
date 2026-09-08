@@ -1,3 +1,4 @@
+import { closure } from "../library/package";
 import { calculatorSource } from "../cpu/calculator";
 import { echoSource, pixelSource, sevenSegmentSource } from "../cpu/ioCircuit";
 import { useRef, useState } from "react";
@@ -35,13 +36,22 @@ export default function Program({
   const [errors, setErrors] = useState<AssemblyError[]>([]),
     [loaded, setLoaded] = useState(0);
   const editor = useRef<HTMLTextAreaElement>(null);
-  const roms = Object.values(project.circuits).flatMap((c) =>
+  const roms = Object.values(closure(project, project.root)).flatMap((c) =>
     c.components
       .filter((n) => n.kind === "rom")
-      .map((n) => ({ circuit: c.id, id: n.id, name: c.name + " / " + n.name })),
+      .map((n) => ({
+        circuit: c.id,
+        id: n.id,
+        key: JSON.stringify([c.id, n.id]),
+        name: c.name + " / " + n.name,
+      })),
   );
   const [target, setTarget] = useState(
-    () => roms.find((r) => r.id === project.cpu?.rom)?.id ?? roms[0]?.id ?? "",
+    () =>
+      roms.find((r) => r.circuit === project.root && r.id === project.cpu?.rom)
+        ?.key ??
+      roms[0]?.key ??
+      "",
   );
   const cpu = project.cpu,
     pc = cpu ? (snapshot.values[cpu.pc + ":q"]?.value ?? 0) : 0,
@@ -51,14 +61,14 @@ export default function Program({
     const result = assemble(project.source);
     setErrors(result.errors);
     if (result.errors.length) return;
-    const targetRom = roms.find((r) => r.id === target);
+    const targetRom = roms.find((r) => r.key === target);
     if (!targetRom) {
       setErrors([{ line: 1, code: "selectRom", detail: "" }]);
       return;
     }
     edit((p) => {
       const rom = p.circuits[targetRom.circuit].components.find(
-        (c) => c.id === target,
+        (c) => c.id === targetRom.id,
       )!;
       if (rom.width !== 16 || rom.params.addressBits !== 8) {
         setErrors([{ line: 1, code: "romFormat", detail: "" }]);
@@ -85,6 +95,7 @@ export default function Program({
       <div className="debugger-header">
         <strong>{t("program")}</strong>
         <select
+          disabled={!!project.courseReference}
           aria-label={t("exampleProgram")}
           value=""
           onChange={(e) => {
@@ -105,17 +116,22 @@ export default function Program({
           ))}
         </select>
         <select
+          disabled={!!project.courseReference}
           aria-label={t("targetRom")}
           value={target}
           onChange={(e) => setTarget(e.target.value)}
         >
           {roms.map((r) => (
-            <option key={r.id} value={r.id}>
+            <option key={r.key} value={r.key}>
               {r.name}
             </option>
           ))}
         </select>
-        <button className="primary" onClick={load}>
+        <button
+          className="primary"
+          disabled={!!project.courseReference}
+          onClick={load}
+        >
           {t("assembleLoad")}
         </button>
         {cpu && <button onClick={step}>{t("stepInstruction")}</button>}
@@ -163,6 +179,7 @@ export default function Program({
           </div>
           <textarea
             ref={editor}
+            readOnly={!!project.courseReference}
             aria-label={t("assemblySource")}
             value={project.source}
             spellCheck={false}

@@ -1,3 +1,6 @@
+import { supplyCpuBlocks } from "./missions/cpuStarter";
+import { MissionBuilder } from "./missions/combinational";
+import { layoutMission } from "./missions/layout";
 import { attachDigit, sevenSegmentExample } from "../examples/sevenSegment";
 import { Builder } from "../examples/adder";
 import { emptyProject, uid, type Project, type Kind } from "../model/types";
@@ -16,12 +19,12 @@ export function newCourse(): Project {
   const p = emptyProject("Build your own computer");
   p.course = {
     id: "build-computer",
-    curriculum: 2,
-    active: "signals",
+    curriculum: 3,
+    active: "core-01",
     drafts: {},
     accepted: {},
   };
-  activateExercise(p, "signals");
+  activateExercise(p, "core-01");
   return p;
 }
 export function available(p: Project, id: ExerciseId) {
@@ -39,17 +42,28 @@ export function allowedKinds(p: Project): Kind[] | undefined {
 }
 export function acceptedRoots(p: Project): string[] {
   if (p.course?.needsVerification) return [];
-  const at = exercises.findIndex((e) => e.id === p.course?.active);
+  const current = exercise(p.course!.active).mission!;
+  const cutoff =
+    current.track === "core"
+      ? Number(current.id.slice(5)) - 1
+      : current.chapter * 6;
   return exercises
-    .slice(0, at + 1)
-    .filter((e) => !["signals", "and-basics", "invert-basics"].includes(e.id))
-    .flatMap((e) =>
-      p.course?.accepted[e.id] &&
-      p.circuits[p.course.accepted[e.id]!.acceptedRoot]?.ports.length
-        ? [p.course.accepted[e.id]!.acceptedRoot]
-        : [],
-    );
+    .filter(
+      (e) =>
+        e.mission!.track === "core" &&
+        Number(e.id.slice(5)) <= cutoff &&
+        !["core-01", "core-02", "core-03", "core-04"].includes(e.id),
+    )
+    .flatMap((e) => {
+      const record = p.course!.accepted[e.id];
+      return record &&
+        record.exerciseRevision === e.revision &&
+        p.circuits[record.acceptedRoot]?.ports.length
+        ? [record.acceptedRoot]
+        : [];
+    });
 }
+
 export function courseProject(p: Project, id: ExerciseId): Project {
   const root = p.course?.drafts[id];
   if (!root) throw new Error("Missing exercise draft");
@@ -60,8 +74,8 @@ export function courseProject(p: Project, id: ExerciseId): Project {
     circuits: closure(p, root),
     cpu: base.cpu,
     debugProfile: base.debugProfile,
-    sourceMap: base.sourceMap,
-    source: base.source,
+    sourceMap: p.sourceMap,
+    source: p.source,
   };
 }
 export async function electricalHash(p: Project, root: string) {
@@ -105,76 +119,87 @@ export function activateExercise(p: Project, id: ExerciseId) {
     };
   }
   if (!p.course.drafts[id]) {
-    const r = courseReference(id),
-      c = structuredClone(exercise(id).starter().circuits[r.root]);
-    c.id = uid();
+    const priorDefinitions = new Set(Object.keys(p.circuits));
+    const starter = exercise(id).starter();
+    const root = uid(),
+      c = starter.circuits[starter.root];
+    Object.assign(p.circuits, starter.circuits);
+    delete p.circuits[starter.root];
+    c.id = root;
     c.name = exercise(id).title[0];
-    p.circuits[c.id] = c;
-    p.course.drafts[id] = c.id;
-    // Previously verified components are supplied as disconnected, immutable building blocks.
-    if (["adder8", "accumulator", "alu", "control", "cpu"].includes(id)) {
-      let index = 0;
-      for (const [lesson, record] of Object.entries(p.course.accepted)) {
-        if (
-          [
-            "signals",
-            "and-basics",
-            "invert-basics",
-            "nand",
-            "seven-segment",
-            "half-adder",
-            "register",
-            "accumulator",
-          ].includes(lesson)
-        )
-          continue;
-        const role =
-          lesson === "alu"
-            ? "ALU"
-            : lesson === "control"
-              ? "Control"
-              : lesson === "pc-fields"
-                ? "Fields"
-                : exercise(lesson as ExerciseId).title[0];
-        c.components.push({
-          id: role,
-          kind: "instance",
-          definitionId: record!.acceptedRoot,
-          name: role,
-          width: 1,
-          x: 400 + (index % 4) * 300,
-          y: 500 + Math.floor(index++ / 4) * 240,
-          params: {},
-        });
+    p.circuits[root] = c;
+    p.course.drafts[id] = root;
+    p.course.sources ??= {};
+    p.course.sources[id] = {
+      source: starter.source,
+      assembledSource: starter.assembledSource,
+      sourceMap: starter.sourceMap,
+    };
+    if (id === "core-48") supplyCpuBlocks(p, root);
+    const programming =
+      /^core-(49|5[0-4]|5[6-9]|60)$/.test(id) ||
+      /^project-(3[3-9]|40)$/.test(id);
+    if (programming) {
+      const cpu = p.course.accepted["core-48"];
+      if (!cpu) throw new Error("Complete prerequisite checks first");
+      const cpuRoot = forkDefinition(p, cpu.acceptedRoot),
+        cpuCircuit = p.circuits[cpuRoot];
+      const image = starter.circuits[starter.root].components.find(
+        (n) => n.id === "Program",
+      )?.image;
+      const rom = cpuCircuit.components.find((n) => n.id === "Program");
+      if (!rom) throw new Error("missingDefinition");
+      rom.image = structuredClone(image ?? []);
+      const ioProgram =
+        /^core-(5[6-9]|60)$/.test(id) || /^project-(3[7-9]|40)$/.test(id);
+      if (ioProgram) {
+        const io = p.course.accepted["core-55"],
+          ram = cpuCircuit.components.find((n) => n.id === "RAM");
+        if (!io || !ram) throw new Error("Complete prerequisite checks first");
+        ram.kind = "instance";
+        ram.definitionId = io.acceptedRoot;
+        const builder = new MissionBuilder("Device reads");
+        builder.p = { ...p, root: cpuRoot };
+        builder.serial =
+          Math.max(
+            100000,
+            ...cpuCircuit.components.map((n) =>
+              Number(n.id.match(/^g(\d+)$/)?.[1] ?? 0),
+            ),
+          ) + 1;
+        const bits = builder.bits(["IR", "q"], 16).slice(8);
+        const selects = [2, 4, 5, 6, 7, 8].map((op) =>
+          bits
+            .map((pin, i) => (op & (1 << i) ? pin : builder.not(pin)))
+            .reduce((a, b) => builder.and(a, b)),
+        );
+        const read = builder.and(
+          selects.reduce((a, b) => builder.or(a, b)),
+          builder.and(["Phase", "q"], builder.not(["Halt", "q"])),
+        );
+        builder.connect(...read, "RAM", "read");
+        Object.assign(p.circuits, builder.p.circuits);
+        layoutMission(builder.p);
       }
+      delete p.circuits[root];
+      p.course.drafts[id] = cpuRoot;
     }
-    if (id === "mux8")
-      for (let bit = 0; bit < 8; bit++)
-        c.components.push({
-          id: "bit" + bit,
-          kind: "instance",
-          definitionId: p.course.accepted.mux!.acceptedRoot,
-          name: "bit " + bit,
-          width: 1,
-          x: 320,
-          y: bit * 160,
-          params: {},
-        });
-    if (id === "calculator") {
-      const root = forkDefinition(p, p.course.accepted.cpu!.acceptedRoot),
-        draft = p.circuits[root];
-      delete p.circuits[c.id];
-      p.course.drafts[id] = root;
-      const ram = draft.components.find((n) => n.id === "RAM")!;
-      ram.kind = "instance";
-      ram.definitionId = p.course.accepted.io!.acceptedRoot;
-      const builder = new Builder("Calculator");
-      builder.p = { ...p, root };
-      attachDigit(builder, ["RAM", "segments"], 2700, 0);
-      draft.components.find((n) => n.id === "Program")!.image = r.circuits[
-        r.root
-      ].components.find((n) => n.id === "Program")!.image;
-    }
+
+    const neededDefinitions = new Set<string>();
+    const visitDefinition = (root: string) => {
+      if (neededDefinitions.has(root)) return;
+      neededDefinitions.add(root);
+      for (const n of p.circuits[root].components)
+        if (n.definitionId) visitDefinition(n.definitionId);
+    };
+    for (const root of [
+      ...Object.values(p.course.drafts),
+      ...Object.values(p.course.accepted).map((r) => r!.acceptedRoot),
+    ])
+      if (root) visitDefinition(root);
+    for (const key of Object.keys(p.circuits))
+      if (!priorDefinitions.has(key) && !neededDefinitions.has(key))
+        delete p.circuits[key];
   }
   p.course.active = id;
   p.root = p.course.drafts[id]!;
@@ -189,6 +214,12 @@ export function activateExercise(p: Project, id: ExerciseId) {
     : r.assembledSource;
   p.updatedAt = Date.now();
 }
+export async function programSourceHash(p: Project) {
+  return contentHash({
+    source: p.source,
+    assembledSource: p.assembledSource ?? "",
+  });
+}
 export async function acceptCheck(p: Project, result: CourseCheck) {
   if (
     !p.course ||
@@ -197,6 +228,11 @@ export async function acceptCheck(p: Project, result: CourseCheck) {
     !result.hash
   )
     throw new Error("A passing draft check is required");
+  if (
+    exercise(result.exercise).mission!.work === "program" &&
+    result.sourceHash !== (await programSourceHash(p))
+  )
+    throw new Error("Circuit changed; check again");
   const root = p.course.drafts[result.exercise]!;
   if ((await electricalHash(p, root)) !== result.hash)
     throw new Error("Circuit changed; check again");
@@ -221,19 +257,29 @@ export async function acceptCheck(p: Project, result: CourseCheck) {
     exerciseRevision: exercise(result.exercise).revision,
     dependencies: result.dependencies ?? {},
     acceptedRoot,
+    ...(exercise(result.exercise).mission!.work === "program"
+      ? {
+          source: {
+            source: p.source,
+            assembledSource: p.assembledSource,
+            sourceMap: p.sourceMap,
+          },
+        }
+      : {}),
   };
   p.updatedAt = Date.now();
 }
 export function dependencyHashes(p: Project, id: ExerciseId) {
   const root = p.course?.drafts[id];
   if (!root) return {};
+  const programming = exercise(id).mission!.work === "program";
   return Object.fromEntries(
-    Object.values(closure(p, root))
-      .filter((c) => c.id !== root && c.library?.id.startsWith("course-"))
-      .map((c) => [
-        c.library!.id.slice(7) + ":" + c.library!.hash,
-        c.library!.hash,
-      ]),
+    Object.values(closure(p, root)).flatMap((c) => {
+      const origin = c.library ?? c.libraryOrigin;
+      return origin?.id.startsWith("course-") && (c.id !== root || programming)
+        ? [[origin.id.slice(7) + ":" + origin.hash, origin.hash]]
+        : [];
+    }),
   );
 }
 /** Explicit replacement preserves accepted snapshots in all other exercise drafts. */
@@ -260,15 +306,20 @@ export function replaceCourseDependency(
     throw new Error("libraryInterfaceMismatch");
   n.definitionId = record.acceptedRoot;
 }
-export const nextExercise = (id: ExerciseId) =>
-  exercises[exercises.findIndex((e) => e.id === id) + 1];
+export const nextExercise = (id: ExerciseId) => {
+  const current = exercise(id).mission!;
+  if (current.track === "project") return undefined;
+  return exercises.find(
+    (e) => e.id === `core-${String(Number(id.slice(5)) + 1).padStart(2, "0")}`,
+  );
+};
 
 export function counterWithAcceptedDecoder(p: Project): Project {
-  const accepted = p.course?.accepted["seven-segment"];
+  const accepted = p.course?.accepted["core-18"];
   if (
     !accepted ||
     p.course?.needsVerification ||
-    accepted.exerciseRevision !== exercise("seven-segment").revision
+    accepted.exerciseRevision !== exercise("core-18").revision
   )
     throw new Error("Complete prerequisite checks first");
   return sevenSegmentExample("counter", { ...p, root: accepted.acceptedRoot });

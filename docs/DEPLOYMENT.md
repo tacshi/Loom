@@ -1,6 +1,6 @@
 # Deployment
 
-`npm run build` produces the complete static application in `dist/`. No backend or runtime secrets are required. Publish that directory to an HTTPS static host with SPA fallback to `index.html`. HTTPS (or localhost) is required for Web Locks, service workers, and persistence APIs.
+`bun run build` produces the complete static application in `dist/`. No backend or runtime secrets are required. Publish that directory to an HTTPS static host with SPA fallback to `index.html`. HTTPS (or localhost) is required for Web Locks, service workers, and persistence APIs.
 
 Serve hashed `/assets/` files with immutable caching. Serve `index.html` and `sw.js` with revalidation so updates can be discovered. Do not rewrite missing asset requests to HTML. Keep the previous deployment available until the new build's complete asset set is uploaded.
 
@@ -12,7 +12,7 @@ The release-candidate milestone stops before public deployment. Cloudflare Pages
 
 The GitHub workflow runs domain tests, builds, CLI fixture verification and production Chromium/Firefox/WebKit checks after explicitly waiting for the preview server. Require a green run for the candidate commit, not an older successful run. On success it retains a browser-only `loom-web.tar.gz`, SHA-256 checksum and commit file; the CLI is uploaded separately. Failure artifacts include browser evidence and preview logs. Build metadata in Help identifies the version and commit; local tracked edits are marked modified.
 
-V2 also builds `dist-cli/loom.mjs`. Serve `dist/` over HTTPS (localhost is allowed for local testing). Do not put `dist-cli` into the browser app. `npm run build` produces both artifacts; `npm pack --dry-run` inspects CLI packaging. No account, external API, or public hosting is required.
+The build also produces the Bun-targeted CLI bundle `dist-cli/loom.mjs`, which runs with Bun 1.4.2 or newer. Serve `dist/` over HTTPS (localhost is allowed for local testing). Do not put `dist-cli` into the browser app. `bun run build` produces both artifacts; `bun pm pack --dry-run` inspects CLI packaging. No account, external API, or public hosting is required.
 
 The service worker caches bundled examples and application assets after the first successful load. The update prompt saves the active project before activation. Execution history is session-only and is not retained across updates/reloads. Export `.loom.json` files for portable backups.
 
@@ -28,7 +28,7 @@ Reliability checks exercise rejected-save recovery, invalid imports, two-tab loc
 Run the explicit one-hour gate separately from routine CI:
 
 ```sh
-LOOM_BASE_URL=http://127.0.0.1:4173 LOOM_SOAK_MINUTES=60 npx playwright test tests/browser/release-soak.spec.ts --project=chromium
+LOOM_BASE_URL=http://127.0.0.1:4173 LOOM_SOAK_MINUTES=60 bun run playwright test tests/browser/release-soak.spec.ts --project=chromium
 ```
 
 The soak keeps an I/O CPU running and checks pause/input, history rewind, saves and project exports each minute. Exported circuits must reproduce the expected terminal bytes through the simulator; reload must retain the latest saved edit. `soak.json` records elapsed time and checkpoints in the ignored test output directory. A short harness check does not count as the one-hour gate. Keep evidence with the candidate's CI/local results rather than committing screenshots or generated log bundles.

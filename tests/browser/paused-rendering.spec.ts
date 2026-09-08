@@ -26,7 +26,7 @@ test("paused circuits render when animation frames are suspended", async ({
       return pixels;
     });
   await expect.poll(lit).toBeGreaterThan(100);
-  await page.getByRole("button", { name: "Circuit", exact: true }).click();
+  await page.getByRole("tab", { name: "Circuit", exact: true }).click();
   await page.getByRole("button", { name: "Lookup ROM", exact: true }).click();
   await page.getByLabel("Memory word 0", { exact: true }).fill("00");
   await page.getByLabel("Memory word 0", { exact: true }).blur();

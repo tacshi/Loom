@@ -53,7 +53,7 @@ for (const width of [1280, 1024, 740])
         .getByLabel(label("Open example…", "打开示例…"), { exact: true })
         .selectOption("counter");
       await page
-        .getByRole("button", { name: label("Circuit", "电路"), exact: true })
+        .getByRole("tab", { name: label("Circuit", "电路"), exact: true })
         .click();
       await page
         .getByRole("button", {
@@ -83,11 +83,12 @@ for (const width of [1280, 1024, 740])
           .click();
       }
       await page
-        .getByRole("button", { name: label("Components", "元件"), exact: true })
+        .getByRole("tab", { name: label("Components", "元件"), exact: true })
         .click();
+      await page.getByRole("button", { name: label("Test options", "测试选项"), exact: true }).click();
       await page
         .getByRole("button", {
-          name: label("Sequential tests", "顺序测试"),
+          name: label("Saved tests", "已保存的测试"),
           exact: true,
         })
         .click();
@@ -97,7 +98,7 @@ for (const width of [1280, 1024, 740])
         .getByRole("button", { name: label("Close", "关闭"), exact: true })
         .click();
       await page
-        .getByRole("button", { name: label("Learn", "学习"), exact: true })
+        .getByRole("tab", { name: label("Learn", "学习"), exact: true })
         .click();
       expect.soft(await clippedControls(page), "course overview").toEqual([]);
       await page
@@ -188,7 +189,7 @@ for (const language of ["en", "zh"] as const) {
       page.getByLabel(label("Project", "工程"), { exact: true }),
     ).toHaveValue(project.name);
     await page
-      .getByRole("button", { name: label("Circuit", "电路"), exact: true })
+      .getByRole("tab", { name: label("Circuit", "电路"), exact: true })
       .click();
     expect
       .soft(await clippedControls(page), "all component type labels")

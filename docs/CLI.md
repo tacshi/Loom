@@ -1,11 +1,11 @@
 # Loom CLI
 
-Requires Node.js 24 or newer. Run `npm ci` then `npm run build:cli`. The generated executable is `dist-cli/loom.mjs`; `npm pack` includes it as the `loom` command. Public registry publication is separate.
+Development requires Bun 1.4.2 and Node.js 24 or newer. The built CLI requires Bun 1.4.2 or newer; Node.js is not needed to run it. Run `bun ci` then `bun run build:cli`. The generated executable is `dist-cli/loom.mjs`; `bun pm pack` includes it as the `loom` command. The bundle uses a `#!/usr/bin/env bun` shebang, so the installed `loom` command runs under Bun. Public registry publication is separate.
 
 ```sh
-node dist-cli/loom.mjs validate tests/fixtures/v2/calculator.loom.json
-node dist-cli/loom.mjs test tests/fixtures/v2/calculator.loom.json --json
-node dist-cli/loom.mjs test project.loom.json --circuit circuit-id --report ./report
+bun dist-cli/loom.mjs validate tests/fixtures/v2/calculator.loom.json
+bun dist-cli/loom.mjs test tests/fixtures/v2/calculator.loom.json --json
+bun dist-cli/loom.mjs test project.loom.json --circuit circuit-id --report ./report
 ```
 
 `validate` reports structural diagnostics. `test` executes current-format sequential cases or truth-table vectors through the shared assertion runner. JSON output goes to stdout and diagnostics to stderr. Reports contain deterministic `results.json` and an escaped, static `index.html`. No project-provided code executes.
@@ -18,4 +18,6 @@ Browser and CLI share validation, compilation, logic evaluation, state semantics
 
 `loom course-check course.loom.json --json` revalidates imported completion claims and checks the active exercise against the built-in registry. It does not modify the file. Results include prerequisite/construction failures, behavioral failures, passing checks and execution limits. Exit code 0 means all reported checks passed; 1 means a course check did not pass; malformed input uses 2.
 
-Course files use the current 23-lesson curriculum (`course.curriculum: 2`). `course-check` validates foundation AND/NOT construction and verified NAND reuse, including packaged dependency contents. Test JSON reports include per-step `checkpoints` with applied inputs and expected/actual assertions. The aggregate `course-check` report includes checkpoint counts rather than duplicating these playback details for every completed lesson; replay snapshots are not serialized.
+Course files use the current 100-mission curriculum (`course.curriculum: 3`, `core-01`–`core-60` and `project-01`–`project-40`). `course-check` validates foundation AND/NOT construction and verified NAND reuse, including packaged dependency contents. Test JSON reports include per-step `checkpoints` with applied inputs and expected/actual assertions. The aggregate `course-check` report includes case/checkpoint counts and details of failing cases, rather than repeating all passing test inputs and playback details; replay snapshots are not serialized.
+
+Project files are bounded at 32 MiB, 2,048 circuit definitions, and 40,000 stored components. These aggregate limits include course drafts and verified snapshots; active simulation limits remain separate.

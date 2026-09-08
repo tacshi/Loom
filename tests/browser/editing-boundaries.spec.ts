@@ -8,7 +8,7 @@ test("parameter definitions reject invalid bounds before they can be saved", asy
 }) => {
   await page.goto("/");
   await expect(page.getByText("Saved locally", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Circuit", exact: true }).click();
+  await page.getByRole("tab", { name: "Circuit", exact: true }).click();
   await page.locator(".parameter-editor summary").click();
   const add = page.getByRole("button", { name: "Add parameter", exact: true });
   for (const [label, value] of [
@@ -30,7 +30,7 @@ test("parameter definitions reject invalid bounds before they can be saved", asy
   await expect(page.getByText("Saved locally", { exact: true })).toBeVisible();
   await page.reload();
   await expect(page.getByText("Saved locally", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Circuit", exact: true }).click();
+  await page.getByRole("tab", { name: "Circuit", exact: true }).click();
   await page.locator(".parameter-editor summary").click();
   await expect(page.locator(".parameter-editor")).toContainText(
     "width = 8 [1–32]",
@@ -45,7 +45,7 @@ test("rotated custom pins reroute attached wires and reject overlapping pin slot
   await page
     .getByLabel("Open example…", { exact: true })
     .selectOption("counter");
-  await page.getByRole("button", { name: "Circuit", exact: true }).click();
+  await page.getByRole("tab", { name: "Circuit", exact: true }).click();
   await page
     .getByRole("button", { name: "Count Counter", exact: true })
     .click();

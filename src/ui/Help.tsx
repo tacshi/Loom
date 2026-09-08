@@ -38,6 +38,7 @@ export default function Help({
         <h3>{t("gettingStarted")}</h3>
         <p>{t("helpCourse")}</p>
         <p>{t("helpExamples")}</p>
+        <p>{t("helpWiring")}</p>
         <p>{t("helpExport")}</p>
         <h3>{t("keyboardShortcuts")}</h3>
         <p>{t("shortcuts")}</p>

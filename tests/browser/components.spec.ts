@@ -5,7 +5,7 @@ test("shift-register example exposes editable internals and parallel loading", a
 }) => {
   await page.goto("/");
   await page.getByLabel("Open example…", { exact: true }).selectOption("shift");
-  await page.getByRole("button", { name: "Circuit", exact: true }).click();
+  await page.getByRole("tab", { name: "Circuit", exact: true }).click();
   for (const [name, value] of [
     ["Parallel Input", "165"],
     ["Load Input", "1"],
@@ -36,7 +36,7 @@ test("priority encoder selects the highest request", async ({ page }) => {
   await page
     .getByLabel("Open example…", { exact: true })
     .selectOption("encoder");
-  await page.getByRole("button", { name: "Circuit", exact: true }).click();
+  await page.getByRole("tab", { name: "Circuit", exact: true }).click();
   for (const id of [2, 7]) {
     await page
       .getByRole("button", { name: `Request ${id} Input`, exact: true })
@@ -58,9 +58,9 @@ test("momentary button releases outside its control, on blur and on reset", asyn
   await page
     .getByLabel("Open example…", { exact: true })
     .selectOption("button");
-  await page.getByRole("button", { name: "Circuit", exact: true }).click();
+  await page.getByRole("tab", { name: "Circuit", exact: true }).click();
   await page
-    .getByRole("button", { name: "Reset Momentary button", exact: true })
+    .getByRole("button", { name: "Reset Push button", exact: true })
     .click();
   const hold = page.getByRole("button", { name: "Hold", exact: true });
   const canvas = (await page.locator(".canvas-host").boundingBox())!;
@@ -104,7 +104,7 @@ test("shared bus displays Z, driven data, contention and recovery", async ({
 }) => {
   await page.goto("/");
   await page.getByLabel("Open example…", { exact: true }).selectOption("bus");
-  await page.getByRole("button", { name: "Circuit", exact: true }).click();
+  await page.getByRole("tab", { name: "Circuit", exact: true }).click();
   const selectBus = async () =>
     page.getByRole("button", { name: "Bus Probe", exact: true }).click();
   const value = () =>
@@ -137,7 +137,7 @@ test("shared bus displays Z, driven data, contention and recovery", async ({
   await expect(page.getByLabel("Project", { exact: true })).toHaveValue(
     "Shared tri-state bus",
   );
-  await page.getByRole("button", { name: "Circuit", exact: true }).click();
+  await page.getByRole("tab", { name: "Circuit", exact: true }).click();
   await selectBus();
   await expect(value()).toContainText("165");
 });

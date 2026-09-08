@@ -54,7 +54,7 @@ test("ROM import, export, mutation and project reload reproduce visible output",
   await page
     .getByLabel("Open example…", { exact: true })
     .selectOption("segmentRom");
-  await page.getByRole("button", { name: "Circuit", exact: true }).click();
+  await page.getByRole("tab", { name: "Circuit", exact: true }).click();
   await page.getByRole("button", { name: "Lookup ROM", exact: true }).click();
   const cell = page.getByLabel("Memory word 0", { exact: true });
   await expect(cell).toHaveValue("3F");
@@ -139,7 +139,7 @@ test("manual glyphs change and unknown inputs remain amber", async ({
   await page
     .getByLabel("Open example…", { exact: true })
     .selectOption("segments");
-  await page.getByRole("button", { name: "Circuit", exact: true }).click();
+  await page.getByRole("tab", { name: "Circuit", exact: true }).click();
   await page.getByRole("button", { name: "Value Input", exact: true }).click();
   await page.getByLabel("Value", { exact: true }).fill("8");
   await expect.poll(() => pixels(page, green)).toBeGreaterThan(500);
@@ -152,49 +152,6 @@ test("manual glyphs change and unknown inputs remain amber", async ({
   await expect.poll(() => pixels(page, amber)).toBeGreaterThan(500);
   await expect.poll(() => pixels(page, green)).toBe(0);
   await page.screenshot({ path: info.outputPath("unknown-segments.png") });
-});
-
-test("verified learner decoder opens in a counter and course remains available", async ({
-  page,
-}, info) => {
-  test.setTimeout(60000);
-  const p = newCourse();
-  for (const spec of exercises) {
-    if (spec.id !== "signals") activateExercise(p, spec.id);
-    prepareCourseSubmission(p, spec.id);
-    await acceptCheck(p, await checkCourse(p, spec.id));
-    if (spec.id === "seven-segment") break;
-  }
-  await ready(page);
-  await importProject(page, Buffer.from(exportProject(p)));
-  await page.getByRole("button", { name: "Learn", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Verify progress", exact: true })
-    .click();
-  const tryCounter = page.getByRole("button", {
-    name: "Try in counter",
-    exact: true,
-  });
-  await expect(tryCounter).toBeVisible({ timeout: 30000 });
-  await page.screenshot({ path: info.outputPath("verified-decoder.png") });
-  await page.getByRole("button", { name: "Language", exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: "用于计数器", exact: true }),
-  ).toBeVisible();
-  await page.screenshot({ path: info.outputPath("verified-decoder-zh.png") });
-  await page.getByRole("button", { name: "语言", exact: true }).click();
-  await tryCounter.click();
-  await expect(page.getByLabel("Project", { exact: true })).toHaveValue(
-    "Hexadecimal counter",
-  );
-  await page.getByRole("button", { name: "Advance clock", exact: true }).click();
-  await expect.poll(() => pixels(page, green)).toBeGreaterThan(100);
-  await expect(page.getByText("Saved locally", { exact: true })).toBeVisible();
-  await page.screenshot({ path: info.outputPath("learner-counter.png") });
-  await page.getByRole("button", { name: "Projects", exact: true }).click();
-  await expect(
-    page.locator(".projects-dialog").getByText(p.name, { exact: true }),
-  ).toBeVisible();
 });
 
 test("CPU example opens on its digit, steps writes and resets", async ({

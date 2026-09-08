@@ -1,9 +1,9 @@
+import CircuitMenu from "./CircuitMenu";
 import { exampleGuides, type ExampleId } from "../examples/guides";
 import { useVisualTests } from "./useVisualTests";
 import VisualTests from "./VisualTests";
 import { savedCases, circuitMode } from "./debugSignals";
 import { exercise } from "../course/registry";
-import type { LearningStage } from "../course/lessons";
 import type { SignalRef } from "../model/types";
 import { type PlacementDraft } from "./useCanvasPlacement";
 import type { PointerEvent as ReactPointerEvent, KeyboardEvent as ReactKeyboardEvent } from "react";
@@ -13,6 +13,8 @@ import { closure } from "../library/package";
 import Help from "./Help";
 import { sevenSegmentExample } from "../examples/sevenSegment";
 import CourseLearn from "./CourseLearn";
+import LibraryTabs from "./LibraryTabs";
+import TestOptions from "./TestOptions";
 import {
   allowedKinds,
   acceptedRoots,
@@ -46,7 +48,6 @@ import {
   Trash2,
   Copy,
   Search,
-  ChevronDown,
   MousePointer2,
   HelpCircle,
   Hand,
@@ -126,12 +127,17 @@ export default function App() {
   const [base, setBase] = useState<2 | 10 | 16>(10);
   const [hz, setHz] = useState(10);
   const [savedDocument, setProject] = useState<Project>(() => emptyProject());
-  const [learningScene, setLearningScene] = useState<{ project: Project; stage: LearningStage }>();
+  useEffect(() => {
+    if (savedDocument.course) setLibraryTab("learn");
+  }, [savedDocument.id]);
+  const [learningScene, setLearningScene] = useState<{ project: Project }>();
   const [courseRun, setCourseRun] = useState(0);
   const cancelCourseCheck = useRef<() => void>(()=>{});
-  const project = useMemo(() => learningScene?.stage === "practice"
-    ? { ...savedDocument, root: learningScene.project.root, course: undefined }
-    : learningScene ? { ...learningScene.project, id: savedDocument.id, name: savedDocument.name, courseReference: true } : savedDocument, [savedDocument, learningScene]);
+  const project = useMemo(() => learningScene ? {...learningScene.project,id:savedDocument.id,name:savedDocument.name,courseReference:true} : savedDocument,[savedDocument,learningScene]);
+  useEffect(() => {
+    if (savedDocument.course)
+      setShowProgram(savedDocument.course.active !== "core-49" && exercise(savedDocument.course.active).mission!.work === "program");
+  }, [savedDocument.id, savedDocument.course?.active]);
   const [selected, setSelected] = useState<string[]>([]);
   const [lang, setLang] = useState<Language>(() =>
     localStorage.getItem("loom-language") === "zh" ? "zh" : "en",
@@ -145,12 +151,14 @@ export default function App() {
   const [fit, setFit] = useState(0);
   const [help, setHelp] = useState(false);
   const history = useRef(new History<Project>());
-  const practiceHistories = useRef(new Map<string, History<Project>>());
-  if (learningScene?.stage === "practice" && !practiceHistories.current.has(project.root)) practiceHistories.current.set(project.root,new History<Project>());
-  const currentHistory = learningScene?.stage === "practice" ? practiceHistories.current.get(project.root)! : history.current;
+  const missionHistories=useRef(new Map<string,History<Project>>());
+  if(savedDocument.course&&!missionHistories.current.has(savedDocument.root))missionHistories.current.set(savedDocument.root,new History<Project>());
+  const currentHistory=savedDocument.course?missionHistories.current.get(savedDocument.root)!:history.current;
   const t = useMemo(() => translator(lang), [lang]);
   const persistence = usePersistence(savedDocument, setProject);
-  const sim = useSimulation(project);
+  const liveSim = useSimulation(savedDocument);
+  const exampleSim = useSimulation(project, !!learningScene);
+  const sim = learningScene ? exampleSim : liveSim;
   const activeId = nav.at(-1)?.circuit ?? project.root;
   const circuit = project.circuits[activeId] ?? project.circuits[project.root];
   const circuitTitle = savedDocument.course && !nav.length ? exercise(savedDocument.course.active).title[lang === "zh" ? 1 : 0] : circuit.name;
@@ -239,7 +247,7 @@ export default function App() {
     }
     try {
       const next = editProject(savedDocument, action);
-      history.current.push(savedDocument);
+      currentHistory.push(savedDocument);
       next.updatedAt = Date.now();
       setProject(next);
       return true;
@@ -249,32 +257,17 @@ export default function App() {
     }
   }
   function edit(action: (p: Project) => void): boolean {
-    if (learningScene?.stage === "demonstration") return false;
-    if (visual.active) {cancelCourseCheck.current();visual.close();}
-    if (learningScene?.stage === "practice") {
-      if (!persistence.writable || openingId || sim.isolated) return false;
-      try { const next=editProject(project,action);currentHistory.push(project);setProject(p=>({...p,circuits:{...p.circuits,...closure(next,next.root)},updatedAt:Date.now()}));return true; }
-      catch(error){setNotice(t(error instanceof Error ? error.message : "invalidProject"));return false;}
-    }
+    if(learningScene)return false;
+    if(visual.active){cancelCourseCheck.current();visual.close();}
     return editDocument(action);
   }
-  function showLessonScene(scene: Project | undefined, stage: LearningStage) {
-    visual.close(); sim.command("pause"); setNav([]);setPending(undefined);setSelected([]);setFocus(undefined);setFit(x=>x+1);
-    if (stage === "practice" && savedDocument.course) {
-      const prior = savedDocument.course.practice?.[savedDocument.course.active];
-      if (prior) scene = {...savedDocument,root:prior,course:undefined};
-      else if(scene) {
-        scene=structuredClone(scene); const root=uid(),c=scene.circuits[scene.root];
-        c.id=root; c.wires=[];c.nets=[];scene.circuits[root]=c;delete scene.circuits[scene.root];scene.root=root;
-        const practiceScene=scene;
-        if (!persistence.writable) return;
-        setProject(p=>({...p,circuits:{...p.circuits,...practiceScene.circuits},course:{...p.course!,practice:{...p.course!.practice,[p.course!.active]:root}},updatedAt:Date.now()}));
-      }
-    }
-    // Stage metadata is not a circuit edit; preserve the circuit's undo history.
-    if (persistence.writable) setProject(p => p.course ? {...p, course:{...p.course,stages:{...p.course.stages,[p.course.active]:stage}}} : p);
-    setLearningScene(scene?{project:scene,stage}:undefined);
-    if(scene && stage==='demonstration')setShowDebug(true);
+  function editCourseRecord(action:(p:Project)=>void):boolean {
+    if(!persistence.writable||openingId)return false;
+    const next=structuredClone(savedDocument);action(next);next.updatedAt=Date.now();setProject(next);return true;
+  }
+  function showLessonExample(scene:Project|undefined){
+    cancelCourseCheck.current();visual.close();liveSim.command("pause");setNav([]);setPending(undefined);setSelected([]);setFocus(undefined);setFit(x=>x+1);
+    setLearningScene(scene?{project:scene}:undefined);
   }
   function runVisualTests() {
     sim.command("pause");setPending(undefined);
@@ -300,7 +293,7 @@ export default function App() {
     setProject(p);
     if (libraryTab === "learn" && !p.course && !p.courseReference)
       setLibraryTab("circuit");
-    history.current.clear();practiceHistories.current.clear();
+    history.current.clear();missionHistories.current.clear();
     setSelected([]);
     setNav([]);
     setShowTests(false);
@@ -425,40 +418,14 @@ export default function App() {
     edit((p) => removeSelection(p, activeId, selected));
     setSelected([]);
   }
-  function undo() {
-    if (!persistence.writable) return;
-    if (learningScene?.stage === "practice") {
-      const prior = currentHistory.undo(project);
-      if(prior)setProject(p=>({...p,circuits:{...p.circuits,...closure(prior,prior.root)},updatedAt:Date.now()}));
-      setSelected([]);return;
-    }
-    const p = history.current.undo(savedDocument);
-    if (p) {
-      if(p.course && savedDocument.course) {
-        for(const root of Object.values(savedDocument.course.practice??{})) Object.assign(p.circuits,closure(savedDocument,root));
-        p.course.practice=savedDocument.course.practice;p.course.stages=savedDocument.course.stages;
-      }
-      setProject(p);
-      setSelected([]);
-    }
+  function restoreHistory(next:Project|undefined){
+    if(!next)return;
+    if(savedDocument.course){setProject(p=>({...p,circuits:{...p.circuits,...closure(next,next.root)},source:next.source,assembledSource:next.assembledSource,sourceMap:next.sourceMap,updatedAt:Date.now()}));}
+    else setProject(next);
+    setSelected([]);
   }
-  function redo() {
-    if (!persistence.writable) return;
-    if (learningScene?.stage === "practice") {
-      const prior = currentHistory.redo(project);
-      if(prior)setProject(p=>({...p,circuits:{...p.circuits,...closure(prior,prior.root)},updatedAt:Date.now()}));
-      setSelected([]);return;
-    }
-    const p = history.current.redo(savedDocument);
-    if (p) {
-      if(p.course && savedDocument.course) {
-        for(const root of Object.values(savedDocument.course.practice??{})) Object.assign(p.circuits,closure(savedDocument,root));
-        p.course.practice=savedDocument.course.practice;p.course.stages=savedDocument.course.stages;
-      }
-      setProject(p);
-      setSelected([]);
-    }
-  }
+  function undo(){if(persistence.writable&&!learningScene)restoreHistory(currentHistory.undo(savedDocument));}
+  function redo(){if(persistence.writable&&!learningScene)restoreHistory(currentHistory.redo(savedDocument));}
   function copy() {
     clipboard.current = copySelection(project, activeId, selected);
   }
@@ -471,7 +438,7 @@ export default function App() {
     edit((p) => setSelected(pasteSelection(p, activeId, copied)));
   }
   function toggle(id: string) {
-    if (learningScene?.stage === "demonstration") {
+    if (!!learningScene) {
       const key=instancePath+id;sim.setInput(key, snapshot.values[key+":out"]?.value?0:1);return;
     }
     const c = circuit.components.find((c) => c.id === id);
@@ -726,12 +693,12 @@ export default function App() {
           value={project.name}
           disabled={!!savedDocument.courseReference || !!openingId || !persistence.writable || sim.isolated}
           onChange={(e) => {
-            history.current.push(savedDocument);
+            currentHistory.push(savedDocument);
             setProject({...savedDocument,name:e.target.value,updatedAt:Date.now()});
           }}
         />
-        <span className="local-indicator">
-          {t(openingId ? "loading" : persistence.status)}
+        <span className="local-indicator" data-status={persistence.status} title={t(persistence.status)}>
+          {t(openingId ? "loading" : persistence.status === "loadFailed" ? "projectUnavailable" : persistence.status)}
         </span>
         <div className="header-actions">
           {(!savedDocument.course || project.cpu) && (
@@ -780,6 +747,11 @@ export default function App() {
           </button>
         </div>
       </header>
+      {persistence.status === "loadFailed" && <div className="load-recovery" role="alert">
+        <p>{t("loadFailed")}</p>
+        <button className="primary" onClick={() => void openProject(emptyProject(t("new")))}>{t("new")}</button>
+        <button onClick={() => setShowProjects(true)}>{t("projects")}</button>
+      </div>}
       {project.courseReference && courseReturn && (
         <div className="course-reference" role="status">
           <span>{lang === "zh" ? "只读参考电路" : "Read-only reference"}</span>
@@ -795,24 +767,15 @@ export default function App() {
       )}
       <main inert={!!openingId || modalOpen}>
         <aside className="library" data-course={!!savedDocument.course}>
-          <div className="library-tabs">
-            {(["components", "circuit", "learn"] as const).map((k) => (
-              <button
-                className={libraryTab === k ? "active" : ""}
-                key={k}
-                onClick={() => setLibraryTab(k)}
-              >
-                {t(k === "components" ? "library" : k)}
-              </button>
-            ))}
+          <LibraryTabs value={libraryTab} select={setLibraryTab} t={t} />
+          <div role="tabpanel" id="library-panel-learn" aria-labelledby="library-tab-learn" tabIndex={0} hidden={libraryTab !== "learn"}>
+            <CourseLearn t={t} lang={lang} open={openProject}
+              project={savedDocument} edit={editCourseRecord}
+              example={!!learningScene} onExample={showLessonExample} onHint={id=>{setSelected([id]);setFocus(id);setFit(x=>x+1);}} runToken={courseRun} cancelCheckRef={cancelCourseCheck}
+              onCheckStopped={()=>visual.close()} onResults={r=>visual.present(r.cases,r.results,true,r.message)} />
           </div>
-          <div hidden={libraryTab !== "learn"}>
-            <CourseLearn isolated={sim.isolated} t={t} lang={lang} open={openProject}
-              project={savedDocument} edit={editDocument}
-              stage={learningScene?.stage ?? "challenge"} onScene={showLessonScene} runToken={courseRun} cancelCheckRef={cancelCourseCheck}
-              onResults={r=>visual.present(r.cases,r.results,true,r.message)} />
-          </div>
-          {libraryTab === "learn" ? null : libraryTab === "circuit" ? (
+          <div role="tabpanel" id="library-panel-circuit" aria-labelledby="library-tab-circuit" tabIndex={0} hidden={libraryTab !== "circuit"}>
+          {libraryTab === "circuit" && (
             <div className="circuit-list">
               <h3>{circuitTitle}</h3>
               <ParameterDefinitions
@@ -869,18 +832,20 @@ export default function App() {
                 ))}
               </details>
             </div>
-          ) : (
+          )}
+          </div>
+          <div role="tabpanel" id="library-panel-components" aria-labelledby="library-tab-components" tabIndex={0} hidden={libraryTab !== "components"}>
+          {libraryTab === "components" && (
             <>
-              <div className="panel-heading">
-                <h2>{t("library")}</h2>
-                <span>⌘ K</span>
-              </div>
               <label className="search">
                 <Search size={16} />
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder={t("search")}
+                  aria-label={t("search")}
+                  aria-keyshortcuts="Meta+K Control+K"
+                  title={t("search") + " (⌘ K / Ctrl K)"}
                 />
               </label>
               {categories
@@ -895,7 +860,6 @@ export default function App() {
                   <section key={category.id}>
                     <h3>
                       {t(category.id)}
-                      <ChevronDown size={12} />
                     </h3>
                     <div className="component-grid">
                       {category.kinds
@@ -989,9 +953,15 @@ export default function App() {
               )}
             </>
           )}
+          </div>
           <div className="library-bottom">
-            <button onClick={() => setShowSequences(true)}>
-              {t("sequentialTests")}
+            <button
+              onClick={() => {
+                void openProject(emptyProject(t("new")));
+              }}
+            >
+              <Plus size={16} />
+              {t("new")}
             </button>
             <select
               aria-label={t("examples")}
@@ -1055,19 +1025,6 @@ export default function App() {
               <option value="pixels">{t("pixelExample")}</option>
               </optgroup>
             </select>
-            <button
-              onClick={() => setShowTests(true)}
-            >
-              {t("runTests")}
-            </button>
-            <button
-              onClick={() => {
-                void openProject(emptyProject(t("new")));
-              }}
-            >
-              <Plus size={16} />
-              {t("new")}
-            </button>
           </div>
         </aside>
         <section className="workspace" aria-busy={visual.loadingCase}>
@@ -1122,12 +1079,15 @@ export default function App() {
               {circuitTitle}
             </button>
             <div className="sim-controls">
+              <div className="test-controls">
               <button disabled={!!savedDocument.course?.needsVerification || !persistence.writable} onClick={runVisualTests}>{t('runVisualTests')}</button>
+                {!savedDocument.course && <TestOptions t={t} saved={() => setShowSequences(true)} circuit={() => setShowTests(true)} />}
+              </div>
               {(mode !== 'logic' || !savedDocument.course) && <>
                 <button disabled={visual.active || sim.diagnostics.some(d=>d.severity==='error')} onClick={()=>sim.command(sim.running?'pause':'run',hz)}>{t(sim.running?'pause':'runClock')}</button>
                 <button disabled={visual.active || sim.diagnostics.some(d=>d.severity==='error')} onClick={()=>sim.command('step')}>{t('advanceClock')}</button>
                 {mode==='cpu' && !showProgram && <button disabled={visual.active || sim.diagnostics.some(d=>d.severity==='error')} onClick={()=>sim.command('instruction')}>{t('stepInstruction')}</button>}
-                <button onClick={()=>{visual.close();sim.command('reset');}}>{t('reset')}</button>
+                <button onClick={()=>{cancelCourseCheck.current();visual.close();sim.command('reset');}}>{t('reset')}</button>
                 <select aria-label={t('speed')} value={hz} onChange={e=>setHz(Number(e.target.value))}>{[1,2,10,100,1000,100000].map(n=><option key={n} value={n}>{n} Hz</option>)}</select>
               </>}
             </div>
@@ -1146,26 +1106,19 @@ export default function App() {
                   ))}
                 </select>
               )}
-              <button
-                aria-label={t("rerouteAll")}
-                onClick={() => {
-                  try {
-                    edit((p) => {
-                      const c = p.circuits[activeId];
-                      rerouteAutomatic(c, p);
-                    });
-                  } catch {
-                    setNotice(t("routeBlocked"));
-                  }
-                }}
-              >
-                {t("route")}
-              </button>
+              <CircuitMenu disabled={!circuit.wires.length || placementBlocked} t={t} tidy={() => {
+                try {
+                  edit(p => rerouteAutomatic(p.circuits[activeId], p));
+                } catch {
+                  setNotice(t("routeBlocked"));
+                }
+              }}/>
               <button
                 onClick={() => {
                   setFocus(undefined);
                   setFit(fit + 1);
                 }}
+                title={t("fit")}
                 aria-label={t("fit")}
               >
                 <Scan size={17} />
@@ -1297,7 +1250,7 @@ export default function App() {
           )}
           {showProgram && (
             <Program
-              key={project.id}
+              key={project.id + ":" + project.root}
               project={project}
               edit={edit}
               snapshot={snapshot}
@@ -1498,7 +1451,7 @@ export default function App() {
                   }
                   running={sim.running}
                   t={t}
-                  readOnly={visual.active || learningScene?.stage === "demonstration"}
+                  readOnly={visual.active || !!learningScene}
                   write={(address, value) => {
                     if (visual.active) return;
                     if (component.kind === "rom")

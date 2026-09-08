@@ -2,7 +2,7 @@
 
 ## Guided course
 
-Use **Learn → Start course** for 23 lessons from signals and wires through a computer. Explore a demonstration, practice with guidance, then solve an independent challenge. The early lessons teach AND and NOT before building NAND. See [Learning and visual tests](LEARNING.md) for the complete flow.
+Use **Learn → Start course** for 60 core missions and 40 optional projects. Build or program each mission in one continuous workspace; use optional hints and examples when needed. The early lessons teach AND and NOT before building NAND. See [Learning and visual tests](LEARNING.md) for the complete flow.
 
 ## Editing
 
@@ -41,7 +41,7 @@ Select connected logic and choose **Create subcircuit**. Boundary connections be
 
 Input switches can be toggled by double-clicking or edited numerically. Inspect signals as binary, decimal, or hexadecimal. `X` means unknown; binary format shows which individual bits are known.
 
-Open **Debug** for named inputs and outputs. Use **Trace this output** to inspect upstream signals. Choose **Waveforms** to inspect history or **Breakpoints** to configure stops. Select a component and choose **Watch signal…** to add another trace. Traces retain at most 512 samples and show the latest 80. A value breakpoint pauses after a settled clock edge. The Memory tab shows the selected RAM/ROM instance.
+Open **Debug** for named inputs and outputs. For unknown outputs or failed tests, use **Show connections** to inspect the connected components and wires. Choose **Signal history** to inspect history or **Breakpoints** to configure stops. Select a component and choose **Watch signal…** to add another trace. Traces retain at most 512 samples and show the latest 80. A value breakpoint pauses after a settled clock edge. The Memory tab shows the selected RAM/ROM instance.
 
 Click a diagnostic to locate its source. Structural errors prevent execution. Undriven inputs remain unknown instead of silently becoming zero.
 
@@ -63,11 +63,11 @@ Browser storage can be cleared or evicted. Keep independent `.loom.json` exports
 
 导线以水平线进入引脚，不沿元件边缘走线。不同信号的交叉显示跨线弧，实际分支显示连接点。拖动线段可调整通道；橙色预览表示候选路径。“布线”仅整理自动路径，手动路径需要选中后单独重新布线。
 
-使用“平移画布”或按住空格拖动。滚动围绕指针缩放，Shift＋滚动平移，“适应电路”显示完整电路。框选或 Shift＋点击进行多选，可对齐、分布、复制和整体移动。撤销会同时恢复位置和走线。
+使用“平移画布”或按住空格拖动。滚动围绕指针缩放，Shift＋滚动平移，“显示完整电路”显示完整电路。框选或 Shift＋点击进行多选，可对齐、分布、复制和整体移动。撤销会同时恢复位置和走线。
 
 “学习 → 开始课程”提供 20 个连续练习，每个都有草稿、只读参考电路、分层提示和行为检查；验证后的元件可在后续练习中复用。“封装子电路”把选中的内部逻辑变为可复用元件。进入子电路可检查实际逻辑门；多个实例共享定义，但各自保存独立的仿真状态。
 
-“运行／暂停”控制连续执行，“单步”推进一个上升沿。“复位”恢复寄存器初值、清空 RAM 和波形，保留 ROM 程序。选择元件并添加观察信号，可以查看波形并设置数值断点。内存视图显示所选 RAM 或 ROM 实例。`X` 表示未知值，二进制格式可显示逐位状态。
+“运行／暂停”控制连续执行，“单步”推进一个上升沿。“复位”恢复寄存器初值、清空 RAM 和信号历史，保留 ROM 程序。选择元件并添加观察信号，可以查看信号历史并设置数值断点。内存视图显示所选 RAM 或 ROM 实例。`X` 表示未知值，二进制格式可显示逐位状态。
 
 打开 Loom 8 CPU 示例，汇编并加载求和程序后运行，输出应为 55。源代码修改后必须重新汇编才会改变 ROM。点击已汇编的行号设置断点；“指令单步”完成一条指令。进入 ALU，把 ADD 替换为 NAND 加法器后，可重新运行验证结果。
 
@@ -75,17 +75,17 @@ Browser storage can be cleared or evicted. Keep independent `.loom.json` exports
 
 ## V2: larger circuits and interactive programs
 
-**Nets and layout.** Circuit → Named nets lists electrical connections independently of their drawing. Select a net to rename it, highlight all its routes, or attach a compatible port explicitly. A name never connects two nets. Named markers can replace a drawn connection without removing electrical membership. Use Appearance & pins to rotate a component or change its grid bounds and pin slots. Failed routing changes are rejected; Undo changes the document, while Back one cycle changes simulation history.
+**Nets and layout.** Circuit → Named connections lists electrical connections independently of their drawing. Select a net to rename it, highlight all its routes, or attach a compatible port explicitly. A name never connects two nets. Named markers can replace a drawn connection without removing electrical membership. Use Appearance & pins to rotate a component or change its grid bounds and pin slots. Failed routing changes are rejected; Undo changes the document, while Back one cycle changes simulation history.
 
 **Libraries.** Libraries exports a circuit and its nested dependencies as a `.loom-component.json` package. Each installed version has an immutable SHA-256 content hash. Add to project embeds copies, so the catalog is not required when reopening offline. A pinned instance offers Make editable local copy. Export the edited copy with a newer version number and use Review update in the old project. Review interface mappings and tests before applying behavior changes. This is distinct from equivalent-component replacement.
 
-**History.** Debug → Waveforms offers retained runs, cycle/event seeking, backward cycle/instruction steps, and two measurement cursors. Seek pauses execution. Continuing from history branches into a new run; select an older run to compare it. Up to four runs share a 10,000-cycle and 64 MiB accounted-storage budget. Complete checkpoint segments are evicted. History is never saved in project files. Topology, parameter and ROM edits reset the simulation session; positions and names preserve it. Inspect transaction rows for clock-qualified device reads and writes.
+**History.** Debug → Signal history offers retained runs, cycle/event seeking, backward cycle/instruction steps, and two measurement cursors. Instruction steps appear only for CPUs. Each signal has one graph: live while running, retained history while paused. Seek pauses execution. Continuing from history branches into a new run; select an older run to compare it. Up to four runs share a 10,000-cycle and 64 MiB accounted-storage budget. Complete checkpoint segments are evicted. History is never saved in project files. Topology, parameter and ROM edits reset the simulation session; positions and names preserve it. Inspect transaction rows for clock-qualified device reads and writes.
 
 **Memory and devices.** Select a RAM or ROM component to inspect its paged editor. Pause before changing words or importing a `.bin` or hexadecimal `.hex`/`.txt` image. Imports start at the selected address; binary words default to little endian. RAM changes are runtime events and can be rewound. ROM changes update the project and reset history. Devices shows only the selected simulation's peripherals. Send input queues exact UTF-8 bytes; Send line appends a newline. The keyboard queue holds 256 bytes. The terminal retains its most recent 65,536 bytes and the display has 64 × 32 monochrome pixels.
 
 **Calculator.** Choose Loom 8 I/O · Calculator, type `12+34`, and Send line. Run at 1000 Hz or higher. The terminal prints `46`. Operands range from 0 to 255; addition and subtraction produce results from −255 to 510. Invalid expressions print `?` and discard the rest of that line. The CPU assembly program performs parsing, validation, arithmetic and decimal formatting. Browser code only queues bytes and displays peripheral state.
 
-**Sequential tests.** Open Sequential tests to run stored cases or expand Add test case. Each step can set inputs or queue device bytes, advance clocks, and assert a signal, memory word, terminal text or pixel. Known-bit masks allow exact X expectations. Append steps, then save the case. Open failure in debugger uses an isolated execution; Return to live run restores the previous simulation. Create test from this run records retained stimuli with the configured assertion. Capture requires the run's original reset point to remain retained.
+**Saved tests.** Open Saved tests to run stored cases or expand Add test case. Each step can set inputs or queue device bytes, advance clocks, and assert a signal, memory word, terminal text or pixel. Known-bit masks allow exact X expectations. Append steps, then save the case. Inspect failed test uses an isolated execution; Return to live circuit restores the previous simulation. Create test from this run records retained stimuli with the configured assertion. Capture requires the run's original reset point to remain retained.
 
 ## V2 中文操作
 
@@ -118,7 +118,7 @@ Canvas notices do not move the circuit. Selecting an already visible component p
 打开“帮助”可查看入门操作和快捷键。“复制问题报告”只包含版本、构建提交、浏览器信息及待填写的复现步骤；不包含工程名称或内容，也不会自动上传。剪贴板不可用时，可选中显示的报告手动复制。
 
 
-## Reusable sandbox components
+## Reusable components
 
 **8-bit shift register** is an editable subcircuit under Memory & state. On each clock edge it resets, loads `parallelIn`, shifts toward bit 7 with `serialIn` entering bit 0, or holds, in that priority order. `serialOut` exposes bit 7. Open the serial/parallel example to try it; Open subcircuit shows its registers and gates.
 
@@ -128,14 +128,14 @@ Canvas notices do not move the circuit. Selecting an already visible component p
 
 “8 路优先编码器”输出编号最大的有效请求；无请求时 valid 和 index 均为 0。
 
-**Momentary button** drives 1 while held and 0 when released. Press its center on the canvas or use **Hold** in the Inspector with the pointer, Space or Enter. Drag its outer body to move it. It releases on cancellation, focus loss and reset; it does not clock the circuit automatically. The counter-reset example demonstrates it. Held state is recorded in runtime history, not saved as a project default.
+**Push button** drives 1 while held and 0 when released. Press its center on the canvas or use **Hold** in the Inspector with the pointer, Space or Enter. Drag its outer body to move it. It releases on cancellation, focus loss and reset; it does not clock the circuit automatically. The counter-reset example demonstrates it. Held state is recorded in runtime history, not saved as a project default.
 
-“瞬时按钮”按住时输出 1，松开时输出 0；属性中的“按住”支持空格和回车。失去焦点、取消或复位会释放按钮。按钮本身不会推进时钟。
+“按钮（按住有效）”按住时输出 1，松开时输出 0；属性中的“按住”支持空格和回车。失去焦点、取消或复位会释放按钮。按钮本身不会推进时钟。
 
 
 ## Shared buses
 
-**Tri-state buffer** has data, enable and output ports, with widths 1–32. Disabled outputs are high impedance (`Z`); enabled outputs drive data. Unknown enables produce `X`. Connect multiple outputs to the same input or attach them through Named nets. Any ordinary output remains an active driver.
+**Tri-state buffer** has data, enable and output ports, with widths 1–32. Disabled outputs are high impedance (`Z`); enabled outputs drive data. Unknown enables produce `X`. Connect multiple outputs to the same input or attach them through Named connections. Any ordinary output remains an active driver.
 
 A floating bus reads `Z`. Agreeing drivers resolve to their shared value; opposing drivers produce `X` and a Bus contention diagnostic listing the net, conflicting bits and drivers. Simulation remains inspectable. Logic and storage treat floating inputs as unknown; wiring and subcircuit boundaries preserve `Z`. Binary formatting shows mixed bits individually; mixed indeterminate decimal/hex values show `X`.
 

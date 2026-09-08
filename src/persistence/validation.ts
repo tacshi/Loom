@@ -43,7 +43,7 @@ const str = (v: unknown, max = 200) =>
   typeof v === "string" && v.length > 0 && v.length <= max;
 const integer = (v: unknown, min: number, max: number) =>
   typeof v === "number" && Number.isInteger(v) && v >= min && v <= max;
-export const MAX_FILE_BYTES = 20 * 1024 * 1024;
+export const MAX_FILE_BYTES = 32 * 1024 * 1024;
 export function parseProject(text: string): Project {
   if (new TextEncoder().encode(text).length > MAX_FILE_BYTES)
     throw new Error("fileTooLarge");
@@ -71,7 +71,7 @@ export function validateProject(raw: unknown): Project {
       Array.isArray(raw.progress) &&
       raw.progress.every((p) => str(p)),
   );
-  assert(Object.keys(raw.circuits).length <= 256);
+  assert(Object.keys(raw.circuits).length <= 2048);
   let totalComponents = 0,
     totalWires = 0;
   for (const [id, value] of Object.entries(raw.circuits)) {
@@ -88,7 +88,7 @@ export function validateProject(raw: unknown): Project {
     );
     totalComponents += value.components.length;
     totalWires += value.wires.length;
-    assert(totalComponents <= 20000 && totalWires <= 50000);
+    assert(totalComponents <= 40000 && totalWires <= 50000);
     const ids = new Set<string>();
     for (const c of value.components) {
       assert(

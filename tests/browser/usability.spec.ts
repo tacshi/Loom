@@ -18,7 +18,7 @@ test("connection errors do not move the canvas", async ({ page }) => {
   await expect(page.getByLabel("Project", { exact: true })).toHaveValue(
     b.p.name,
   );
-  await page.getByRole("button", { name: "Circuit", exact: true }).click();
+  await page.getByRole("tab", { name: "Circuit", exact: true }).click();
   const before = await page.locator(".canvas-host").boundingBox();
   await page.getByRole("button", { name: "A Input", exact: true }).click();
   await page.getByRole("button", { name: "Connect out", exact: true }).click();
@@ -42,7 +42,7 @@ test("selecting a visible input preserves the counter display location", async (
   await page
     .getByLabel("Open example…", { exact: true })
     .selectOption("segmentCounter");
-  await page.getByRole("button", { name: "Circuit", exact: true }).click();
+  await page.getByRole("tab", { name: "Circuit", exact: true }).click();
   const bounds = () =>
     page.locator(".canvas-host canvas").evaluateAll((nodes) => {
       const xs: number[] = [],
@@ -81,7 +81,7 @@ test("adding a component preserves the chosen canvas position", async ({
   await expect(page.getByLabel("Project", { exact: true })).toHaveValue(
     b.p.name,
   );
-  await page.getByRole("button", { name: "Components", exact: true }).click();
+  await page.getByRole("tab", { name: "Components", exact: true }).click();
   const position = await placeComponent(page, "NAND", 420, 320);
   await page.getByRole("button", { name: "Projects", exact: true }).click();
   const d = page.waitForEvent("download");
@@ -97,9 +97,9 @@ test("undoing a failed edit shows verified status without the obsolete failure",
   page,
 }) => {
   const { newCourse, acceptCheck } = await import("../../src/course/session");
-  const { exercise } = await import("../../src/course/registry");
+  const { exercise } = await import("../../src/course/referenceExercises");
   const { checkCourse } = await import("../../src/course/check");
-  const p = await courseAt("nand",true), r = { circuits: p.circuits, root: p.root };
+  const p = await courseAt("core-05",true), r = { circuits: p.circuits, root: p.root };
   await page.goto("/");
   await page.getByRole("button", { name: "Projects", exact: true }).click();
   await page.locator("input[type=file]").setInputFiles({
@@ -108,20 +108,20 @@ test("undoing a failed edit shows verified status without the obsolete failure",
     buffer: Buffer.from(JSON.stringify(p)),
   });
   await expect(page.getByLabel("Project", { exact: true })).toHaveValue(p.name);
-  await page.getByRole("button", { name: "Learn", exact: true }).click();
+  await page.getByRole("tab", { name: "Learn", exact: true }).click();
   await page
-    .getByRole("button", { name: "Verify progress", exact: true })
+    .getByRole("button", { name: "Verify imported progress", exact: true })
     .click();
   await expect(
-    page.getByText("Verified component saved.", { exact: true }),
+    page.getByRole("button",{name:"Next mission",exact:true}),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Circuit", exact: true }).click();
+  await page.getByRole("tab", { name: "Circuit", exact: true }).click();
   const gate = r.circuits[r.root].components.find((c) => c.kind === "and")!;
   await page
     .getByRole("button", { name: gate.name + " AND", exact: true })
     .click();
   await page.keyboard.press("Delete");
-  await page.getByRole("button", { name: "Learn", exact: true }).click();
+  await page.getByRole("tab", { name: "Learn", exact: true }).click();
   await page
     .getByRole("button", { name: "Run tests", exact: true })
     .click();
@@ -130,7 +130,7 @@ test("undoing a failed edit shows verified status without the obsolete failure",
   ).toBeVisible();
   await page.getByRole("button", { name: "Undo", exact: true }).click();
   await expect(
-    page.getByText("Verified component saved.", { exact: true }),
+    page.getByRole("button",{name:"Next mission",exact:true}),
   ).toBeVisible();
   await expect(page.locator(".course-learn")).not.toContainText(
     "Check result:",

@@ -31,7 +31,7 @@ test("production app can reload, edit, simulate, and save without networking", a
   await expect(
     page.getByRole("textbox", { name: "Project", exact: true }),
   ).toHaveValue("Clocked counter");
-  await page.getByRole("button", { name: "Circuit", exact: true }).click();
+  await page.getByRole("tab", { name: "Circuit", exact: true }).click();
   await page
     .getByRole("button", { name: "Count Counter", exact: true })
     .click();

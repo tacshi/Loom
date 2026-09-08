@@ -1,99 +1,4 @@
 import { test, expect } from "@playwright/test";
-test("first lesson explores signals, plays cases, and keeps challenge independent", async ({
-  page,
-}) => {
-  await page.goto("/");
-  await expect(page.getByText("Saved locally", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Learn", exact: true }).click();
-  await page.getByRole("button", { name: "Start course", exact: true }).click();
-  await expect(page.locator(".course-heading h2")).toHaveText(
-    "Signals and wires",
-  );
-  await expect(
-    page.locator('.learning-stages button[aria-current="step"]'),
-  ).toHaveText("Explore");
-  await expect(page.locator(".sim-controls")).not.toContainText("Run clock");
-  await expect(page.locator(".timeline-panel")).toHaveCount(0);
-  await page
-    .getByRole("button", { name: "Toggle input a", exact: true })
-    .click();
-  await expect(
-    page.locator(".behavior-signal").filter({ hasText: "out" }),
-  ).toContainText("1 · on");
-  await page.getByRole("button", { name: "Run tests", exact: true }).click();
-  await expect(page.locator(".visual-tests tbody tr")).toHaveCount(2);
-  await page.getByRole("button", { name: "Show result", exact: true }).click();
-  await expect(page.locator(".test-focus")).toContainText("1 · on");
-  await page
-    .getByRole("button", { name: "Return to editing", exact: true })
-    .click();
-  await expect(
-    page.locator(".behavior-signal").filter({ hasText: "out" }),
-  ).toContainText("1 · on");
-  await page.getByRole("button", { name: "Challenge", exact: true }).click();
-  await expect(page.locator("footer")).toContainText("0 connections");
-  await page.getByRole("button", { name: "Run tests", exact: true }).click();
-  await expect(page.locator(".test-focus")).toContainText("Z · no driver");
-  await expect(
-    page.getByText("Verified component saved.", { exact: true }),
-  ).toHaveCount(0);
-  await page
-    .getByRole("button", { name: "Return to editing", exact: true })
-    .click();
-  await page.getByRole("button", { name: "Circuit", exact: true }).click();
-  await page.getByRole("button", { name: "a Input port", exact: true }).click();
-  await page.getByRole("button", { name: "Connect out", exact: true }).click();
-  await page
-    .getByRole("button", { name: "out Output port", exact: true })
-    .click();
-  await page.getByRole("button", { name: "Connect in", exact: true }).click();
-  await page.getByRole("button", { name: "Run tests", exact: true }).click();
-  await page.getByRole("button", { name: "Learn", exact: true }).click();
-  await expect(
-    page.getByText("Verified component saved.", { exact: true }),
-  ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Return to editing", exact: true })
-    .click();
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await expect(page.locator(".course-heading h2")).toHaveText(
-    "Both inputs must be on (AND)",
-  );
-});
-
-test("practice is saved separately and survives returning from the challenge", async ({
-  page,
-}) => {
-  await page.goto("/");
-  await page.getByRole("button", { name: "Learn", exact: true }).click();
-  await page.getByRole("button", { name: "Start course", exact: true }).click();
-  await page.getByRole("button", { name: "Practice", exact: true }).click();
-  await page.getByRole("button", { name: "Circuit", exact: true }).click();
-  await page.getByRole("button", { name: "a Input port", exact: true }).click();
-  await page.getByRole("button", { name: "Connect out", exact: true }).click();
-  await page
-    .getByRole("button", { name: "out Output port", exact: true })
-    .click();
-  await page.getByRole("button", { name: "Connect in", exact: true }).click();
-  await expect(page.locator("footer")).toContainText("1 connections");
-  await page.getByRole("button", { name: "Undo", exact: true }).click();
-  await expect(page.locator("footer")).toContainText("0 connections");
-  await page.getByRole("button", { name: "Redo", exact: true }).click();
-  await expect(page.locator("footer")).toContainText("1 connections");
-  await page.getByRole("button", { name: "Learn", exact: true }).click();
-  await page.getByRole("button", { name: "Challenge", exact: true }).click();
-  await expect(page.locator("footer")).toContainText("0 connections");
-  await page.getByRole("button", { name: "Practice", exact: true }).click();
-  await expect(page.locator("footer")).toContainText("1 connections");
-  await expect(page.getByText("Saved locally", { exact: true })).toBeVisible();
-  await page.reload();
-  await page.getByRole("button", { name: "Learn", exact: true }).click();
-  await expect(
-    page.locator('.learning-stages button[aria-current="step"]'),
-  ).toHaveText("Practice");
-  await expect(page.locator("footer")).toContainText("1 connections");
-});
-
 test("debug starts with behavior and introduces clock state before waveforms", async ({
   page,
 }) => {
@@ -111,9 +16,9 @@ test("debug starts with behavior and introduces clock state before waveforms", a
     .getByRole("button", { name: "Advance clock", exact: true })
     .click();
   await expect(page.locator(".before-value")).toBeVisible();
-  await page.getByRole("button", { name: "Waveforms", exact: true }).click();
+  await page.getByRole("button", { name: "Signal history", exact: true }).click();
   await expect(page.getByLabel("Seek cycle", { exact: true })).toBeVisible();
-  await expect(page.getByText("Break when", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Pause when", { exact: true })).toHaveCount(0);
 });
 
 test("cancelled replay cannot replace the live input state with a late snapshot", async ({
@@ -138,8 +43,9 @@ test("cancelled replay cannot replace the live input state with a late snapshot"
     window.Worker.prototype = Native.prototype;
   });
   await page.goto("/");
-  await page.getByRole("button", { name: "Learn", exact: true }).click();
+  await page.getByRole("tab", { name: "Learn", exact: true }).click();
   await page.getByRole("button", { name: "Start course", exact: true }).click();
+  await page.getByRole("button", { name: "Debug", exact: true }).click();
   await page
     .getByRole("button", { name: "Toggle input a", exact: true })
     .click();
@@ -151,14 +57,14 @@ test("cancelled replay cannot replace the live input state with a late snapshot"
   await page.evaluate(() => (window as any).lateSnapshot());
   await expect(page.locator(".visual-tests")).toHaveCount(0);
   await expect(
-    page.locator(".behavior-signal").filter({ hasText: "out" }),
+    page.locator(".behavior-signal").filter({ has: page.getByRole("button",{name:"Toggle input a",exact:true}) }),
   ).toContainText("1 · on");
 });
 
 test("long saved tests are paged and any checkpoint can be replayed", async ({
   page,
 }) => {
-  const { exercise } = await import("../../src/course/registry");
+  const { exercise } = await import("../../src/course/referenceExercises");
   const p = exercise("signals").reference();
   const testCase = exercise("signals").checks()[0];
   const steps = testCase.steps;
@@ -183,7 +89,7 @@ test("long saved tests are paged and any checkpoint can be replayed", async ({
   await page.getByRole("button", { name: "Show case 40", exact: true }).click();
   await expect(page.locator(".test-focus")).toContainText("1 · on");
   await page.getByRole("button", { name: "Play cases", exact: true }).click();
-  await expect(page.locator(".test-focus")).toContainText("Show case 1");
+  await expect(page.locator(".test-focus")).toContainText("Case 1");
 });
 
 test("cancelling an authoritative course check prevents late completion", async ({
@@ -192,8 +98,8 @@ test("cancelling an authoritative course check prevents late completion", async 
   const { courseAt } = await import("../courseFixture");
   const { prepareCourseSubmission } =
     await import("../../scripts/course-submission");
-  const p = await courseAt("signals");
-  prepareCourseSubmission(p, "signals");
+  const p = await courseAt("core-01");
+  prepareCourseSubmission(p, "core-01");
   await page.addInitScript(() => {
     const Native = window.Worker;
     window.Worker = function (this: any, ...args: any[]) {
@@ -220,9 +126,9 @@ test("cancelling an authoritative course check prevents late completion", async 
       mimeType: "application/json",
       buffer: Buffer.from(JSON.stringify(p)),
     });
-  await page.getByRole("button", { name: "Learn", exact: true }).click();
+  await page.getByRole("tab", { name: "Learn", exact: true }).click();
   await page
-    .getByRole("button", { name: "Verify progress", exact: true })
+    .getByRole("button", { name: "Verify imported progress", exact: true })
     .click();
   await expect(
     page.getByRole("button", { name: "Run tests", exact: true }),
@@ -236,7 +142,7 @@ test("cancelling an authoritative course check prevents late completion", async 
   await page.evaluate(() => (window as any).lateCourse());
   await expect(page.locator(".visual-tests")).toHaveCount(0);
   await expect(
-    page.getByText("Verified component saved.", { exact: true }),
+    page.getByRole("button", {name:"Next mission",exact:true}),
   ).toHaveCount(0);
 });
 
@@ -254,7 +160,7 @@ for (const width of [1280, 740])
       const label = (en: string, cn: string) => (zh ? cn : en);
       await page.goto("/");
       await page
-        .getByRole("button", { name: label("Learn", "学习"), exact: true })
+        .getByRole("tab", { name: label("Learn", "学习"), exact: true })
         .click();
       await page
         .getByRole("button", {
@@ -274,7 +180,7 @@ for (const width of [1280, 740])
           exact: true,
         })
         .click();
-      await expect(page.locator(".visual-tests tbody tr")).toHaveCount(2);
+      await expect(page.locator(".visual-tests tbody tr")).toHaveCount(1);
       await page
         .getByRole("button", {
           name: label("Show result", "查看结果"),
@@ -282,7 +188,7 @@ for (const width of [1280, 740])
         })
         .click();
       await expect(page.locator(".test-focus")).toContainText(
-        label("1 · on", "1 · 开"),
+        label("Z · no signal", "Z · 无信号"),
       );
       expect(
         await page.evaluate(

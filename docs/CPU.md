@@ -58,6 +58,6 @@ The calculator source is `src/cpu/calculator.ts`. It uses software carry handlin
 
 ## Generated schematic layouts
 
-After changing the generated Arithmetic unit, Instruction control, Instruction fields or Memory & I/O definitions, run `npm run generate:layouts` from the repository root. This writes `src/cpu/generatedLayouts.json` using bounded routing retries. New examples copy these precomputed routes so opening an example does not run the expensive layout search. Saved projects keep their own geometry.
+After changing the generated Arithmetic unit, Instruction control, Instruction fields or Memory & I/O definitions, run `bun run generate:layouts` from the repository root. This writes `src/cpu/generatedLayouts.json` using bounded routing retries. New examples copy these precomputed routes so opening an example does not run the expensive layout search. Saved projects keep their own geometry.
 
-Run `npx vitest run tests/reroute.test.ts tests/io-routing.test.ts tests/calculator.test.ts` to verify clearance, repair behavior and CPU calculations. Regenerate the v2 exported examples when their factories change.
+Run `bun run test tests/reroute.test.ts tests/io-routing.test.ts tests/calculator.test.ts` to verify clearance, repair behavior and CPU calculations. Regenerate the v2 exported examples when their factories change.

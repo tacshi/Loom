@@ -108,6 +108,7 @@ export class GateBuilder extends Builder {
 }
 export function layoutGateProject(p: Project): Project {
   for (const c of Object.values(p.circuits)) {
+    if (c.library) continue;
     const rank = new Map<string, number>();
     for (const n of c.components)
       if (
@@ -143,8 +144,8 @@ export function layoutGateProject(p: Project): Project {
       const x = rank.get(n.id) ?? 0,
         y = rows.get(x) ?? 0;
       n.x = x * 280;
-      n.y = y * 220;
-      rows.set(x, y + 1);
+      n.y = y;
+      rows.set(x, y + Math.max(220, baseGeometry(n, p).h + 120));
     }
     rerouteAutomatic(c, p, { attempts: 8, searchLimit: 60000 });
   }

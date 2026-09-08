@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 import { checkCourse, reverifyCourse } from "../course/check";
 import { exercises } from "../course/registry";
 import { readFile, mkdir, writeFile, stat } from "node:fs/promises";
@@ -43,7 +43,13 @@ async function main() {
     const results = await reverifyCourse(p);
     const active = await checkCourse(p, p.course.active);
     results.push(active);
-    const compact = results.map(r => ({ ...r, results: r.results.map(({checkpoints, ...test}) => ({...test, checkpointCount: checkpoints?.length ?? 0})) }));
+    const compact = results.map(({cases, results: tests, ...mission}) => ({
+      ...mission,
+      caseCount: cases.length,
+      testedCases: tests.length,
+      checkpointCount: tests.reduce((n,test)=>n+(test.checkpoints?.length??0),0),
+      failedCases: tests.filter(test=>test.status!=="passed").map(({trace,checkpoints,...test})=>test),
+    }));
     process.stdout.write(canonical({ course: p.course.id, results: compact }) + "\n");
     return results.every((r) => r.status === "passed") ? 0 : 1;
   }

@@ -18,7 +18,7 @@ test("reference CPU timeline seek measurements", async ({ page }, info) => {
     .click();
   await page.getByLabel("Clock speed", { exact: true }).selectOption("100000");
   await page.getByRole("button", { name: "Debug", exact: true }).click();
-  await page.getByRole("button", { name: "Waveforms", exact: true }).click();
+  await page.getByRole("button", { name: "Signal history", exact: true }).click();
   await page.getByRole("button", { name: "Run clock", exact: true }).click();
   await page.waitForFunction(
     () =>

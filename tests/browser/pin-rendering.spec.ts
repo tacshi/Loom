@@ -6,7 +6,7 @@ test("selected component pin centers stay hollow", async ({ page }) => {
     .getByLabel("Open example…", { exact: true })
     .selectOption("counter");
   await expect(page.getByText("Saved locally", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Circuit", exact: true }).click();
+  await page.getByRole("tab", { name: "Circuit", exact: true }).click();
   await page.getByRole("button", { name: "Enable Input", exact: true }).click();
   const scale =
     Number((await page.locator(".zoom-label").innerText()).replace("%", "")) /

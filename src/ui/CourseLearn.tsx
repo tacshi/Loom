@@ -1,157 +1,143 @@
-import { chapters, type LearningStage } from "../course/lessons";
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import type { Project } from "../model/types";
 import { emptyProject } from "../model/types";
-import type { CourseCheck, ExerciseId, CourseResponse } from "../course/types";
-import { exercises, exercise, courseReference } from "../course/registry";
+import type { CourseCheck, CourseResponse, ExerciseId } from "../course/types";
+import { exercises, exercise } from "../course/registry";
 import {
-  counterWithAcceptedDecoder,
   newCourse,
   available,
-  activateExercise,
   acceptCheck,
   nextExercise,
   electricalHash,
 } from "../course/session";
+import CpuReference from "./CpuReference";
+import MissionConcept from "./MissionConcept";
+import { missionChapters } from "../course/missions/catalog";
 export default function CourseLearn({
   project,
   lang,
   open,
   edit,
   t,
-  isolated,
-  stage,
-  onScene,
-  onResults,
   runToken,
   cancelCheckRef,
+  onResults,
+  onCheckStopped,
+  onExample,
+  example,
+  onHint,
 }: {
-  stage: LearningStage;
-  onScene: (p: Project | undefined, stage: LearningStage) => void;
-  onResults: (result: CourseCheck) => void;
-  runToken: number;
-  cancelCheckRef: React.RefObject<() => void>;
-  isolated: boolean;
-  t: (key: string) => string;
   project: Project;
   lang: "en" | "zh";
   open: (p: Project) => Promise<void>;
   edit: (f: (p: Project) => void) => boolean;
+  t: (key: string) => string;
+  runToken: number;
+  cancelCheckRef: RefObject<() => void>;
+  onResults: (r: CourseCheck) => void;
+  onCheckStopped: () => void;
+  onExample: (p: Project | undefined) => void;
+  example: boolean;
+  onHint: (componentId: string) => void;
 }) {
-  const zh = lang === "zh",
-    label = (en: string, cn: string) => (zh ? cn : en),
-    index = zh ? 1 : 0;
-  const message = (text: string) => {
-    const messages: Record<string, string> = {
-      "Complete prerequisite checks first": "请先通过前置练习的检查。",
-      "Check your own course draft": "请检查自己的课程草稿。",
-      "Match the exercise interface: port IDs, directions and widths":
-        "请保留练习接口的引脚 ID、方向和位宽。",
-      "Circuit changed; check again": "电路已改变，请重新检查。",
-      "This exercise has a fixed interface; use width variants on gate, mux or arithmetic components.":
-        "本练习使用固定接口；请在逻辑门、选择器或算术元件中使用位宽参数。",
+  const index = lang === "zh" ? 1 : 0,
+    label = (en: string, zh: string) => (index ? zh : en),
+    message = (s: string) => {
+      const translations: Record<string, string> = {
+        "Complete prerequisite checks first": "请先完成前置任务。",
+        "Check your own course draft": "请检查自己的任务电路。",
+        "Match the exercise interface: port IDs, directions and widths":
+          "请保留任务要求的输入输出引脚、方向和位宽。",
+        "Circuit changed; check again": "电路或程序已更改，请重新检查。",
+        "Project changed": "工程已更改，请重试。",
+        "Unknown mission": "无法找到任务，请重新打开课程。",
+        "This exercise has a fixed interface; use width variants on gate, mux or arithmetic components.":
+          "本任务的接口位宽固定，请在支持位宽参数的元件任务中设置参数。",
+      };
+      if (index && translations[s]) return translations[s];
+      if (s.startsWith("Component not allowed: "))
+        return (
+          label("Component not allowed: ", "本任务不能使用：") +
+          s.slice(23).replace(/^\w+/, (kind) => t(kind))
+        );
+      if (s.startsWith("undriven: ")) return t("undriven") + " " + s.slice(10);
+      if (s.startsWith("Width variant did not pass: "))
+        return label("Width check failed: ", "位宽检查未通过：") + s.slice(28);
+      return t(s);
     };
-    if (zh && messages[text]) return messages[text];
-    if (text.startsWith("undriven: "))
-      return t("undriven") + " " + text.slice(10);
-    if (text.startsWith("Component not allowed: "))
-      return (
-        label("Component not allowed: ", "不允许使用元件：") + text.slice(23)
-      );
-    if (text.startsWith("Width variant did not pass: "))
-      return (
-        label("Width variant did not pass: ", "位宽变体未通过：") +
-        text.slice(28)
-      );
-    return text
-      .split(", ")
-      .map((k) => t(k))
-      .join(", ");
-  };
-  const [predictions, setPredictions] = useState<(number | undefined)[]>([
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-    ]),
-    [revealPrediction, setRevealPrediction] = useState(false);
+  const selected = project.course?.active ?? "core-01",
+    spec = exercise(selected),
+    mission = spec.mission!;
   const [lessonsOpen, setLessonsOpen] = useState(false),
-    [step, setStep] = useState(0);
-  const [checking, setChecking] = useState<ExerciseId>();
-  const [selected, setSelected] = useState<ExerciseId>(
-      project.course?.active ?? "signals",
-    ),
     [result, setResult] = useState<CourseCheck>(),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
-    [hash, setHash] = useState("");
-  const stop = useRef<() => void>(() => {});
-  const worker = useRef<Worker | null>(null),
-    request = useRef(0),
-    current = useRef(project);
+    [hash, setHash] = useState(""),
+    [checking, setChecking] = useState<ExerciseId>(),
+    [operation, setOperation] = useState<"check" | "prepare" | "example">(
+      "check",
+    );
+  const request = useRef(0),
+    worker = useRef<Worker | null>(null),
+    missionNav = useRef<HTMLElement>(null),
+    stop = useRef<() => void>(() => {}),
+    current = useRef(project),
+    callbacks = useRef({ edit });
   current.current = project;
+  callbacks.current = { edit };
   cancelCheckRef.current = () => {
     request.current++;
     stop.current();
     setBusy(false);
-  };
-  const callbacks = useRef({ edit });
-  callbacks.current = { edit };
-  useEffect(() => {
-    setSelected(project.course?.active ?? "signals");
     setResult(undefined);
     setError("");
+    onCheckStopped();
+  };
+  useEffect(() => {
     stop.current();
-    setBusy(false);
     request.current++;
-  }, [project.id, project.course?.active]);
+    setBusy(false);
+    setResult(undefined);
+    setError("");
+  }, [project.id, selected]);
   useEffect(() => () => stop.current(), []);
+  useEffect(() => {
+    if (lessonsOpen)
+      missionNav.current
+        ?.querySelector('[aria-current="step"]')
+        ?.scrollIntoView({ block: "nearest" });
+  }, [lessonsOpen, selected]);
   useEffect(() => {
     let live = true;
     const root = project.course?.drafts[selected];
+    setHash("");
     if (root)
       void electricalHash(project, root).then((h) => {
         if (live) setHash(h);
       });
-    else setHash("");
     return () => {
       live = false;
     };
-  }, [project.circuits, project.root, project.course?.drafts, selected]);
-  const spec = exercise(selected),
-    record = project.course?.accepted[selected],
-    passed =
-      !!record &&
-      record.hash === hash &&
-      record.exerciseRevision === spec.revision &&
-      !project.course?.needsVerification;
-  useEffect(() => {
-    setStep(0);
-    setPredictions([undefined, undefined, undefined, undefined]);
-    setRevealPrediction(false);
-    const id = project.course?.active;
-    if (id) {
-      const saved =
-        project.course?.stages?.[id] ??
-        (project.course?.accepted[id] ? "challenge" : "demonstration");
-      onScene(
-        saved === "challenge" ? undefined : exercise(id).demonstration(),
-        saved,
-      );
-    }
-  }, [project.id, project.course?.active]);
+  }, [project, selected]);
   const lastRun = useRef(runToken);
   useEffect(() => {
     if (lastRun.current === runToken) return;
     lastRun.current = runToken;
-    if (project.course && stage === "challenge") check();
+    if (project.course && !example) check();
   }, [runToken]);
-  const interfacePorts = useMemo(() => {
-    const p = spec.reference();
-    return p.circuits[p.root].ports;
-  }, [spec]);
+  const record = project.course?.accepted[selected],
+    passed =
+      !!record &&
+      record.hash === hash &&
+      record.exerciseRevision === spec.revision &&
+      !project.course?.needsVerification &&
+      !(
+        mission.work === "program" &&
+        selected !== "core-49" &&
+        project.source !== project.assembledSource
+      );
   function check(reverify = false) {
-    if (!reverify && stage !== "challenge") return;
+    if (example) return;
     stop.current();
     const w = new Worker(new URL("../course/worker.ts", import.meta.url), {
       type: "module",
@@ -159,12 +145,15 @@ export default function CourseLearn({
     worker.current = w;
     const id = ++request.current;
     setBusy(true);
+    setOperation("check");
+    setChecking(undefined);
     setError("");
     setResult(undefined);
     const timedOut = () => {
       w.terminate();
       if (request.current === id) {
         setBusy(false);
+        onCheckStopped();
         setError(
           label(
             "Check limit reached. Simplify the circuit and retry.",
@@ -206,6 +195,8 @@ export default function CourseLearn({
             !root ||
             current.current.id !== project.id ||
             current.current.course?.active !== selected ||
+            current.current.source !== project.source ||
+            current.current.assembledSource !== project.assembledSource ||
             (await electricalHash(current.current, root)) !==
               (await electricalHash(project, project.course!.drafts[selected]!))
           )
@@ -230,18 +221,83 @@ export default function CourseLearn({
           }
         }
       } catch (e) {
+        onCheckStopped();
         setError((e as Error).message);
       } finally {
         setBusy(false);
       }
     };
     w.onerror = () => {
+      if (id !== request.current) return;
       clearTimeout(timer);
       w.terminate();
       setBusy(false);
+      onCheckStopped();
       setError(label("Check failed. Retry.", "检查失败，请重试。"));
     };
     w.postMessage({ requestId: id, project, exercise: selected, reverify });
+  }
+  function prepare(id: ExerciseId, showExample = false) {
+    stop.current();
+    const token = ++request.current,
+      w = new Worker(new URL("../course/worker.ts", import.meta.url), {
+        type: "module",
+      });
+    setBusy(true);
+    setOperation(showExample ? "example" : "prepare");
+    setChecking(id);
+    setError("");
+    const original = project,
+      timer = setTimeout(() => {
+        w.terminate();
+        if (request.current === token) {
+          setBusy(false);
+          setError(
+            label(
+              "Preparing the mission took too long. Try again.",
+              "任务准备超时，请重试。",
+            ),
+          );
+        }
+      }, 60000);
+    stop.current = () => {
+      clearTimeout(timer);
+      w.terminate();
+    };
+    w.onmessage = ({ data }) => {
+      if (request.current !== token) return;
+      stop.current();
+      setBusy(false);
+      if (current.current !== original) return;
+      if (data.error) {
+        setError(message(data.error));
+        return;
+      }
+      if (data.scene) onExample(data.scene);
+      else if (data.project) {
+        onExample(undefined);
+        edit((p) => Object.assign(p, data.project));
+        setLessonsOpen(false);
+      }
+    };
+    w.onerror = () => {
+      if (token !== request.current) return;
+      stop.current();
+      setBusy(false);
+      setError(
+        label(
+          "Could not prepare the mission. Try again.",
+          "无法准备任务，请重试。",
+        ),
+      );
+    };
+    w.postMessage({
+      requestId: token,
+      project,
+      exercise: id,
+      prepare: !showExample,
+      example: showExample,
+    });
   }
   if (!project.course)
     return (
@@ -249,29 +305,47 @@ export default function CourseLearn({
         <h2>{label("Build your own computer", "构建自己的计算机")}</h2>
         <p>
           {label(
-            "Start with on/off signals. Build gates, memory, and a computer that runs your calculator.",
-            "从开关信号开始，构建逻辑门、存储器，直到运行计算器的计算机。",
+            "Build circuits and programs in 60 core missions. Explore 40 optional projects along the way.",
+            "通过 60 个主线任务构建电路和程序，沿途还可探索 40 个选做项目。",
           )}
         </p>
-        <button className="primary" onClick={() => {const p=newCourse();p.name=label("Build your own computer","构建自己的计算机");void open(p);}}>
+        <button
+          className="primary"
+          onClick={() => {
+            const p = newCourse();
+            p.name = label("Build your own computer", "构建自己的计算机");
+            void open(p);
+          }}
+        >
           {label("Start course", "开始课程")}
         </button>
       </section>
     );
-  const chooseStage = (next: LearningStage) => {
-    setStep(0);
-    setResult(undefined);
-    setError("");
-    stop.current();
-    request.current++;
-    setBusy(false);
-    const scene = next === "challenge" ? undefined : spec.demonstration();
-    if (scene && next === "practice") {
-      scene.circuits[scene.root].wires = [];
-      scene.circuits[scene.root].nets = [];
-    }
-    onScene(scene, next);
-  };
+  const connected = project.circuits[project.root].ports
+    .filter((p) => p.direction === "out")
+    .every((port) =>
+      project.circuits[project.root].nets.some(
+        (net) =>
+          net.ports.some((p) => p.component === port.componentId) &&
+          net.ports.some((p) => p.component !== port.componentId),
+      ),
+    );
+  const count = (track: "core" | "project") =>
+    project.course!.needsVerification
+      ? 0
+      : exercises.filter(
+          (e) =>
+            e.mission!.track === track &&
+            project.course!.accepted[e.id]?.exerciseRevision === e.revision,
+        ).length;
+  const coreCount = count("core"),
+    projectCount = count("project"),
+    continueCore = exercises.find(
+      (e) =>
+        e.mission!.track === "core" &&
+        available(project, e.id) &&
+        project.course!.accepted[e.id]?.exerciseRevision !== e.revision,
+    );
   return (
     <section className="course-learn">
       <div className="course-heading">
@@ -280,248 +354,239 @@ export default function CourseLearn({
           aria-expanded={lessonsOpen}
           onClick={() => setLessonsOpen(!lessonsOpen)}
         >
-          {label("Lessons", "课程目录")}
+          {label("Missions", "任务目录")}
         </button>
       </div>
+      <p className="mission-position">
+        {label("Chapter", "章节")} {mission.chapter}/10 ·{" "}
+        {label("Core", "主线")} {coreCount}/60
+      </p>
       {lessonsOpen && (
-        <nav aria-label={label("Course exercises", "课程练习")}>
-          {Object.entries(chapters).map(([chapter, title]) => (
-            <section key={chapter}>
+        <nav ref={missionNav} aria-label={label("Course missions", "课程任务")}>
+          <p>
+            {label("Core", "主线")} {coreCount}/60 ·{" "}
+            {label("Projects", "选做项目")} {projectCount}/40
+          </p>
+          {missionChapters.map((title, i) => (
+            <section key={i}>
               <h3>{title[index]}</h3>
               {exercises
-                .filter((e) => e.lesson.chapter === chapter)
+                .filter((e) => e.mission!.chapter === i + 1)
                 .map((e) => (
-                  <button
-                    key={e.id}
-                    disabled={!available(project, e.id)}
-                    aria-current={e.id === selected ? "step" : undefined}
-                    onClick={() => {
-                      edit((p) => activateExercise(p, e.id));
-                      setLessonsOpen(false);
-                    }}
-                  >
-                    {e.title[index]}
-                    {project.course?.accepted[e.id] ? " ✓" : ""}
-                  </button>
+                  <details key={e.id}>
+                    <summary
+                      aria-current={e.id === selected ? "step" : undefined}
+                    >
+                      {e.mission!.track === "project"
+                        ? label("Project: ", "选做：")
+                        : ""}
+                      {e.title[index]}
+                      {!project.course!.needsVerification &&
+                      project.course!.accepted[e.id]?.exerciseRevision ===
+                        e.revision
+                        ? " ✓"
+                        : ""}
+                    </summary>
+                    <p>{e.mission!.goal[index]}</p>
+                    {!available(project, e.id) &&
+                      !project.course!.needsVerification && (
+                        <p>
+                          {label("Complete first: ", "请先完成：")}
+                          {e.prerequisites
+                            .filter(
+                              (id) =>
+                                project.course!.accepted[id]
+                                  ?.exerciseRevision !== exercise(id).revision,
+                            )
+                            .map((id) => exercise(id).title[index])
+                            .join(label(", ", "、"))}
+                        </p>
+                      )}
+                    <button
+                      disabled={
+                        !available(project, e.id) || e.id === selected || busy
+                      }
+                      onClick={() => {
+                        prepare(e.id);
+                      }}
+                    >
+                      {e.id === selected
+                        ? label("Current mission", "当前任务")
+                        : available(project, e.id)
+                          ? label("Open mission", "打开任务")
+                          : label("Locked", "未解锁")}
+                    </button>
+                  </details>
                 ))}
             </section>
           ))}
         </nav>
       )}
-      {project.course.needsVerification && (
+      {example ? (
         <>
-          <p>
-            {label(
-              "Check imported progress before continuing.",
-              "继续学习前，请验证导入的进度。",
-            )}
-          </p>
-          <button onClick={() => check(true)} disabled={busy}>
-            {label("Verify progress", "验证进度")}
-          </button>
-        </>
-      )}
-      <div
-        className="learning-stages"
-        aria-label={label("Learning stages", "学习阶段")}
-      >
-        {(["demonstration", "practice", "challenge"] as const).map((s, i) => (
-          <button
-            key={s}
-            aria-current={stage === s ? "step" : undefined}
-            onClick={() => chooseStage(s)}
-          >
-            {
-              [
-                label("Explore", "观察"),
-                label("Practice", "练习"),
-                label("Challenge", "挑战"),
-              ][i]
-            }
-          </button>
-        ))}
-      </div>
-      <p>{spec.lesson.concept[index]}</p>
-      {stage === "demonstration" ? (
-        <>
-          <p>{spec.lesson.tryIt[index]}</p>
-          {selected === "nand" && (
-            <div className="nand-prediction">
-              <h3>{label("Predict NAND", "预测与非结果")}</h3>
-              <table>
-                <thead>
-                  <tr>
-                    <th>a b</th>
-                    <th>{label("Your output", "你的输出")}</th>
-                    <th>{label("Result", "结果")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[0, 1, 2, 3].map((n) => (
-                    <tr key={n}>
-                      <td>{n.toString(2).padStart(2, "0")}</td>
-                      <td>
-                        <button
-                          aria-label={`${label("Predict", "预测")} ${n.toString(2).padStart(2, "0")}`}
-                          onClick={() => {
-                            setPredictions((v) =>
-                              v.map((x, i) =>
-                                i === n ? (x === undefined ? 0 : 1 - x) : x,
-                              ),
-                            );
-                            setRevealPrediction(false);
-                          }}
-                        >
-                          {predictions[n] ?? "?"}
-                        </button>
-                      </td>
-                      <td>
-                        {revealPrediction
-                          ? predictions[n] === (n === 3 ? 0 : 1)
-                            ? "✓"
-                            : label("Try again", "再试一次")
-                          : "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <button
-                disabled={predictions.some((n) => n === undefined)}
-                onClick={() => setRevealPrediction(true)}
-              >
-                {label("Check prediction", "检查预测")}
-              </button>
-            </div>
-          )}
-          <button className="primary" onClick={() => chooseStage("practice")}>
-            {label("Try building it", "动手构建")}
+          <p>{label("Example · read-only", "示例 · 只读")}</p>
+          <button className="primary" onClick={() => onExample(undefined)}>
+            {label("Return to your mission", "返回自己的任务")}
           </button>
         </>
       ) : (
         <>
-          <p className="lesson-objective">{spec.objective[index]}</p>
-          {stage === "practice" ? (
-            <div className="guided-step">
-              <strong>
-                {label("Step", "步骤")} {step + 1}/{spec.lesson.steps.length}
-              </strong>
-              <p>{spec.lesson.steps[step][index]}</p>
-              <button disabled={step === 0} onClick={() => setStep(step - 1)}>
-                {label("Previous", "上一步")}
+          <MissionConcept key={selected} id={selected} lang={lang} />
+          <p className="lesson-objective">{mission.goal[index]}</p>
+          {selected === "core-01" && (
+            <p>
+              {label(
+                "Click the small pin on the right of a, then the pin on the left of out. Then choose Run tests. Z means no signal is connected yet.",
+                "点击 a 右侧的小引脚，再点击 out 左侧的引脚，然后点击「运行测试」。Z 表示还没有连接信号。",
+              )}
+            </p>
+          )}
+          {selected === "core-03" && (
+            <p>
+              {label(
+                "Open Components and drag AND onto the canvas. X means an output cannot be determined yet; connect both gate inputs before checking it.",
+                "打开「元件」，将与门拖到画布上。X 表示输出还无法确定，先接好门的两个输入，再检查结果。",
+              )}
+            </p>
+          )}
+          {selected === "core-13" && (
+            <p>
+              {label(
+                "Drag Bus joiner from Components, select it, and set Bit width to 4 in its properties. Each b pin carries one bit; out carries all four.",
+                "从「元件」拖入「总线合并」，选中后在属性中把位宽设为 4。每个 b 引脚传递一个位，out 传递全部四个位。",
+              )}
+            </p>
+          )}
+          <details>
+            <summary>{label("Supplied parts", "已提供的部分")}</summary>
+            <p>{mission.supplied[index]}</p>
+          </details>
+          <div
+            className="mission-milestones"
+            aria-label={label("Mission checks", "任务检查")}
+          >
+            {mission.work !== "program" &&
+              project.circuits[project.root].ports.some(
+                (p) => p.direction === "out",
+              ) && (
+                <p>
+                  {connected ? "✓ " : ""}
+                  {label("Connect the required outputs", "连接要求的输出")}
+                </p>
+              )}
+            <p>
+              {passed ? "✓ " : ""}
+              {label("Pass all required tests", "通过全部要求的测试")}
+            </p>
+          </div>
+          {project.course.needsVerification && (
+            <button disabled={busy} onClick={() => check(true)}>
+              {label("Verify imported progress", "验证导入的进度")}
+            </button>
+          )}
+          {busy && (
+            <p role="status">
+              {operation === "check"
+                ? label("Checking", "正在检查")
+                : operation === "example"
+                  ? label("Opening example:", "正在打开示例：")
+                  : label("Opening mission:", "正在打开任务：")}{" "}
+              {checking && exercise(checking).title[index]}{" "}
+              <button onClick={() => cancelCheckRef.current()}>
+                {t("cancel")}
               </button>
-              <button
-                onClick={() =>
-                  step + 1 < spec.lesson.steps.length
-                    ? setStep(step + 1)
-                    : chooseStage("challenge")
-                }
-              >
-                {step + 1 < spec.lesson.steps.length
-                  ? label("Next step", "下一步")
-                  : label("Start independent challenge", "开始独立挑战")}
-              </button>
-            </div>
-          ) : (
+            </p>
+          )}
+          {passed && (
             <>
-              <p>
-                {label(
-                  "Build your own solution, then use Run tests above the canvas.",
-                  "独立构建解法，再使用画布上方的“运行测试”。",
-                )}
+              <p role="status">
+                {label("Mission complete: ", "任务完成：")}
+                {spec.title[index]}
               </p>
-              {busy && project.course.needsVerification && (
-                <p role="status">
-                  {label("Checking", "正在检查")}{" "}
-                  {checking && exercise(checking).title[index]}{" "}
-                  <button
-                    onClick={() => {
-                      request.current++;
-                      stop.current();
-                      setBusy(false);
-                    }}
-                  >
-                    {label("Cancel", "取消")}
-                  </button>
-                </p>
-              )}
-              {passed && (
-                <>
-                  {selected === "seven-segment" && (
-                    <button
-                      onClick={() =>
-                        void open(counterWithAcceptedDecoder(project))
-                      }
-                    >
-                      {label("Try in counter", "用于计数器")}
-                    </button>
-                  )}
-                  {selected === "calculator" && (
-                    <p>
-                      {label(
-                        "Your computer passed the calculator checks.",
-                        "你的计算机已通过计算器检查。",
-                      )}
-                    </p>
-                  )}
-                  <p role="status">
-                    {label("Verified component saved.", "已保存验证后的元件。")}
-                  </p>
-                  {nextExercise(selected) && (
-                    <button
-                      className="primary"
-                      onClick={() =>
-                        edit((p) =>
-                          activateExercise(p, nextExercise(selected)!.id),
-                        )
-                      }
-                    >
-                      {label("Continue", "继续")}
-                    </button>
-                  )}
-                </>
-              )}
-              {result && result.status !== "passed" && (
-                <p role="status">
-                  {result.message
-                    ? message(result.message)
-                    : label(
-                        "Inspect the highlighted test below, then revise your circuit.",
-                        "查看下方突出显示的测试，然后修改电路。",
-                      )}
-                </p>
+              {nextExercise(selected) && (
+                <button
+                  className="primary"
+                  disabled={busy}
+                  onClick={() => prepare(nextExercise(selected)!.id)}
+                >
+                  {label("Next mission", "下一个任务")}
+                </button>
               )}
             </>
           )}
+          {mission.track === "project" && continueCore && (
+            <button disabled={busy} onClick={() => prepare(continueCore.id)}>
+              {label("Continue core course", "继续主线课程")}
+            </button>
+          )}
+          {coreCount === 60 &&
+            (selected === "core-60" || mission.track === "project") && (
+              <p role="status">
+                {label("Core course complete. ", "主线课程已完成。")}
+                {projectCount === 40
+                  ? label(
+                      "All 40 optional projects are complete too.",
+                      "40 个选做项目也已全部完成。",
+                    )
+                  : label(
+                      "Open Missions to explore optional projects.",
+                      "打开任务目录，探索选做项目。",
+                    )}
+              </p>
+            )}
+          {result && result.status !== "passed" && !passed && (
+            <p role="status">
+              {result.message
+                ? message(result.message)
+                : label(
+                    "Inspect the failing test below and revise your solution.",
+                    "查看下方失败的测试并修改解法。",
+                  )}
+            </p>
+          )}
+          {mission.chapter >= 8 && (
+            <CpuReference lang={lang} io={mission.chapter >= 10} />
+          )}
+          <details>
+            <summary>{label("Hints", "提示")}</summary>
+            {mission.hints.map((hint, i) => (
+              <details key={i}>
+                <summary>
+                  {label("Hint", "提示")} {i + 1}
+                </summary>
+                <p>{hint[index]}</p>
+                {i === 2 &&
+                  project.circuits[project.root].ports.some(
+                    (p) => p.direction === "out",
+                  ) && (
+                    <button
+                      onClick={() =>
+                        onHint(
+                          project.circuits[project.root].ports.find(
+                            (p) => p.direction === "out",
+                          )!.componentId,
+                        )
+                      }
+                    >
+                      {label("Locate output", "定位输出")}
+                    </button>
+                  )}
+                {i === 2 && (
+                  <button
+                    disabled={busy}
+                    onClick={() => prepare(selected, true)}
+                  >
+                    {label("View example", "查看示例")}
+                  </button>
+                )}
+              </details>
+            ))}
+          </details>
         </>
       )}
       {error && <p role="alert">{message(error)}</p>}
-      <details>
-        <summary>{label("Hints", "提示")}</summary>
-        {spec.hints.map((hint, i) => (
-          <details key={i}>
-            <summary>
-              {label("Hint", "提示")} {i + 1}
-            </summary>
-            <p>{hint[index]}</p>
-          </details>
-        ))}
-      </details>
-      <details>
-        <summary>{label("Interface", "接口")}</summary>
-        {interfacePorts.map((port) => (
-          <p key={port.id}>
-            {port.name} ·{" "}
-            {label(
-              port.direction === "in" ? "input" : "output",
-              port.direction === "in" ? "输入" : "输出",
-            )}{" "}
-            · {port.width} b
-          </p>
-        ))}
-      </details>
-      <button onClick={() => void open(emptyProject())}>
-        {label("Open sandbox", "打开沙盒")}
+      <button onClick={() => void open(emptyProject(t("new")))}>
+        {label("New blank circuit", "新建空白电路")}
       </button>
     </section>
   );

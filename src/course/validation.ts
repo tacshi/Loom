@@ -1,28 +1,13 @@
 import type { Project } from "../model/types";
 const ids = new Set([
-  "signals",
-  "and-basics",
-  "invert-basics",
-  "nand",
-  "not",
-  "and-or",
-  "xor",
-  "mux",
-  "mux8",
-  "seven-segment",
-  "half-adder",
-  "full-adder",
-  "adder8",
-  "subtract",
-  "register",
-  "accumulator",
-  "pc",
-  "pc-fields",
-  "alu",
-  "control",
-  "cpu",
-  "io",
-  "calculator",
+  ...Array.from(
+    { length: 60 },
+    (_, i) => `core-${String(i + 1).padStart(2, "0")}`,
+  ),
+  ...Array.from(
+    { length: 40 },
+    (_, i) => `project-${String(i + 1).padStart(2, "0")}`,
+  ),
 ]);
 const object = (v: unknown): v is Record<string, any> =>
   !!v && typeof v === "object" && !Array.isArray(v);
@@ -34,7 +19,7 @@ export function validateCourse(p: Project) {
   if (
     !object(c) ||
     c.id !== "build-computer" ||
-    c.curriculum !== 2 ||
+    c.curriculum !== 3 ||
     !ids.has(c.active) ||
     !object(c.drafts) ||
     !object(c.accepted) ||
@@ -73,25 +58,7 @@ export function validateCourse(p: Project) {
       }
     }
   }
-  if (
-    c.stages !== undefined &&
-    (!object(c.stages) ||
-      Object.entries(c.stages).some(
-        ([id, stage]) =>
-          !ids.has(id) ||
-          !["demonstration", "practice", "challenge"].includes(stage),
-      ))
-  )
-    throw new Error("invalidProject");
-  if (
-    c.practice !== undefined &&
-    (!object(c.practice) ||
-      Object.entries(c.practice).some(
-        ([id, root]) =>
-          !ids.has(id) || typeof root !== "string" || !p.circuits[root],
-      ))
-  )
-    throw new Error("invalidProject");
+  if ("stages" in c || "practice" in c) throw new Error("invalidProject");
   for (const [id, root] of Object.entries(c.drafts))
     if (
       !ids.has(id) ||
@@ -110,6 +77,30 @@ export function validateCourse(p: Project) {
       !object(r.dependencies) ||
       typeof r.acceptedRoot !== "string" ||
       !Object.hasOwn(p.circuits, r.acceptedRoot)
+    )
+      throw new Error("invalidProject");
+    if (
+      r.source !== undefined &&
+      (!object(r.source) ||
+        typeof r.source.source !== "string" ||
+        r.source.source.length > 100000 ||
+        (r.source.assembledSource !== undefined &&
+          (typeof r.source.assembledSource !== "string" ||
+            r.source.assembledSource.length > 100000)))
+    )
+      throw new Error("invalidProject");
+    if (
+      r.source?.sourceMap !== undefined &&
+      (!object(r.source.sourceMap) ||
+        Object.entries(r.source.sourceMap).some(
+          ([key, line]) =>
+            !Number.isInteger(Number(key)) ||
+            Number(key) < 0 ||
+            Number(key) > 255 ||
+            !Number.isInteger(line) ||
+            line < 1 ||
+            line > 10000,
+        ))
     )
       throw new Error("invalidProject");
     for (const [key, hash] of Object.entries(r.dependencies))

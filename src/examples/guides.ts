@@ -6,8 +6,8 @@ export const exampleGuides = {
       "观察多个设备如何分时驱动同一条导线。",
     ],
     action: [
-      "Toggle Enable A and Enable B. Compare a floating bus, one driver, and conflicting drivers.",
-      "切换 Enable A 与 Enable B，比较悬空、单驱动与驱动冲突。",
+      "Turn both Enable inputs off, then turn on A, then B. Compare no signal, one active output, and conflicting outputs.",
+      "先关闭两个 Enable 输入，再依次打开 A 和 B，比较无信号、一个输出提供信号、两个输出发生冲突。",
     ],
   },
   button: {
@@ -28,8 +28,8 @@ export const exampleGuides = {
       "优先编码器报告最高的有效请求。",
     ],
     action: [
-      "Turn on two request inputs. The selected index should match the higher request.",
-      "打开两个请求输入，选中的编号应对应较高请求。",
+      "Turn on two request inputs. The selected index should match the higher-numbered request.",
+      "打开两个请求输入，选中的编号应对应编号较大的请求。",
     ],
   },
   shift: {

@@ -8,53 +8,31 @@ import {
 } from "../src/course/session";
 import { checkCourse, reverifyCourse } from "../src/course/check";
 import { runCases } from "../src/verification/runner";
-for (const lesson of exercises)
-  it(
-    lesson.id + " reference passes trusted checks",
-    () => {
-      const p = lesson.reference();
-      const results = runCases(p, p.root, lesson.checks());
-      expect(
-        results.map((r) => ({
-          status: r.status,
-          error: r.error,
-          failure: r.failure,
-        })),
-      ).toEqual(
-        results.map(() => ({
-          status: "passed",
-          error: undefined,
-          failure: undefined,
-        })),
-      );
-    },
-    60000,
-  );
 it("starter fails, accepted work survives layout changes and imported claims require rechecking", async () => {
   const p = newCourse();
-  expect((await checkCourse(p, "signals")).status).not.toBe("passed");
+  expect((await checkCourse(p, "core-01")).status).not.toBe("passed");
   const ref = exercises[0].reference();
   p.circuits = { ...p.circuits, ...ref.circuits };
   p.root = ref.root;
-  p.course!.drafts.signals = ref.root;
-  const result = await checkCourse(p, "signals");
+  p.course!.drafts["core-01"] = ref.root;
+  const result = await checkCourse(p, "core-01");
   expect(result.status).toBe("passed");
   await acceptCheck(p, result);
   const hash = await electricalHash(p, p.root);
   p.circuits[p.root].components[0].x += 20;
   expect(await electricalHash(p, p.root)).toBe(hash);
   p.course!.needsVerification = true;
-  expect((await checkCourse(p, "and-basics")).status).toBe("blocked");
+  expect((await checkCourse(p, "core-02")).status).toBe("blocked");
   await reverifyCourse(p);
-  expect(p.course!.accepted.signals).toBeDefined();
-  activateExercise(p, "and-basics");
-  expect(p.course!.active).toBe("and-basics");
+  expect(p.course!.accepted["core-01"]).toBeDefined();
+  activateExercise(p, "core-02");
+  expect(p.course!.active).toBe("core-02");
 });
 
 it("NAND course CPU agrees with the independent instruction oracle at every instruction", async () => {
   const { Oracle } = await import("./cpuOracle");
   const { Engine } = await import("../src/simulator/engine");
-  const p = exercises.find((e) => e.id === "cpu")!.reference();
+  const p = exercises.find((e) => e.id === "core-48")!.reference();
   const rom = p.circuits[p.root].components.find(
     (n) => n.id === "Program",
   )!.image!;

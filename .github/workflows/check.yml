@@ -9,26 +9,32 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm test
-      - run: npm run build
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-${{ runner.arch }}-bun-${{ hashFiles('bun.lock') }}
+      - run: bun ci
+      - run: bun run test
+      - run: bun run build
       - run: |
           mkdir -p test-results
-          node dist-cli/loom.mjs validate tests/fixtures/v2/calculator.loom.json
-          node dist-cli/loom.mjs test tests/fixtures/v2/calculator.loom.json --report test-results/cli
-          node dist-cli/loom.mjs course-check tests/fixtures/v3/course-completed.loom.json --json > test-results/course.json
-      - run: npx playwright install --with-deps chromium firefox webkit
+          bun dist-cli/loom.mjs validate tests/fixtures/v2/calculator.loom.json
+          bun dist-cli/loom.mjs test tests/fixtures/v2/calculator.loom.json --report test-results/cli
+          bun dist-cli/loom.mjs course-check tests/fixtures/v3/course-completed.loom.json --json > test-results/course.json
+      - run: bun run playwright install --with-deps chromium firefox webkit
       - name: Start production preview
         run: |
-          npm run preview > test-results/preview.log 2>&1 &
+          bun run preview > test-results/preview.log 2>&1 &
           for attempt in $(seq 1 60); do
             if curl --fail --silent http://127.0.0.1:4173/ > /dev/null; then exit 0; fi
             sleep 1
           done
           cat test-results/preview.log
           exit 1
-      - run: npm run test:browser
+      - run: bun run test:browser
         env:
           LOOM_BASE_URL: http://127.0.0.1:4173
       - name: Package verified browser artifact

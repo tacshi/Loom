@@ -90,13 +90,11 @@ test("branch preview matches the saved route through the junction", async ({
   b.connect("source", "out", "existing", "in");
   await page.goto("/");
   await page.getByRole("button", { name: "Projects", exact: true }).click();
-  await page
-    .locator("input[type=file]")
-    .setInputFiles({
-      name: "branch.loom.json",
-      mimeType: "application/json",
-      buffer: Buffer.from(JSON.stringify(b.p)),
-    });
+  await page.locator("input[type=file]").setInputFiles({
+    name: "branch.loom.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(b.p)),
+  });
   await expect(page.getByLabel("Project", { exact: true })).toHaveValue(
     b.p.name,
   );
@@ -131,4 +129,66 @@ test("branch preview matches the saved route through the junction", async ({
     points: expected,
     junction: { x: 240, y: 20 },
   });
+});
+
+test("starting from a pin never reuses the previous preview endpoint", async ({
+  page,
+}) => {
+  const b = new Builder("Fresh wire preview");
+  b.add("A", "input", 0, 0);
+  b.add("AND", "and", 300, 0);
+  b.add("B", "input", 0, 220);
+  b.connect("A", "out", "AND", "a");
+  await page.goto("/");
+  await page.getByRole("button", { name: "Projects", exact: true }).click();
+  await page
+    .locator("input[type=file]")
+    .setInputFiles({
+      name: "fresh-preview.loom.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify(b.p)),
+    });
+  await expect(page.getByLabel("Project", { exact: true })).toHaveValue(
+    b.p.name,
+  );
+  await expect(page.getByText("Saved locally", { exact: true })).toBeVisible();
+  const canvas = page.locator(".canvas-host"),
+    bounds = (await canvas.boundingBox())!;
+  const at = (p: { x: number; y: number }) => ({
+    x: bounds.x + 50 + p.x * 1.2,
+    y: bounds.y + 50 + p.y * 1.2,
+  });
+  const destination = at({ x: 200, y: 160 });
+  for (const [id, port] of [
+    ["A", "out"],
+    ["AND", "a"],
+    ["AND", "out"],
+    ["A", "out"],
+  ]) {
+    const pin = at(
+      pinPosition(
+        b.c.components.find((c) => c.id === id)!,
+        port,
+        b.p,
+      ),
+    );
+    await page.mouse.click(pin.x, pin.y);
+    await expect(page.locator(".wire-hint")).toBeVisible();
+    await expect(canvas).toHaveAttribute("data-wire-preview", "[]");
+    await page.mouse.move(destination.x, destination.y);
+    await expect
+      .poll(
+        async () =>
+          JSON.parse((await canvas.getAttribute("data-wire-preview")) ?? "[]")
+            .length,
+      )
+      .toBeGreaterThan(1);
+    await page.mouse.move(10, 10);
+    await expect(canvas).toHaveAttribute("data-wire-preview", "[]");
+    await page.keyboard.press("Escape");
+  }
+  await expect(
+    page.getByRole("button", { name: "Undo", exact: true }),
+  ).toBeDisabled();
+  await expect(page.locator("footer")).toContainText("1 connections");
 });

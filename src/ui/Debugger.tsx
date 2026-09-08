@@ -1,5 +1,5 @@
 import { ports } from "../model/components";
-import { format } from "../simulator/signal";
+import { defined } from "../simulator/signal";
 import { useEffect, useRef, useState, type ComponentProps } from "react";
 import TechnicalDebugger from "./TechnicalDebugger";
 import { observedSignals } from "./debugSignals";
@@ -38,6 +38,7 @@ export default function Debugger(props: Props) {
   const [view, setView] = useState<
     "overview" | "waveforms" | "memory" | "breakpoints"
   >("overview");
+  const activeView = visual.active ? "overview" : view;
   useEffect(() => setView("overview"), [project.id, circuit.id]);
   const signals = observedSignals(circuit, project, path);
   for (const c of circuit.components.filter((c) =>
@@ -82,14 +83,14 @@ export default function Debugger(props: Props) {
       <div className="debugger-header">
         <h2>{t("circuitBehavior")}</h2>
         <button
-          aria-pressed={view === "overview"}
+          aria-pressed={activeView === "overview"}
           onClick={() => setView("overview")}
         >
           {t("inputsOutputs")}
         </button>
         <button
           disabled={visual.active}
-          aria-pressed={view === "waveforms"}
+          aria-pressed={activeView === "waveforms"}
           onClick={() => {
             observe();
             setView("waveforms");
@@ -100,7 +101,7 @@ export default function Debugger(props: Props) {
         {memoryComponents.length > 0 && (
           <button
             disabled={visual.active}
-            aria-pressed={view === "memory"}
+            aria-pressed={activeView === "memory"}
             onClick={() => {
               setView("memory");
               focusSignal({
@@ -115,7 +116,7 @@ export default function Debugger(props: Props) {
         )}
         <button
           disabled={visual.active}
-          aria-pressed={view === "breakpoints"}
+          aria-pressed={activeView === "breakpoints"}
           onClick={() => {
             observe();
             setView("breakpoints");
@@ -132,7 +133,7 @@ export default function Debugger(props: Props) {
           ×
         </button>
       </div>
-      {view === "overview" || visual.active ? (
+      {activeView === "overview" ? (
         <>
           {!signals.length && <p>{t("chooseOutput")}</p>}
           {signals.some((s) => s.interactive) && !visual.active && (
@@ -203,19 +204,21 @@ export default function Debugger(props: Props) {
                         <SignalValue value={previous.values[key]} t={t} />
                       </span>
                     )}
-                  {!s.interactive && (
-                    <button onClick={() => trace(s.ref)}>
-                      {t("traceOutput")}
-                    </button>
-                  )}
-                  {!s.interactive && value && (value.highZ || !value.known) ? (
-                    <button
-                      className="signal-problem"
-                      onClick={() => trace(s.ref)}
-                    >
-                      {t(value.highZ ? "noInputSignal" : "indeterminateSignal")}
-                    </button>
-                  ) : null}
+                  {!visual.active &&
+                    !s.interactive &&
+                    value &&
+                    !defined(value) &&
+                    !chain.some(
+                      (item) =>
+                        item.id ===
+                          [...s.ref.instancePath, s.ref.componentId].join(
+                            "/",
+                          ) && item.port === s.ref.portId,
+                    ) && (
+                      <button onClick={() => trace(s.ref)}>
+                        {t("traceOutput")}
+                      </button>
+                    )}
                 </div>
               );
             })}
@@ -231,11 +234,11 @@ export default function Debugger(props: Props) {
             )}
         </>
       ) : (
-        <TechnicalDebugger {...props} view={view} />
+        <TechnicalDebugger {...props} view={activeView} />
       )}
       {chain.length > 0 && (
         <div className="source-chain">
-          <h3>{t("traceOutput")}</h3>
+          <h3>{t("connectionsTitle")}</h3>
           {chain.map((item) => {
             const parts = item.id.split("/"),
               componentId = parts.pop()!;
@@ -246,10 +249,7 @@ export default function Debugger(props: Props) {
                 onClick={() => focusSignal(ref)}
               >
                 {readableSignal(project, project.root, ref)}{" "}
-                <strong>
-                  {format(snapshot.values[item.id + ":" + item.port])}
-                </strong>
-                {item.unknown && <span>{t("unknownSignal")}</span>}
+                <SignalValue value={snapshot.values[item.id + ":" + item.port]} t={t} />
               </button>
             );
           })}

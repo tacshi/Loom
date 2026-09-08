@@ -118,7 +118,7 @@ function Canvas({
     at: Point;
   }>();
   const [waypoints, setWaypoints] = useState<Point[]>([]);
-  const [cursor, setCursor] = useState<Point>({ x: 0, y: 0 });
+  const [cursor, setCursor] = useState<{ source: Endpoint; at: Point }>();
   const [horizontal, setHorizontal] = useState(true);
   const [wireTarget, setWireTarget] = useState<{ endpoint?: Endpoint; wireId?: string; at?: Point }>();
   const [marquee, setMarquee] = useState<{ start: Point; end: Point }>();
@@ -152,9 +152,10 @@ function Canvas({
     ro.observe(host.current!);
     return () => ro.disconnect();
   }, []);
-  useEffect(() => {
+  useLayoutEffect(() => {
     setWaypoints([]);
     setWireTarget(undefined);
+    setCursor(undefined);
   }, [pending]);
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -266,7 +267,9 @@ function Canvas({
     ? pinPosition(start, pending!.port, project)
     : undefined;
   const preview = useMemo(() => {
-    if (!startAt || !pending) return [];
+    // A newly selected pin must not inherit coordinates or targets from an
+    // earlier wire. Only movement during this wiring session creates a preview.
+    if (!startAt || !pending || !cursor || cursor.source !== pending) return [];
     try {
       if (wireTarget?.endpoint) {
         const end = wireTarget.endpoint;
@@ -279,7 +282,7 @@ function Canvas({
         return route(circuit, project, wire.from, pending, [wireTarget.at], horizontal);
       }
       return [startAt, ...waypoints,
-        ...orthogonal(waypoints.at(-1) ?? startAt, cursor, horizontal).slice(1)];
+        ...orthogonal(waypoints.at(-1) ?? startAt, cursor.at, horizontal).slice(1)];
     } catch {
       // A blocked or incompatible target has no valid route to preview.
       return [];
@@ -403,11 +406,11 @@ function Canvas({
               return endpoint ? { endpoint } : wireId ? { wireId, at } : undefined;
             });
           }
-          if (pending) setCursor({ x: snap(p.x), y: snap(p.y) });
+          if (pending) setCursor({ source: pending, at: { x: snap(p.x), y: snap(p.y) } });
           if (marquee) setMarquee({ ...marquee, end: p });
         }}
         onMouseUp={finishSelect}
-        onMouseLeave={() => { finishSelect(); setWireTarget(undefined); }}
+        onMouseLeave={() => { finishSelect(); setWireTarget(undefined); setCursor(undefined); }}
         onWheel={(e) => {
           e.evt.preventDefault();
           const pos = stage.current!.getPointerPosition()!;
@@ -911,8 +914,6 @@ function Canvas({
           )}
         </Layer>
       </Stage>
-      {placement && !placement.start && <div role="status" className="wire-hint">{t("placementKeys")}</div>}
-      {notice && <div role="status" className="notice canvas-notice">{notice}<button aria-label={t("dismissNotice")} onClick={dismissNotice}>×</button></div>}
       {!circuit.components.length && !placementPreview && (
         <div className="canvas-empty">
           <div className="empty-gate">&</div>
@@ -920,8 +921,13 @@ function Canvas({
           <p>{t("emptyBody")}</p>
         </div>
       )}
-      {pending && <div className="wire-hint">{t("wireHint")}</div>}
-      <div className="zoom-label">{Math.round(view.scale * 100)}%</div>
+      <div className="canvas-overlays">
+        {notice && <div role="status" className="notice canvas-notice">{notice}<button aria-label={t("dismissNotice")} onClick={dismissNotice}>×</button></div>}
+        <div className="canvas-guidance">
+          {pending ? <div className="wire-hint">{t("wireHint")}</div> : placement && !placement.start ? <div role="status" className="wire-hint">{t("placementKeys")}</div> : null}
+          <div className="zoom-label">{Math.round(view.scale * 100)}%</div>
+        </div>
+      </div>
     </div>
   );
 }

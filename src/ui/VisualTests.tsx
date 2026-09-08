@@ -22,6 +22,15 @@ export function readableSignal(project: Project, root: string, ref: SignalRef) {
       : [ref.portId]),
   ].join(" · ");
 }
+function signalWidth(project: Project, root: string, ref: SignalRef) {
+  let circuit = project.circuits[root];
+  for (const id of ref.instancePath) {
+    const node = circuit?.components.find((n) => n.id === id);
+    if (!node?.definitionId) return 1;
+    circuit = project.circuits[node.definitionId];
+  }
+  return circuit?.components.find((n) => n.id === ref.componentId)?.width ?? 1;
+}
 export default function VisualTests({
   controller: v,
   project,
@@ -80,7 +89,7 @@ export default function VisualTests({
             <button onClick={v.finish} disabled={!v.rows.length}>
               {t("showResult")}
             </button>
-            <button onClick={v.close}>{t("returnToEditing")}</button>
+            <button onClick={cancel ?? v.close}>{t("returnToEditing")}</button>
           </>
         )}
       </div>
@@ -153,6 +162,22 @@ export default function VisualTests({
                         />
                       </div>
                     ))}
+                    {v.cases[r.caseIndex].steps[r.step].memory?.map(
+                      (input, j) => (
+                        <div key={`memory-${j}`}>
+                          {readableSignal(project, root, input.ref)} [
+                          {input.address}]:{" "}
+                          <SignalValue
+                            value={signal(
+                              input.value,
+                              signalWidth(project, root, input.ref),
+                              input.known,
+                            )}
+                            t={t}
+                          />
+                        </div>
+                      ),
+                    )}
                     {v.cases[r.caseIndex].steps[r.step].keyboard?.map(
                       (k, i) => (
                         <pre key={i}>{k.text}</pre>
@@ -181,9 +206,11 @@ export default function VisualTests({
                   <td>
                     {i <= v.index
                       ? t(
-                          r.assertions.every((a) => a.passed)
-                            ? "casePassed"
-                            : "caseFailed",
+                          !r.assertions.length
+                            ? "caseObserved"
+                            : r.assertions.every((a) => a.passed)
+                              ? "casePassed"
+                              : "caseFailed",
                         )
                       : t("caseWaiting")}
                   </td>
@@ -196,7 +223,7 @@ export default function VisualTests({
       {row && (
         <div className="test-focus" role="status">
           <strong>
-            {t("showCase")} {v.index + 1}
+            {t("testCase")} {v.index + 1}
           </strong>
           {row.assertions.map((a, i) => (
             <div key={i} className={a.passed ? "" : "test-mismatch"}>
@@ -207,19 +234,21 @@ export default function VisualTests({
               <span>
                 {t("actual")} <SignalValue value={a.actual} t={t} />
               </span>
-              <button
-                disabled={v.loadingCase}
-                onClick={() => {
-                  if (a.assertion.type === "signal") v.trace(a.assertion.ref);
-                  focus(a.assertion.ref);
-                }}
-              >
-                {t(
-                  a.assertion.type === "signal"
-                    ? "traceOutput"
-                    : "showComponent",
-                )}
-              </button>
+              {!a.passed && (
+                <button
+                  disabled={v.loadingCase}
+                  onClick={() => {
+                    if (a.assertion.type === "signal") v.trace(a.assertion.ref);
+                    focus(a.assertion.ref);
+                  }}
+                >
+                  {t(
+                    a.assertion.type === "signal"
+                      ? "traceOutput"
+                      : "showComponent",
+                  )}
+                </button>
+              )}
             </div>
           ))}
         </div>

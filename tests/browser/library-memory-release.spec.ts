@@ -67,7 +67,7 @@ test("library update runs package tests and local fork leaves pinned versions in
   const instance = updated.circuits[updated.root].components[0];
   expect(updated.circuits[instance.definitionId!].library?.version).toBe(2);
   expect(updated.circuits[embedded].library?.version).toBe(1);
-  await page.getByRole("button", { name: "Circuit", exact: true }).click();
+  await page.getByRole("tab", { name: "Circuit", exact: true }).click();
   await page
     .getByRole("button", { name: "Buffer Subcircuit", exact: true })
     .click();
@@ -127,7 +127,7 @@ test("ROM binary import export preserves byte order and rejects malformed input"
   );
   await expect(page.getByText("Saved locally", { exact: true })).toBeVisible();
   await page.reload();
-  await page.getByRole("button", { name: "Circuit", exact: true }).click();
+  await page.getByRole("tab", { name: "Circuit", exact: true }).click();
   await page.getByRole("button", { name: /ROM ROM/ }).click();
   await expect(page.getByLabel("Memory word 1", { exact: true })).toHaveValue(
     "ABCD",

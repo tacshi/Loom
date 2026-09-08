@@ -3,7 +3,18 @@ import type { ExerciseId } from "./types";
 import { ref } from "../model/nets";
 import { runCases } from "../verification/runner";
 /** Widening is verified on the accepted graph, not inferred from its one-bit result. */
-export function verifyWidthVariants(p: Project, id: ExerciseId) {
+export function verifyWidthVariants(p: Project, missionId: ExerciseId) {
+  const id: string =
+    (
+      {
+        "core-05": "nand",
+        "core-06": "not",
+        "core-09": "xor",
+        "core-11": "mux",
+        "core-21": "adder8",
+        "core-24": "subtract",
+      } as Record<string, string>
+    )[missionId] ?? missionId;
   const c = p.circuits[p.root],
     parameter = c.parameters?.find((p) => p.name === "width");
   if (!parameter)

@@ -1,7 +1,7 @@
 import type { Circuit, Kind, Project, TestCase } from "../model/types";
 import type { TestResult } from "../verification/runner";
 export type Copy = [string, string];
-export type ExerciseId =
+export type ConceptId =
   | "signals"
   | "and-basics"
   | "invert-basics"
@@ -25,7 +25,13 @@ export type ExerciseId =
   | "cpu"
   | "io"
   | "calculator";
+export type ExerciseId = import("./missions/types").MissionId;
 export type CourseRecord = {
+  source?: {
+    source: string;
+    assembledSource?: string;
+    sourceMap?: Record<number, number>;
+  };
   verifiedWidths?: number[];
   hash: string;
   exerciseRevision: number;
@@ -44,15 +50,14 @@ export type CourseState = {
     >
   >;
   id: "build-computer";
-  curriculum: 2;
-  stages?: Partial<Record<ExerciseId, import("./lessons").LearningStage>>;
-  practice?: Partial<Record<ExerciseId, string>>;
+  curriculum: 3;
   active: ExerciseId;
   drafts: Partial<Record<ExerciseId, string>>;
   accepted: Partial<Record<ExerciseId, CourseRecord>>;
   needsVerification?: boolean;
 };
 export type Exercise = {
+  mission?: import("./missions/types").Mission;
   id: ExerciseId;
   revision: number;
   title: Copy;
@@ -67,8 +72,13 @@ export type Exercise = {
   reference: () => Project;
   checks: () => TestCase[];
 };
+export type ReferenceExercise = Omit<Exercise, "id" | "prerequisites"> & {
+  id: ConceptId;
+  prerequisites: ConceptId[];
+};
 export type CourseCheck = {
   verifiedWidths?: number[];
+  sourceHash?: string;
   exercise: ExerciseId;
   status: "blocked" | "invalid" | "failed" | "passed" | "limit";
   message?: string;
@@ -82,6 +92,8 @@ export type CourseRequest = {
   project: Project;
   exercise: ExerciseId;
   reverify?: boolean;
+  prepare?: boolean;
+  example?: boolean;
 };
 export type CourseResponse = {
   progress?: { exercise: ExerciseId; caseName?: string };

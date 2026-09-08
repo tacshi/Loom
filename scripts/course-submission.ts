@@ -9,32 +9,15 @@ export function prepareCourseSubmission(p: Project, id: ExerciseId) {
   p.root = r.root;
   p.course!.drafts[id] = r.root;
   p.course!.active = id;
-  p.course!.stages = {...p.course!.stages,[id]:"challenge"};
   p.cpu = r.cpu;
   p.source = r.source;
   p.sourceMap = r.sourceMap;
   p.assembledSource = r.assembledSource;
-  for (const c of Object.values(r.circuits))
-    for (const n of c.components) {
-      let dependency: ExerciseId | undefined;
-      if (n.kind === "instance") {
-        const name = r.circuits[n.definitionId!]?.name;
-        if (name === "Full adder cell") dependency = "full-adder";
-        if (id === "mux8" && name === "mux 1") dependency = "mux";
-        if (c.id === r.root) {
-          if (n.id === "ALU") dependency = "alu";
-          if (n.id === "Control") dependency = "control";
-          if (n.id === "Fields") dependency = "pc-fields";
-          if (id === "calculator" && n.id === "RAM") dependency = "io";
-          if (id === "alu" && n.id === "ADD") dependency = "adder8";
-          if (id === "alu" && n.id === "SUB") dependency = "subtract";
-        }
-      } else if (id === "not" && n.kind === "nand") dependency = "nand";
-      const accepted = dependency && p.course!.accepted[dependency];
-      if (accepted) {
-        n.kind = "instance";
-        n.definitionId = accepted.acceptedRoot;
-      }
+  // The NAND-to-inverter exercise explicitly reuses the verified NAND implementation.
+  if (id === "core-06" && p.course!.accepted["core-05"]) {
+    for(const n of p.circuits[p.root].components) if(n.kind === "nand") {
+      n.kind="instance";n.definitionId=p.course!.accepted["core-05"]!.acceptedRoot;
     }
+  }
   return p;
 }

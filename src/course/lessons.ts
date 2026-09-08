@@ -1,5 +1,4 @@
-import type { Copy, ExerciseId } from "./types";
-export type LearningStage = "demonstration" | "practice" | "challenge";
+import type { Copy, ConceptId as ExerciseId } from "./types";
 export type Lesson = {
   chapter: "foundations" | "logic" | "arithmetic" | "memory" | "computers";
   mode: "logic" | "clock" | "cpu";
@@ -111,7 +110,7 @@ export const lessons: Record<ExerciseId, Lesson> = {
     ],
     [
       "Compare both rows with the NOT lesson: the behavior must match.",
-      "与非门入门课程的两个测试比较，行为应相同。",
+      "对照非门入门课的两个测试，行为应相同。",
     ],
     [
       "Use your verified NAND or a NAND gate.",

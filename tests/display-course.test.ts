@@ -16,14 +16,14 @@ import { exportProject } from "../src/persistence/serialization";
 it("accepts a decoder after mux8 and reuses the immutable learner circuit in a separate counter", async () => {
   const p = newCourse();
   for (const spec of exercises) {
-    if (spec.id !== "signals") activateExercise(p, spec.id);
-    if (spec.id === "seven-segment")
+    if (spec.id !== "core-01") activateExercise(p, spec.id);
+    if (spec.id === "core-18")
       expect((await checkCourse(p, spec.id)).status).not.toBe("passed");
     prepareCourseSubmission(p, spec.id);
     const checked = await checkCourse(p, spec.id);
     expect(checked.status, checked.message).toBe("passed");
     await acceptCheck(p, checked);
-    if (spec.id === "seven-segment") break;
+    if (spec.id === "core-18") break;
   }
   const before = exportProject(p);
   const sandbox = counterWithAcceptedDecoder(p);
@@ -39,18 +39,18 @@ it("accepts a decoder after mux8 and reuses the immutable learner circuit in a s
     )!.definitionId!
   ].name = "Edited copy";
   expect(exportProject(p)).toBe(before);
-  activateExercise(p, "half-adder");
-  expect(p.course!.active).toBe("half-adder");
+  activateExercise(p, "core-19");
+  expect(p.course!.active).toBe("core-19");
 }, 15000);
 
 it("trusted decoder checks reject disconnection, swapped segments, decimal point and hidden ROM", async () => {
-  const reference = exercise("seven-segment").reference();
+  const reference = exercise("core-18").reference();
   const draft = () => {
     const p = structuredClone(reference);
     p.course = {
-      id: "build-computer", curriculum: 2,
-      active: "seven-segment",
-      drafts: { "seven-segment": p.root },
+      id: "build-computer", curriculum: 3,
+      active: "core-18",
+      drafts: { "core-18": p.root },
       accepted: {},
     };
     return p;
@@ -73,7 +73,7 @@ it("trusted decoder checks reject disconnection, swapped segments, decimal point
             pin.port = pin.port === "a" ? "dp" : "a";
         }
     }
-    const result = await checkCourse(p, "seven-segment", true);
+    const result = await checkCourse(p, "core-18", true);
     expect(result.status, fault).not.toBe("passed");
     if (fault === "rom") expect(result.message).toContain("rom");
   }

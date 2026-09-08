@@ -16,6 +16,7 @@ export default function Debugger({
   close,
   memoryId,
   view,
+  mode,
 }: {
   simulation: ReturnType<typeof useSimulation>;
   snapshot: Snapshot;
@@ -28,6 +29,7 @@ export default function Debugger({
   close: () => void;
   memoryId?: string;
   view: "waveforms" | "memory" | "breakpoints";
+  mode: "logic" | "clock" | "cpu";
 }) {
   const tab = view === "memory" ? "memory" : "signals";
   const [address, setAddress] = useState(0);
@@ -35,8 +37,14 @@ export default function Debugger({
   return (
     <section className="technical-debugger">
       {view === "waveforms" && (
+        <p className="signal-history-description">
+          {t("signalHistoryDescription")}
+        </p>
+      )}
+      {view === "waveforms" && (
         <Timeline
           running={simulation.running}
+          instructionControls={mode === "cpu"}
           history={simulation.history}
           samples={simulation.range}
           probes={probes}
@@ -75,7 +83,7 @@ export default function Debugger({
                       ×
                     </button>
                   </div>
-                  {view === "waveforms" && (
+                  {view === "waveforms" && simulation.running && (
                     <svg
                       viewBox="0 0 640 36"
                       preserveAspectRatio="none"
@@ -197,24 +205,26 @@ export default function Debugger({
                       ))}
                     </select>
                   )}
-                  {view === "breakpoints" && bp && (
-                    <input
-                      aria-label={t("breakValue")}
-                      type="number"
-                      min={0}
-                      max={value ? 2 ** value.width - 1 : 0xffffffff}
-                      value={bp.value}
-                      onChange={(e) =>
-                        setBreakpoints(
-                          breakpoints.map((b) =>
-                            b === bp
-                              ? { ...b, value: Number(e.target.value) }
-                              : b,
-                          ),
-                        )
-                      }
-                    />
-                  )}
+                  {view === "breakpoints" &&
+                    bp &&
+                    (!bp.mode || bp.mode === "equal") && (
+                      <input
+                        aria-label={t("breakValue")}
+                        type="number"
+                        min={0}
+                        max={value ? 2 ** value.width - 1 : 0xffffffff}
+                        value={bp.value}
+                        onChange={(e) =>
+                          setBreakpoints(
+                            breakpoints.map((b) =>
+                              b === bp
+                                ? { ...b, value: Number(e.target.value) }
+                                : b,
+                            ),
+                          )
+                        }
+                      />
+                    )}
                 </div>
               );
             })

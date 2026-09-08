@@ -259,10 +259,9 @@ test("course palette restrictions and reference read-only state apply to placeme
   page,
 }) => {
   await ready(page);
-  await page.getByRole("button", { name: "Learn", exact: true }).click();
+  await page.getByRole("tab", { name: "Learn", exact: true }).click();
   await page.getByRole("button", { name: "Start course", exact: true }).click();
-  await page.getByRole("button", { name: "Challenge", exact: true }).click();
-  await page.getByRole("button", { name: "Components", exact: true }).click();
+  await page.getByRole("tab", { name: "Components", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "ROM", exact: true }),
   ).toHaveCount(0);
@@ -272,11 +271,11 @@ test("course palette restrictions and reference read-only state apply to placeme
   await start(page, "Input");
   await target(page);
   await page.mouse.up();
-  await page.getByRole("button", { name: "Learn", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Explore", exact: true })
-    .click();
-  await page.getByRole("button", { name: "Components", exact: true }).click();
+  await page.getByRole("tab", { name: "Learn", exact: true }).click();
+  await page.getByText("Hints",{exact:true}).click();
+  await page.getByText("Hint 3",{exact:true}).click();
+  await page.getByRole("button",{name:"View example",exact:true}).click();
+  await page.getByRole("tab", { name: "Components", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Input", exact: true }),
   ).toBeDisabled();

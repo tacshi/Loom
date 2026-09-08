@@ -16,7 +16,7 @@ for (const size of [
       await page.goto("/");
       const label = (en: string, cn: string) => (zh ? cn : en);
       await page
-        .getByRole("button", { name: label("Learn", "学习"), exact: true })
+        .getByRole("tab", { name: label("Learn", "学习"), exact: true })
         .click();
       await page
         .getByRole("button", {
@@ -31,7 +31,7 @@ for (const size of [
         input: string,
       ) => {
         await page
-          .getByRole("button", { name: label("Circuit", "电路"), exact: true })
+          .getByRole("tab", { name: label("Circuit", "电路"), exact: true })
           .click();
         await page.getByRole("button", { name: from, exact: true }).click();
         await page
@@ -51,7 +51,7 @@ for (const size of [
       await page.getByRole("button", { name: label("Challenge", "挑战"), exact: true }).click();
       await connect(label("a Input port","a 输入端口"),"out",label("out Output port","out 输出端口"),"in");
       await page
-        .getByRole("button", { name: label("Learn", "学习"), exact: true })
+        .getByRole("tab", { name: label("Learn", "学习"), exact: true })
         .click();
       await page
         .getByRole("button", {

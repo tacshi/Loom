@@ -20,7 +20,7 @@ test("production simulation soak with save, rewind and exported-circuit checks",
   await page.getByLabel("Open example…", { exact: true }).selectOption("echo");
   await page.getByLabel("Clock speed", { exact: true }).selectOption("1000");
   await page.getByRole("button", { name: "Debug", exact: true }).click();
-  await page.getByRole("button", { name: "Waveforms", exact: true }).click();
+  await page.getByRole("button", { name: "Signal history", exact: true }).click();
   const terminal = page.getByRole("log", {
     name: "Terminal output RAM/Terminal",
   });
