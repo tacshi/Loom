@@ -16,16 +16,16 @@ Drag blank canvas to select a group. Shift-click adds components to the selectio
 
 Use **Pan canvas**, or hold **Space** while dragging. Scroll zooms around the pointer; Shift-scroll pans. **Fit circuit** shows the whole circuit. **Select** returns to selection and cancels a pending wire.
 
-| Shortcut | Action |
-|---|---|
-| Cmd/Ctrl Z | Undo |
-| Cmd/Ctrl Shift Z | Redo |
-| Cmd/Ctrl A | Select all components |
-| Cmd/Ctrl C / V | Copy / paste selected components and internal wires |
-| Cmd/Ctrl D | Duplicate |
-| Delete / Backspace | Delete selection |
-| Escape | Cancel wiring, drag, or dialog |
-| Cmd/Ctrl K | Search the component library |
+| Shortcut           | Action                                              |
+| ------------------ | --------------------------------------------------- |
+| Cmd/Ctrl Z         | Undo                                                |
+| Cmd/Ctrl Shift Z   | Redo                                                |
+| Cmd/Ctrl A         | Select all components                               |
+| Cmd/Ctrl C / V     | Copy / paste selected components and internal wires |
+| Cmd/Ctrl D         | Duplicate                                           |
+| Delete / Backspace | Delete selection                                    |
+| Escape             | Cancel wiring, drag, or dialog                      |
+| Cmd/Ctrl K         | Search the component library                        |
 
 Text fields retain their normal editing shortcuts. Component names and functional labels stay on one line; the inspector exposes the complete name.
 
@@ -65,7 +65,7 @@ Browser storage can be cleared or evicted. Keep independent `.loom.json` exports
 
 使用“平移画布”或按住空格拖动。滚动围绕指针缩放，Shift＋滚动平移，“显示完整电路”显示完整电路。框选或 Shift＋点击进行多选，可对齐、分布、复制和整体移动。撤销会同时恢复位置和走线。
 
-“学习 → 开始课程”提供 20 个连续练习，每个都有草稿、只读参考电路、分层提示和行为检查；验证后的元件可在后续练习中复用。“封装子电路”把选中的内部逻辑变为可复用元件。进入子电路可检查实际逻辑门；多个实例共享定义，但各自保存独立的仿真状态。
+“学习 → 开始课程”提供 60 个主线任务和 40 个选做项目，每个任务都有持续保存的工作区、可选提示和只读示例；通过检查后，验证的元件可在后续任务中复用。详见[学习指南](LEARNING.md#中文)。“封装子电路”把选中的内部逻辑变为可复用元件。进入子电路可检查实际逻辑门；多个实例共享定义，但各自保存独立的仿真状态。
 
 “运行／暂停”控制连续执行，“单步”推进一个上升沿。“复位”恢复寄存器初值、清空 RAM 和信号历史，保留 ROM 程序。选择元件并添加观察信号，可以查看信号历史并设置数值断点。内存视图显示所选 RAM 或 ROM 实例。`X` 表示未知值，二进制格式可显示逐位状态。
 
@@ -73,7 +73,7 @@ Browser storage can be cleared or evicted. Keep independent `.loom.json` exports
 
 工程自动保存在当前浏览器。重要工程请导出 `.loom.json` 文件备份。第二个标签页需要复制工程后才能编辑。导入文件和恢复快照都创建副本。重新打开工程会重置运行状态，但保留电路、布局、走线、ROM、源代码、测试和学习进度。
 
-## V2: larger circuits and interactive programs
+## Larger circuits and interactive programs
 
 **Nets and layout.** Circuit → Named connections lists electrical connections independently of their drawing. Select a net to rename it, highlight all its routes, or attach a compatible port explicitly. A name never connects two nets. Named markers can replace a drawn connection without removing electrical membership. Use Appearance & pins to rotate a component or change its grid bounds and pin slots. Failed routing changes are rejected; Undo changes the document, while Back one cycle changes simulation history.
 
@@ -87,7 +87,7 @@ Browser storage can be cleared or evicted. Keep independent `.loom.json` exports
 
 **Saved tests.** Open Saved tests to run stored cases or expand Add test case. Each step can set inputs or queue device bytes, advance clocks, and assert a signal, memory word, terminal text or pixel. Known-bit masks allow exact X expectations. Append steps, then save the case. Inspect failed test uses an isolated execution; Return to live circuit restores the previous simulation. Create test from this run records retained stimuli with the configured assertion. Capture requires the run's original reset point to remain retained.
 
-## V2 中文操作
+## 大型电路与交互程序
 
 - **命名网络与布局：** 在“电路 → 命名网络”中检查电气连接。名称不会自动合并网络；必须明确连接兼容引脚。外观与引脚支持旋转、网格尺寸和引脚位置。无法完成的布线编辑会被拒绝。
 - **元件库：** 导出包含完整依赖的元件包，导入后添加到工程。工程内嵌副本可离线使用。固定版本不可直接修改；先创建可编辑本地副本，再导出新版本。更新前检查接口映射和测试结果。
@@ -108,7 +108,6 @@ The CPU example starts at 2 Hz and writes each glyph to F7, then halts. Use Run 
 
 七段数码管示例包括逻辑译码器、计数器、ROM 查表和 CPU 驱动显示。位 0–6 对应 a–g，位 7 对应小数点。课程译码器通过检查后，选择“用于计数器”可在独立工程中运行自己的元件。ROM 文件从所选地址开始导入；导出包含全部 ROM。F7 为段码寄存器，写入 0 可熄灭显示。
 
-
 ## Help and problem reports
 
 Open **Help** for course, example, wiring and export directions plus keyboard shortcuts. **Copy bug report** copies the app version, build commit and browser information, followed by blank reproduction/expected/actual fields. Add your steps before sharing it. If clipboard access fails, select and copy the displayed text. Project contents and names are not included, and nothing is uploaded automatically.
@@ -116,7 +115,6 @@ Open **Help** for course, example, wiring and export directions plus keyboard sh
 Canvas notices do not move the circuit. Selecting an already visible component preserves the viewport; Fit circuit restores the full overview. New components are placed clear of existing bodies. Paused edits paint immediately, including after native Safari file dialogs.
 
 打开“帮助”可查看入门操作和快捷键。“复制问题报告”只包含版本、构建提交、浏览器信息及待填写的复现步骤；不包含工程名称或内容，也不会自动上传。剪贴板不可用时，可选中显示的报告手动复制。
-
 
 ## Reusable components
 
@@ -131,7 +129,6 @@ Canvas notices do not move the circuit. Selecting an already visible component p
 **Push button** drives 1 while held and 0 when released. Press its center on the canvas or use **Hold** in the Inspector with the pointer, Space or Enter. Drag its outer body to move it. It releases on cancellation, focus loss and reset; it does not clock the circuit automatically. The counter-reset example demonstrates it. Held state is recorded in runtime history, not saved as a project default.
 
 “按钮（按住有效）”按住时输出 1，松开时输出 0；属性中的“按住”支持空格和回车。失去焦点、取消或复位会释放按钮。按钮本身不会推进时钟。
-
 
 ## Shared buses
 
