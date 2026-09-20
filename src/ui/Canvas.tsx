@@ -1,4 +1,4 @@
-import { componentLabel } from "./componentLabel";
+import { componentLabel, componentTypeLabel } from "./componentLabel";
 import type { Language } from "./i18n";
 import { snapPlacement } from "../editor/placement";
 import { useCanvasPlacement, type PlacementProps } from "./useCanvasPlacement";
@@ -716,6 +716,7 @@ function Canvas({
                 >
                   <ComponentGlyph
                     label={componentLabel(c, project, lang)}
+                    typeLabel={componentTypeLabel(c, project, lang)}
                     c={c}
                     project={project}
                     selected={false}
@@ -882,7 +883,7 @@ function Canvas({
             return <Circle key={'pin-mask:'+c.id+':'+p.id} x={at.x+delta.x} y={at.y+delta.y} radius={5} fill={pending?.component===c.id&&pending.port===p.id?'#e0ad58':colors.surface} stroke={pending?'#39a672':colors.line} strokeWidth={2} listening={false}/>;
           }))}
           {placementPreview && placement && <Group x={placementPreview.position.x} y={placementPreview.position.y} opacity={0.6} listening={false}>
-            <ComponentGlyph label={componentLabel(placement.component, previewProject, lang)} c={placement.component} project={previewProject} selected={false} dark={dark} scale={view.scale} readOnly={true} cacheGlyph={false} space={false} waypoints={[]} pin={() => {}} />
+            <ComponentGlyph label={componentLabel(placement.component, previewProject, lang)} typeLabel={componentTypeLabel(placement.component, previewProject, lang)} c={placement.component} project={previewProject} selected={false} dark={dark} scale={view.scale} readOnly={true} cacheGlyph={false} space={false} waypoints={[]} pin={() => {}} />
           </Group>}
           {(placementPreview?.guides ?? guides).map((g) => (
             <Line
@@ -940,6 +941,7 @@ function Canvas({
 
 type GlyphProps = {
   label: string;
+  typeLabel: string;
   c: Circuit["components"][number];
   project: Project;
   selected: boolean;
@@ -959,6 +961,7 @@ type GlyphProps = {
 const ComponentGlyph = memo(
   function ComponentGlyph({
     label,
+    typeLabel,
     c,
     project,
     selected,
@@ -990,7 +993,7 @@ const ComponentGlyph = memo(
       return () => {
         cached.current?.clearCache();
       };
-    }, [c, project, selected, dark, value, segments, pending, scale, cacheGlyph, label]);
+    }, [c, project, selected, dark, value, segments, pending, scale, cacheGlyph, label, typeLabel]);
     const colors = dark
       ? { surface: "#203532", text: "#ecf5ef", line: "#90aa9d" }
       : { surface: "#fff", text: "#223d35", line: "#728e80" };
@@ -1006,9 +1009,10 @@ const ComponentGlyph = memo(
         />
         <Text
           x={12}
-          y={g.h - 25}
+          y={g.h - (label === typeLabel ? 25 : 33)}
           width={g.w - 24}
-          text={label}
+          text={typeLabel}
+          fontStyle="bold"
           wrap="none"
           height={18}
           fontSize={12}
@@ -1016,6 +1020,20 @@ const ComponentGlyph = memo(
           fill={colors.text}
           ellipsis
         />
+        {label !== typeLabel && (
+          <Text
+            x={12}
+            y={g.h - 17}
+            width={g.w - 24}
+            text={label}
+            wrap="none"
+            height={14}
+            fontSize={10}
+            fontFamily="ui-monospace, monospace"
+            fill={colors.text}
+            ellipsis
+          />
+        )}
         {c.kind === "button" ? (
           <Group onMouseDown={e => {e.cancelBubble=true;}} onPointerDown={e => { if(readOnly || e.evt.button !== 0)return; e.cancelBubble=true; (e.evt.target as Element)?.setPointerCapture?.(e.evt.pointerId); button?.(c.id,true); }}
             onPointerUp={e => {e.cancelBubble=true;button?.(c.id,false);}} onPointerCancel={() => button?.(c.id,false)}>
@@ -1128,6 +1146,7 @@ const ComponentGlyph = memo(
   },
   (a, b) =>
     a.label === b.label &&
+    a.typeLabel === b.typeLabel &&
     a.c === b.c &&
     a.project === b.project &&
     a.selected === b.selected &&
