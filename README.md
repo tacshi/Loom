@@ -54,18 +54,14 @@ Loom is under development. Only the current project format is supported; incompa
 ## Development
 
 ```sh
-# Unit and integration tests
-bun run test
+# Fast tests
+bun run test:fast
 
 # Type-check and build the app and CLI
 bun run build
-
-# Install browser test dependencies, then run Playwright
-bun run playwright install --with-deps chromium firefox webkit
-bun run test:browser
 ```
 
-Run a specific test file with `bun run test tests/component-label.test.ts`. See [testing](docs/TESTING.md) for browser, CLI, and performance checks.
+Run a specific test file with `bun run test tests/component-label.test.ts`. See [testing](docs/TESTING.md) for optional full-suite and browser checks.
 
 ## Documentation
 

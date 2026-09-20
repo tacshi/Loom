@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build && bun run build:cli",
     "preview": "vite preview --host 127.0.0.1",
     "test": "vitest run",
+    "test:fast": "vitest run --config vitest.fast.config.ts",
     "test:browser": "playwright test",
     "build:cli": "bun build src/cli/main.ts --target=bun --format=esm --outfile=dist-cli/loom.mjs",
     "generate:layouts": "esbuild scripts/generate-cpu-layouts.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/generate-cpu-layouts.mjs && node node_modules/.cache/generate-cpu-layouts.mjs",

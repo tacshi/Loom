@@ -54,18 +54,14 @@ Loom 仍在开发中，仅支持当前工程格式。不兼容的文件会被拒
 ## 开发
 
 ```sh
-# 单元与集成测试
-bun run test
+# 快速测试
+bun run test:fast
 
 # 类型检查并构建应用和 CLI
 bun run build
-
-# 安装浏览器测试依赖并运行 Playwright
-bun run playwright install --with-deps chromium firefox webkit
-bun run test:browser
 ```
 
-运行单个测试文件：`bun run test tests/component-label.test.ts`。浏览器、CLI 和性能检查请参阅[测试文档](docs/TESTING.md)。
+运行单个测试文件：`bun run test tests/component-label.test.ts`。完整测试与浏览器检查按需运行，详见[测试文档](docs/TESTING.md)。
 
 ## 文档
 

@@ -12,8 +12,4 @@ The service worker caches bundled examples and application assets after the firs
 
 Project storage belongs to the deployment origin. Moving to a different hostname or port requires export/import. Export `.loom.json` files for portable backups.
 
-## Build artifacts
-
-The [GitHub workflow](../.github/workflows/check.yml) uploads `loom-web.tar.gz`, a SHA-256 checksum, and a commit file after verification passes. The CLI bundle is uploaded separately. Use the artifact from the commit you intend to deploy; **Help** shows the running app's build commit.
-
-See [testing](TESTING.md) for production browser checks, performance measurements, and the extended soak test.
+**Help** shows the running app's build commit. See [testing](TESTING.md) for optional production browser checks, performance measurements, and the extended soak test.
