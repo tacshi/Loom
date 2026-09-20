@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import { createComponent, emptyProject } from "../src/model/types";
-import { componentLabel } from "../src/ui/componentLabel";
+import { componentLabel, componentTypeLabel } from "../src/ui/componentLabel";
 
 test("default gate names follow language without mutating saved names", () => {
   const project = emptyProject(),
@@ -29,4 +29,23 @@ test("course instances translate default names and preserve custom names", () =>
   }
   gate.name = "First stage";
   expect(componentLabel(gate, project, "zh")).toBe("First stage");
+});
+
+test("custom names do not hide primitive or course component types", () => {
+  const project = emptyProject();
+  const gate = createComponent("nand", 0, 0);
+  gate.name = "g2";
+  expect(componentTypeLabel(gate, project, "en")).toBe("NAND");
+  expect(componentTypeLabel(gate, project, "zh")).toBe("与非门");
+  expect(componentLabel(gate, project, "en")).toBe("g2");
+  const definition = project.circuits[project.root];
+  definition.name = "Build NOT AND: NAND";
+  definition.library = { id: "course-core-05", version: 1, hash: "test" };
+  gate.kind = "instance";
+  gate.definitionId = definition.id;
+  expect(componentTypeLabel(gate, project, "en")).toBe("NAND");
+  expect(componentTypeLabel(gate, project, "zh")).toBe("与非门");
+  definition.library = undefined;
+  definition.name = "Custom logic";
+  expect(componentTypeLabel(gate, project, "en")).toBe("Custom logic");
 });

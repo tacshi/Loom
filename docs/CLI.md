@@ -1,10 +1,10 @@
 # Loom CLI
 
-Development requires Bun 1.4.2 and Node.js 24 or newer. The built CLI requires Bun 1.4.2 or newer; Node.js is not needed to run it. Run `bun ci` then `bun run build:cli`. The generated executable is `dist-cli/loom.mjs`; `bun pm pack` includes it as the `loom` command. The bundle uses a `#!/usr/bin/env bun` shebang, so the installed `loom` command runs under Bun. Public registry publication is separate.
+Run `bun ci` then `bun run build:cli` to build the CLI. It requires Bun 1.4.2 or newer.
 
 ```sh
-bun dist-cli/loom.mjs validate tests/fixtures/v2/calculator.loom.json
-bun dist-cli/loom.mjs test tests/fixtures/v2/calculator.loom.json --json
+bun dist-cli/loom.mjs validate project.loom.json
+bun dist-cli/loom.mjs test project.loom.json --json
 bun dist-cli/loom.mjs test project.loom.json --circuit circuit-id --report ./report
 ```
 
@@ -16,7 +16,7 @@ Browser and CLI share validation, compilation, logic evaluation, state semantics
 
 ## Course checks
 
-`loom course-check course.loom.json --json` revalidates imported completion claims and checks the active exercise against the built-in registry. It does not modify the file. Results include prerequisite/construction failures, behavioral failures, passing checks and execution limits. Exit code 0 means all reported checks passed; 1 means a course check did not pass; malformed input uses 2.
+`bun dist-cli/loom.mjs course-check course.loom.json --json` revalidates imported completion claims and checks the active exercise against the built-in registry. It does not modify the file. Results include prerequisite/construction failures, behavioral failures, passing checks and execution limits. Exit code 0 means all reported checks passed; 1 means a course check did not pass; malformed input uses 2.
 
 Course files use the current 100-mission curriculum (`course.curriculum: 3`, `core-01`–`core-60` and `project-01`–`project-40`). `course-check` validates foundation AND/NOT construction and verified NAND reuse, including packaged dependency contents. Test JSON reports include per-step `checkpoints` with applied inputs and expected/actual assertions. The aggregate `course-check` report includes case/checkpoint counts and details of failing cases, rather than repeating all passing test inputs and playback details; replay snapshots are not serialized.
 

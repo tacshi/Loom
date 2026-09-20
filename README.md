@@ -1,80 +1,79 @@
 # Loom
 
-A local-first digital logic workbench. Build circuits, package reusable components, and run an editable 8-bit CPU. English and Simplified Chinese are included.
+[简体中文](README.zh-CN.md)
 
-See [Learning and visual tests](docs/LEARNING.md) for the guided course, isolated test playback, and debugging.
+A digital logic workbench that runs in your browser. Build circuits from logic gates, turn them into reusable components, and program an editable 8-bit computer. A guided course takes you from signals and NAND gates to a working CPU and calculator.
 
-## Run
+## What you can build
 
-Use Bun 1.4.2 (pinned in `package.json`) and Node.js 24 or newer. Bun manages dependencies, package scripts, and the CLI runtime. Node.js is still used by the existing development tools.
+- **Logic circuits:** connect gates, buses, registers, memory, and tri-state buffers on an editable canvas.
+- **Reusable components:** package your circuits into libraries and use them in larger designs.
+- **An 8-bit computer:** edit the CPU's circuits, assemble programs, and connect keyboard, terminal, and seven-segment displays. Programs execute through the simulated circuit.
+- **Testable designs:** save input/output test cases, replay failures, inspect signal history, and set breakpoints. The CLI validates and tests exported projects.
 
+## Run locally
+
+Requires Bun 1.4.2 and Node.js 24 or newer.
 
 ```sh
+git clone https://github.com/tacshi/Loom.git
+cd Loom
 bun ci
 bun run dev
 ```
 
-Open the address printed by Vite. For the offline-capable production build:
+Open `http://127.0.0.1:5173` in a desktop browser.
+
+## Try it
+
+Open **Learn → Start course** to work through 60 core missions and 40 optional projects. Each mission introduces the concept and offers hints and worked examples. Use **Run tests** to check your solution and unlock the next mission.
+
+To explore a complete computer:
+
+1. Open **Open example… → Loom 8 CPU**.
+2. Select **Assemble & load**, then **Run clock**. The included sum program outputs **55**.
+3. Use **Circuit** to find components and open subcircuits, or **Debug** to inspect inputs and outputs.
+
+For an interactive example, open **Loom 8 I/O · Calculator** and try decimal addition and subtraction through its keyboard and terminal. You can also start a blank project and build freely.
+
+## Save and work offline
+
+Use **Projects → Export file** to save a portable `.loom.json` copy, and **Import file** to open it elsewhere. Browser storage is tied to the site's address, including its port: the development server (`5173`) and production preview (`4173`) have separate project stores. Clearing site data removes locally stored projects.
+
+The production app works offline after its first successful online load. To build and preview it:
 
 ```sh
 bun run build
 bun run preview
 ```
 
-The production app caches its assets after the first successful online load. Projects belong to the browser origin: development (`5173`) and preview (`4173`) have separate project stores. Use **Projects → Export file / Import file** to move work between them.
+See [deployment](docs/DEPLOYMENT.md) to host the app.
 
-## Start building
+Loom is under development. Only the current project format is supported; incompatible files are rejected without changing the file or replacing the open project.
 
-- **Learn → Start course** offers 60 hands-on core missions and 40 optional projects, from signals and NAND to a programmed computer and calculator. Missions require working circuits or code; hints and examples are optional. Blank projects remain unrestricted.
-- **Open example… → Loom 8 CPU** opens a complete computer. **Assemble & load**, then **Run clock**: the supplied sum program outputs **55**.
-- Use **Circuit** to select a component by name, inspect its signals, connect ports, or open its subcircuit.
-- Inside the CPU's **ALU**, replace **ADD** with a NAND-built adder and rerun the same program.
-
-**Open example… → Loom 8 I/O · Calculator** runs interactive decimal addition/subtraction through keyboard and terminal peripherals. **Debug** starts with named inputs and outputs; signal history and breakpoints open on demand; **Libraries** packages versioned components; **Saved tests** captures and verifies multi-step behavior.
-
-The seven-segment examples connect editable NAND decoding, a counter, ROM lookup and CPU output. The I/O CPU drives segment bits through F7. See [the display guide](docs/USER_GUIDE.md#seven-segment-projects).
-
-Sandbox components include editable eight-bit shift registers and priority encoders, momentary buttons, and tri-state buffers with shared-bus resolution. Their examples are in Open example.
-
-The CPU executes through the circuit. Its instruction-level reference model exists only in tests.
-
-## Checks
-
-Use `bun run test` to run Vitest. `bun test` invokes Bun's separate built-in runner and is not this project's test command.
-
-The committed `bun.lock` fixes dependency versions; `bun ci` enforces it. Only `esbuild` is listed in `trustedDependencies`; fsevents install hooks remain untrusted. Review `bun pm untrusted` when changing dependencies. Bun's trust list is package-name based, so review esbuild version changes in the lockfile before installing them.
+## Development
 
 ```sh
-bun run test
+# Fast tests
+bun run test:fast
+
+# Type-check and build the app and CLI
 bun run build
-bun run playwright install chromium firefox webkit
-bun run test:browser
 ```
 
-To test the production preview, keep `bun run preview` running and use:
-
-```sh
-LOOM_BASE_URL=http://127.0.0.1:4173 bun run test:browser --project=chromium --project=webkit
-```
-
-See [the v3 course](docs/V3.md) and [v3 verification](docs/V3-VERIFICATION.md). Automated tests supplement Computer-Use checks. Linux Firefox verification is available through the official Playwright container; native macOS IME and browser-specific checks are tracked separately.
+Run a specific test file with `bun run test tests/component-label.test.ts`. See [testing](docs/TESTING.md) for optional full-suite and browser checks.
 
 ## Documentation
 
-- [V3 course and component continuity](docs/V3.md)
-
-- [Using Loom](docs/USER_GUIDE.md)
+- [User guide and shortcuts](docs/USER_GUIDE.md)
+- [Guided course and visual test playback](docs/LEARNING.md)
 - [CPU instruction set and timing](docs/CPU.md)
 - [Architecture and simulation contracts](docs/ARCHITECTURE.md)
-- [Deployment](docs/DEPLOYMENT.md)
 - [CLI commands and reports](docs/CLI.md)
-- [V2 verification ledger](docs/V2-PHASES.md)
-- [V1 verification ledger](docs/PHASES.md)
+- [Deployment and offline updates](docs/DEPLOYMENT.md)
 
-Desktop release-candidate checks cover mouse/keyboard workflows at 1280×800 and 1920×1080 in English and Chinese. Touch/tablet sign-off is deferred.
+## Contributing and reporting bugs
 
-**Help** includes getting-started directions, shortcuts and **Copy bug report**. Reports contain the app version, build commit, browser information and blank reproduction fields; they do not include project contents or upload anything.
+Keep pull requests focused and include tests for changed behavior. Read the [development policy](AGENTS.md) before changing project formats.
 
-No account, cloud storage, analytics, or external runtime service is required.
-
-Loom is unreleased. Development iterations support only the current project format; no backward-compatibility migrations are provided. See [development policy](AGENTS.md).
+To [report a bug](https://github.com/tacshi/Loom/issues), include reproduction steps, the expected result, and what happened. **Help → Copy bug report** provides the app version, build commit, and browser details. It does not include project contents or upload anything; attach an exported project yourself if it is needed to reproduce the issue.

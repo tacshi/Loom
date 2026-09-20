@@ -11,13 +11,11 @@ test("switching language redraws gate labels without editing the project", async
   await page.addInitScript(() => localStorage.setItem("loom-language", "zh"));
   await page.goto("/");
   await page.getByRole("button", { name: "工程管理", exact: true }).click();
-  await page
-    .locator("input[type=file]")
-    .setInputFiles({
-      name: "labels.loom.json",
-      mimeType: "application/json",
-      buffer: Buffer.from(JSON.stringify(b.p)),
-    });
+  await page.locator("input[type=file]").setInputFiles({
+    name: "labels.loom.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(b.p)),
+  });
   await expect(page.getByLabel("工程", { exact: true })).toHaveValue(b.p.name);
   const canvas = page.locator(".canvas-host");
   const glyph = async () => {
@@ -42,4 +40,54 @@ test("switching language redraws gate labels without editing the project", async
     await readFile((await (await download).path())!, "utf8"),
   );
   expect(saved.circuits[saved.root].components[0].name).toBe("与非门");
+});
+
+test("named gates show their type and live value directly on the canvas", async ({
+  page,
+}, testInfo) => {
+  const b = new Builder("Visible component types");
+  b.add("g2", "nand", 0, 0);
+  await page.addInitScript(() => {
+    localStorage.setItem("loom-language", "en");
+    const texts: string[] = [];
+    (window as unknown as { drawnTexts: string[] }).drawnTexts = texts;
+    const original = CanvasRenderingContext2D.prototype.fillText;
+    CanvasRenderingContext2D.prototype.fillText = function (
+      text,
+      x,
+      y,
+      maxWidth,
+    ) {
+      texts.push(text);
+      return original.call(this, text, x, y, maxWidth);
+    };
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Projects", exact: true }).click();
+  await page.locator("input[type=file]").setInputFiles({
+    name: "types.loom.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(b.p)),
+  });
+  await expect(page.getByLabel("Project", { exact: true })).toHaveValue(
+    b.p.name,
+  );
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => (window as unknown as { drawnTexts: string[] }).drawnTexts,
+      ),
+    )
+    .toEqual(expect.arrayContaining(["NAND", "g2", "X"]));
+  await page.screenshot({
+    path: testInfo.outputPath("visible-component-types.png"),
+  });
+  await page.getByRole("button", { name: "Language", exact: true }).click();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => (window as unknown as { drawnTexts: string[] }).drawnTexts,
+      ),
+    )
+    .toContain("与非门");
 });

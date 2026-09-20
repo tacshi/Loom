@@ -29,7 +29,7 @@ Execution yields in bounded batches, with display updates independent of clock r
 
 ## Persistence
 
-Loom is unreleased. Only the current project format (schema 2) is accepted; incompatible development formats are rejected without rewriting them or replacing the open document. Development iterations, including v3, do not require compatibility migrations. Database creation and each save are transactional. A save retains up to eight ordinary recovery snapshots. Recovery/import create new project identities.
+Only the current project format (schema 2) is accepted; incompatible formats are rejected without rewriting them or replacing the open document. There are no format migrations. Database creation and each save are transactional. A save retains up to eight ordinary recovery snapshots. Recovery/import create new project identities.
 
 Only a tab holding the project's Web Lock can write. The project-switch transition remains non-editable until ownership is established. Save status is derived from the current document and the last committed serialized document, rather than merely from a scheduled save.
 
@@ -46,3 +46,5 @@ The optional `run_circuit_tests` WebMCP tool invokes the same visible test workf
 Course state is optional project data: exercise roots, source drafts, accepted snapshot references, verification hashes and dependency identities. The checker uses the application registry and traverses all nested definitions to enforce permitted primitives. Imported claims are untrusted until reverified. Hashes normalize definition IDs and include electrical structure while excluding layout and labels. Accepted dependencies remain immutable when an earlier draft changes.
 
 The course worker and CLI share checks. Check replies have request identities; stale replies cannot replace later edits. References open separately and cannot award progress. Verification uses the same gate engine as the live workbench. The engine precomputes signal lookup keys; only definitions reachable from the active root affect its compilation signature. No instruction-level oracle is included in application execution.
+
+The curriculum contains 60 core missions and 40 optional projects and is stored as `course.curriculum: 3`. Each mission retains its own draft; optional projects cannot become dependencies of the core path. `src/course/registry.ts` defines the ordered exercises, `session.ts` manages drafts and accepted snapshots, and `check.ts` verifies submissions and imported completion claims.

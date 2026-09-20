@@ -28,3 +28,18 @@ export function componentLabel(
     return defaults[lang === "zh" ? 1 : 0];
   return component.name;
 }
+
+/** Type stays visible even when the instance has a custom name. */
+export function componentTypeLabel(
+  component: Component,
+  project: Project,
+  lang: Language,
+) {
+  const definition =
+    component.kind === "instance"
+      ? project.circuits[component.definitionId!]
+      : undefined;
+  return definition
+    ? subcircuitLabel(definition, lang)
+    : (messages[component.kind]?.[lang === "zh" ? 1 : 0] ?? component.kind);
+}

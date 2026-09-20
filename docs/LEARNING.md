@@ -30,7 +30,7 @@ Only current, passing checks award completion. Editing, cancellation, project ch
 
 Foundation AND/NOT primitives are restricted to their missions. Later missions may reuse the learner's verified NAND, including its approved internals; identity and content are checked before trusting this exception. Programming starters use the verified CPU, adding the verified I/O module for device programs.
 
-The current development curriculum is `course.curriculum: 3`. Earlier course formats are rejected without rewriting the original file. There are no format migrations.
+Incompatible course files are rejected without changing the original file.
 
 ## 中文
 
@@ -46,4 +46,4 @@ The current development curriculum is `course.curriculum: 3`. Earlier course for
 
 测试显示输入、预期、实际和结果。失败时保留对应情况，可通过 **查看连接** 定位相关信号。**返回编辑** 恢复原电路。时钟和指令控件只用于相关电路。**调试** 默认显示输入与输出，其他检查通过 **信号历史**、**内存** 和 **断点** 打开。
 
-只接受当前任务的正式验证结果。取消、修改电路或切换任务后，过期结果不能授予完成记录。导入的进度必须重新验证。当前课程格式为 `course.curriculum: 3`；旧格式被拒绝，不会覆盖原文件。
+只接受当前任务的正式验证结果。取消、修改电路或切换任务后，过期结果不能授予完成记录。导入的进度必须重新验证。不兼容的课程文件会被拒绝，不会覆盖原文件。
