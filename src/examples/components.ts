@@ -77,15 +77,16 @@ export function priorityEncoder(): Project {
 }
 export function encoderExample(): Project {
   const b = new Builder("Priority request selection");
-  embedCircuit(b, priorityEncoder(), "Encoder", 400, 0);
-  b.add("Requests", "join", 200, 0, 8);
+  // Eight request wires fan into the joiner, so leave room for one lane each.
+  embedCircuit(b, priorityEncoder(), "Encoder", 560, 0);
+  b.add("Requests", "join", 360, 0, 8);
   for (let i = 0; i < 8; i++) {
     b.add("Request " + i, "input", 0, i * 120);
     b.connect("Request " + i, "out", "Requests", "b" + i);
   }
   b.connect("Requests", "out", "Encoder", "requests");
-  b.add("Selected", "probe", 600, 0, 3);
-  b.add("Valid", "probe", 600, 140);
+  b.add("Selected", "probe", 760, 0, 3);
+  b.add("Valid", "probe", 760, 140);
   b.connect("Encoder", "index", "Selected", "in");
   b.connect("Encoder", "valid", "Valid", "in");
   rerouteAutomatic(b.c, b.p);

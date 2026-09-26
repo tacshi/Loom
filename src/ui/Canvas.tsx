@@ -94,6 +94,7 @@ function Canvas({
   placement,
   commitPlacement,
   cancelPlacement,
+  hintPlacement,
 }: CanvasProps) {
   const networkLayer = useRef<Konva.Layer>(null);
   const dragLayer = useRef<Konva.Layer>(null);
@@ -106,7 +107,7 @@ function Canvas({
     stage = useRef<Konva.Stage>(null);
   const [size, setSize] = useState({ width: 800, height: 600 });
   const [view, setView] = useState({ x: 60, y: 60, scale: 1 });
-  const { preview: placementPreview, previewProject } = useCanvasPlacement({ placement, commitPlacement, cancelPlacement, host, project, circuit, view, readOnly });
+  const { preview: placementPreview, previewProject } = useCanvasPlacement({ placement, commitPlacement, cancelPlacement, hintPlacement, host, project, circuit, view, readOnly });
   // Safari may defer animation frames after native file dialogs. Paused edits
   // must paint on commit rather than wait for Konva's next animation frame.
   useEffect(() => {
@@ -167,7 +168,13 @@ function Canvas({
         (e.target as HTMLElement).closest("input,textarea,select,[role=dialog]")
       )
         return;
-      if (e.code === "Space") {
+      // Space must still activate a focused button, tab or disclosure.
+      if (
+        e.code === "Space" &&
+        !(e.target as HTMLElement).closest(
+          "button,summary,a[href],[role=tab],[role=button],[contenteditable=true]",
+        )
+      ) {
         e.preventDefault();
         if (e.repeat) return;
         setSpace(true);
@@ -196,7 +203,13 @@ function Canvas({
         setMarquee(undefined);
         setWaypoints([]);
       }
-      if (e.key.toLowerCase() === "r") setHorizontal((v) => !v);
+      if (
+        e.key.toLowerCase() === "r" &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.altKey
+      )
+        setHorizontal((v) => !v);
     };
     const up = (e?: KeyboardEvent) => {
       if (!e || e.code === "Space") {
@@ -418,18 +431,26 @@ function Canvas({
         onWheel={(e) => {
           e.evt.preventDefault();
           const pos = stage.current!.getPointerPosition()!;
+          const unit = e.evt.deltaMode === 1 ? 16 : e.evt.deltaMode === 2 ? size.height : 1;
           if (e.evt.shiftKey) {
+            // Some platforms already convert Shift-wheel to deltaX; others
+            // leave it vertical. Either way Shift-wheel pans horizontally.
+            const swapped = e.evt.deltaX === 0;
             setView((v) => ({
               ...v,
-              x: v.x - e.evt.deltaY,
-              y: v.y - e.evt.deltaX,
+              x: v.x - (swapped ? e.evt.deltaY : e.evt.deltaX) * unit,
+              y: v.y - (swapped ? 0 : e.evt.deltaY) * unit,
             }));
             return;
           }
-          const scale = Math.min(
-            3,
-            Math.max(0.1, view.scale * (e.evt.deltaY > 0 ? 0.92 : 1.08)),
+          // Scale with the wheel distance so trackpad and pinch (Ctrl-wheel)
+          // gestures, which send many small deltas, zoom smoothly. A mouse
+          // notch (about 100px) keeps an 8% step.
+          const step = Math.max(
+            -0.15,
+            Math.min(0.15, e.evt.deltaY * unit * (e.evt.ctrlKey ? 0.01 : 0.0008)),
           );
+          const scale = Math.min(3, Math.max(0.1, view.scale * Math.exp(-step)));
           setView({
             scale,
             x: pos.x - ((pos.x - view.x) * scale) / view.scale,

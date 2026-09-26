@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from "react";
 import type { Component } from "../model/types";
 import { decodeMemory, encodeMemory } from "../persistence/memoryFile";
+import NumberField from "./NumberField";
 export default function MemoryEditor({
   component,
   id,
@@ -20,12 +21,14 @@ export default function MemoryEditor({
   importWords: (start: number, words: number[]) => void;
   t: (s: string) => string;
 }) {
-  const [address, setAddress] = useState(0),
+  const [requestedAddress, setAddress] = useState(0),
     [base, setBase] = useState<10 | 16>(16),
     [endian, setEndian] = useState<"little" | "big">("little"),
     [error, setError] = useState("");
   const file = useRef<HTMLInputElement>(null),
     size = 2 ** (component.params.addressBits ?? 8),
+    // Selecting a smaller memory must not leave the view past its end.
+    address = Math.min(requestedAddress, size - 1),
     words =
       component.kind === "rom"
         ? Array.from({ length: size }, (_, i) => component.image?.[i] ?? 0)
@@ -73,16 +76,11 @@ export default function MemoryEditor({
       <div className="timeline-controls">
         <label>
           {t("address")}
-          <input
-            type="number"
+          <NumberField
             min={0}
             max={size - 1}
             value={address}
-            onChange={(e) =>
-              setAddress(
-                Math.max(0, Math.min(size - 1, Number(e.target.value))),
-              )
-            }
+            commit={setAddress}
           />
         </label>
         <select
@@ -158,6 +156,9 @@ export default function MemoryEditor({
               key={`${address + i}:${v}:${base}`}
               defaultValue={v < 0 ? "X" : v.toString(base).toUpperCase()}
               disabled={running || readOnly}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+              }}
               onBlur={(e) => {
                 if (
                   e.target.value ===
@@ -171,7 +172,8 @@ export default function MemoryEditor({
                       : /^\d+$/.test(text),
                   n = parseInt(text, base);
                 if (!valid || n > 2 ** component.width - 1) {
-                  e.target.value = v < 0 ? "X" : v.toString(base);
+                  e.target.value =
+                    v < 0 ? "X" : v.toString(base).toUpperCase();
                   setError("invalidMemoryWord");
                   return;
                 }

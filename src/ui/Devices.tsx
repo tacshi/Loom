@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import type { Snapshot } from "../simulator/engine";
 import { defined } from "../simulator/signal";
 export default function Devices({
@@ -13,9 +13,17 @@ export default function Devices({
   t: (s: string) => string;
 }) {
   const [draft, setDraft] = useState<Record<string, string>>({});
+  const devices = Object.entries(snapshot.devices ?? {});
+  const fits = (id: string, queued: number, extra = 0) =>
+    new TextEncoder().encode(draft[id] ?? "").length + queued + extra <= 256;
+  const sendLine = (id: string) => {
+    submit(id, (draft[id] ?? "") + "\n");
+    setDraft({ ...draft, [id]: "" });
+  };
   return (
     <section className="devices-panel" aria-label={t("devices")}>
-      {Object.entries(snapshot.devices ?? {}).map(([id, d]) => (
+      {!devices.length && <p className="devices-empty">{t("noDevices")}</p>}
+      {devices.map(([id, d]) => (
         <div key={id}>
           <h3>{id}</h3>
           {d.kind === "keyboard" ? (
@@ -37,6 +45,15 @@ export default function Devices({
                 aria-label={t("keyboardInput") + " " + id}
                 value={draft[id] ?? ""}
                 onChange={(e) => setDraft({ ...draft, [id]: e.target.value })}
+                onKeyDown={(e) => {
+                  // Enter sends the line; Shift+Enter inserts a newline.
+                  if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing)
+                    return;
+                  e.preventDefault();
+                  if (!readOnly && draft[id] && fits(id, d.queue.length, 1))
+                    sendLine(id);
+                }}
+                title={t("keyboardEnterHint")}
               />
               <div>
                 <span>
@@ -44,28 +61,14 @@ export default function Devices({
                 </span>
                 <button
                   type="button"
-                  disabled={
-                    readOnly || !draft[id] ||
-                    new TextEncoder().encode(draft[id] ?? "").length +
-                      d.queue.length +
-                      1 >
-                      256
-                  }
-                  onClick={() => {
-                    submit(id, (draft[id] ?? "") + "\n");
-                    setDraft({ ...draft, [id]: "" });
-                  }}
+                  disabled={readOnly || !draft[id] || !fits(id, d.queue.length, 1)}
+                  onClick={() => sendLine(id)}
                 >
                   {t("sendLine")}
                 </button>
                 <button
                   type="submit"
-                  disabled={
-                    readOnly || !draft[id] ||
-                    new TextEncoder().encode(draft[id] ?? "").length +
-                      d.queue.length >
-                      256
-                  }
+                  disabled={readOnly || !draft[id] || !fits(id, d.queue.length)}
                 >
                   {t("sendInput")}
                 </button>
@@ -73,9 +76,10 @@ export default function Devices({
             </form>
           ) : d.kind === "terminal" ? (
             <>
-              <pre role="log" aria-label={t("terminalOutput") + " " + id}>
-                {new TextDecoder().decode(new Uint8Array(d.bytes)) || " "}
-              </pre>
+              <TerminalLog
+                label={t("terminalOutput") + " " + id}
+                text={new TextDecoder().decode(new Uint8Array(d.bytes))}
+              />
               {d.uncertain && <p>{t("unknownDeviceState")}</p>}
             </>
           ) : (
@@ -103,5 +107,28 @@ export default function Devices({
         </div>
       ))}
     </section>
+  );
+}
+
+/** Keeps the newest output visible unless the reader has scrolled back. */
+function TerminalLog({ label, text }: { label: string; text: string }) {
+  const log = useRef<HTMLPreElement>(null),
+    pinned = useRef(true);
+  useLayoutEffect(() => {
+    if (pinned.current && log.current)
+      log.current.scrollTop = log.current.scrollHeight;
+  }, [text]);
+  return (
+    <pre
+      ref={log}
+      role="log"
+      aria-label={label}
+      onScroll={(e) => {
+        const el = e.currentTarget;
+        pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 8;
+      }}
+    >
+      {text || " "}
+    </pre>
   );
 }

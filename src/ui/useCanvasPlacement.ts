@@ -27,6 +27,8 @@ export type PlacementProps = {
   placement?: PlacementDraft;
   commitPlacement: (draft: PlacementDraft, at: Point) => boolean;
   cancelPlacement: () => void;
+  /** Called when a palette item is clicked instead of dragged. */
+  hintPlacement?: () => void;
 };
 export function useCanvasPlacement(
   props: PlacementProps & {
@@ -163,6 +165,7 @@ export function useCanvasPlacement(
     const up = (e: PointerEvent) => {
       if (!finished && e.pointerId === draft.pointerId) {
         if (active) update({ x: e.clientX, y: e.clientY });
+        else latest.current.hintPlacement?.();
         commit();
       }
     };

@@ -19,7 +19,7 @@ Use **Pan canvas**, or hold **Space** while dragging. Scroll zooms around the po
 | Shortcut           | Action                                              |
 | ------------------ | --------------------------------------------------- |
 | Cmd/Ctrl Z         | Undo                                                |
-| Cmd/Ctrl Shift Z   | Redo                                                |
+| Cmd/Ctrl Shift Z   | Redo (Ctrl Y also works)                            |
 | Cmd/Ctrl A         | Select all components                               |
 | Cmd/Ctrl C / V     | Copy / paste selected components and internal wires |
 | Cmd/Ctrl D         | Duplicate                                           |
@@ -27,7 +27,7 @@ Use **Pan canvas**, or hold **Space** while dragging. Scroll zooms around the po
 | Escape             | Cancel wiring, drag, or dialog                      |
 | Cmd/Ctrl K         | Search the component library                        |
 
-Text fields retain their normal editing shortcuts. Component names and functional labels stay on one line; the inspector exposes the complete name.
+Text fields retain their normal editing shortcuts, and Cmd/Ctrl C copies selected page text normally. Typing in a name field forms one undo step. Component names and functional labels stay on one line; the inspector exposes the complete name.
 
 ## Hierarchy and replacement
 
@@ -81,7 +81,7 @@ Browser storage can be cleared or evicted. Keep independent `.loom.json` exports
 
 **History.** Debug → Signal history offers retained runs, cycle/event seeking, backward cycle/instruction steps, and two measurement cursors. Instruction steps appear only for CPUs. Each signal has one graph: live while running, retained history while paused. Seek pauses execution. Continuing from history branches into a new run; select an older run to compare it. Up to four runs share a 10,000-cycle and 64 MiB accounted-storage budget. Complete checkpoint segments are evicted. History is never saved in project files. Topology, parameter and ROM edits reset the simulation session; positions and names preserve it. Inspect transaction rows for clock-qualified device reads and writes.
 
-**Memory and devices.** Select a RAM or ROM component to inspect its paged editor. Pause before changing words or importing a `.bin` or hexadecimal `.hex`/`.txt` image. Imports start at the selected address; binary words default to little endian. RAM changes are runtime events and can be rewound. ROM changes update the project and reset history. Devices shows only the selected simulation's peripherals. Send input queues exact UTF-8 bytes; Send line appends a newline. The keyboard queue holds 256 bytes. The terminal retains its most recent 65,536 bytes and the display has 64 × 32 monochrome pixels.
+**Memory and devices.** Select a RAM or ROM component to inspect its paged editor. Pause before changing words or importing a `.bin` or hexadecimal `.hex`/`.txt` image. Imports start at the selected address; binary words default to little endian. RAM changes are runtime events and can be rewound. ROM changes update the project and reset history. Devices shows only the selected simulation's peripherals. Send input queues exact UTF-8 bytes; Send line appends a newline. In the keyboard box, Enter sends a line and Shift+Enter inserts a newline. The terminal follows new output unless you scroll back. The keyboard queue holds 256 bytes. The terminal retains its most recent 65,536 bytes and the display has 64 × 32 monochrome pixels.
 
 **Calculator.** Choose Loom 8 I/O · Calculator, type `12+34`, and Send line. Run at 1000 Hz or higher. The terminal prints `46`. Operands range from 0 to 255; addition and subtraction produce results from −255 to 510. Invalid expressions print `?` and discard the rest of that line. The CPU assembly program performs parsing, validation, arithmetic and decimal formatting. Browser code only queues bytes and displays peripheral state.
 

@@ -17,11 +17,10 @@ export default function AppearanceEditor({
   apply: (a: ComponentAppearance) => boolean;
   t: (s: string) => string;
 }) {
-  const [draft, setDraft] = useState<ComponentAppearance>({ rotation: 0 });
-  useEffect(() => {
+  const current = (): ComponentAppearance => {
     const a = appearance(component, project),
       g = baseGeometry(component, project);
-    setDraft({
+    return {
       ...a,
       width: g.w,
       height: g.h,
@@ -31,8 +30,11 @@ export default function AppearanceEditor({
           pinLayout(component, p.id, project),
         ]),
       ),
-    });
-  }, [component]);
+    };
+  };
+  // Start from the component's layout so the size fields are never blank.
+  const [draft, setDraft] = useState<ComponentAppearance>(current);
+  useEffect(() => setDraft(current()), [component]);
   return (
     <details className="appearance-editor">
       <summary>{t("appearance")}</summary>
