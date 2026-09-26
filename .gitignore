@@ -4,6 +4,7 @@ test-results/
 playwright-report/
 *.tsbuildinfo
 .DS_Store
+.claude/
 docs/verification/dense.loom.json
 coverage/
 *.log
