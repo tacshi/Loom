@@ -106,6 +106,7 @@ export function pasteSelection(
       from: { ...w.from, component: mapping.get(w.from.component)! },
       to: { ...w.to, component: mapping.get(w.to.component)! },
       points: w.points.map((p) => ({ x: p.x + 40, y: p.y + 40 })),
+      junction: w.junction && { x: w.junction.x + 40, y: w.junction.y + 40 },
     });
   for (const m of clipboard.markers)
     c.markers.push({
@@ -119,6 +120,23 @@ export function pasteSelection(
         : undefined,
     });
   return [...mapping.values()];
+}
+/** Moves clipboard contents so the next paste lands beside the previous one. */
+export function offsetClipboard(clipboard: Clipboard, by: number): Clipboard {
+  return {
+    ...clipboard,
+    components: clipboard.components.map((c) => ({
+      ...c,
+      x: c.x + by,
+      y: c.y + by,
+    })),
+    wires: clipboard.wires.map((w) => ({
+      ...w,
+      points: w.points.map((p) => ({ x: p.x + by, y: p.y + by })),
+      junction: w.junction && { x: w.junction.x + by, y: w.junction.y + by },
+    })),
+    markers: clipboard.markers.map((m) => ({ ...m, x: m.x + by, y: m.y + by })),
+  };
 }
 export function addConnection(project: Project, circuitId: string, wire: Wire) {
   connect(project.circuits[circuitId], project, wire);

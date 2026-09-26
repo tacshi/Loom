@@ -48,7 +48,6 @@ for (const size of [
           })
           .click();
       };
-      await page.getByRole("button", { name: label("Challenge", "挑战"), exact: true }).click();
       await connect(label("a Input port","a 输入端口"),"out",label("out Output port","out 输出端口"),"in");
       await page
         .getByRole("tab", { name: label("Learn", "学习"), exact: true })
@@ -59,17 +58,14 @@ for (const size of [
           exact: true,
         })
         .click();
-      await expect(
-        page.getByText(
-          label("Verified component saved.", "已保存验证后的元件。"),
-          { exact: true },
-        ),
-      ).toBeVisible();
+      await expect(page.getByRole("status").filter({
+        hasText: label("Mission complete: ", "任务完成："),
+      })).toBeVisible();
       await page
-        .getByRole("button", { name: label("Continue", "继续"), exact: true })
+        .getByRole("button", { name: label("Next mission", "下一个任务"), exact: true })
         .click();
       await expect(page.locator(".course-heading h2")).toHaveText(
-        label("Both inputs must be on (AND)", "两个输入都为开（与）"),
+        label("One switch, two outputs", "用一个开关控制两个输出"),
       );
       const name = page.getByLabel(label("Project", "工程"), { exact: true });
       await name.fill(label("Keyboard draft", "键盘草稿"));

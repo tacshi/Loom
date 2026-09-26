@@ -190,13 +190,13 @@ test("course progress resumes offline and a second tab cannot overwrite it", asy
   await expect(page.locator(".course-heading h2")).toHaveText(
     "Make an inverter from NAND",
   );
-  await page.getByRole("button", { name: "Lessons", exact: true }).click();
+  await page.getByRole("button", { name: "Select lesson", exact: true }).click();
   await expect(
-    page.getByRole("button", {
-      name: "Build NAND ✓",
-      exact: true,
-    }),
+    page
+      .locator("#mission-options")
+      .getByRole("button", { name: "05 · Build NOT AND: NAND ✓", exact: true }),
   ).toBeVisible();
+  await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Run tests", exact: true }).click();
   await expect(page.locator(".test-mismatch")).toBeVisible();
 });

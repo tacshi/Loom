@@ -38,7 +38,7 @@ import {
 } from "../cpu/ioCircuit";
 import Libraries from "./Libraries";
 import { forkDefinition } from "../library/package";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   Play,
   CircuitBoard,
@@ -65,6 +65,7 @@ import {
   type Endpoint,
 } from "../model/types";
 import AppearanceEditor from "./AppearanceEditor";
+import NumberField from "./NumberField";
 import NetInspector from "./NetInspector";
 import { categories, ports, validateAppearance, geometry } from "../model/components";
 import {
@@ -80,6 +81,7 @@ import {
   editProject,
   copySelection,
   pasteSelection,
+  offsetClipboard,
   addConnection,
   remapComponent,
   type Clipboard,
@@ -146,9 +148,13 @@ export default function App() {
   const [lang, setLang] = useState<Language>(() =>
     localStorage.getItem("loom-language") === "zh" ? "zh" : "en",
   );
-  const [dark, setDark] = useState(
-    () => localStorage.getItem("loom-theme") === "dark",
-  );
+  const [dark, setDark] = useState(() => {
+    const stored = localStorage.getItem("loom-theme");
+    // Follow the system appearance until the user picks a theme.
+    return stored
+      ? stored === "dark"
+      : matchMedia("(prefers-color-scheme: dark)").matches;
+  });
   const [pending, setPending] = useState<Endpoint>();
   const [notice, setNotice] = useState("");
   const [search, setSearch] = useState("");
@@ -166,6 +172,9 @@ export default function App() {
   const activeId = nav.at(-1)?.circuit ?? project.root;
   const circuit = project.circuits[activeId] ?? project.circuits[project.root];
   const circuitTitle = savedDocument.course && !nav.length ? exercise(savedDocument.course.active).title[lang === "zh" ? 1 : 0] : circuit.name;
+  const parentTitle = nav.length > 1
+    ? project.circuits[nav.at(-2)!.circuit]?.name
+    : savedDocument.course ? exercise(savedDocument.course.active).title[lang === "zh" ? 1 : 0] : project.circuits[project.root].name;
   const visual = useVisualTests(project, project.root);
   const snapshot = visual.snapshot ?? sim.snapshot;
   const mode = savedDocument.course ? exercise(savedDocument.course.active).lesson.mode : circuitMode(project, project.root);
@@ -218,9 +227,8 @@ export default function App() {
     sourceBreakpoints,
     project.id,
   ]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     document.documentElement.dataset.theme = dark ? "dark" : "light";
-    localStorage.setItem("loom-theme", dark ? "dark" : "light");
   }, [dark]);
   useEffect(() => {
     document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
@@ -256,7 +264,7 @@ export default function App() {
       setNotice(t("loadFailed"));
     }
   }
-  function editDocument(action: (p: Project) => void): boolean {
+  function editDocument(action: (p: Project) => void, group?: string): boolean {
     if (savedDocument.courseReference) {
       setNotice(
         lang === "zh"
@@ -276,7 +284,7 @@ export default function App() {
     }
     try {
       const next = editProject(savedDocument, action);
-      currentHistory.push(savedDocument);
+      currentHistory.push(savedDocument, group);
       next.updatedAt = Date.now();
       setProject(next);
       return true;
@@ -285,10 +293,10 @@ export default function App() {
       return false;
     }
   }
-  function edit(action: (p: Project) => void): boolean {
+  function edit(action: (p: Project) => void, group?: string): boolean {
     if(learningScene)return false;
     if(visual.active){cancelCourseCheck.current();visual.close();}
-    return editDocument(action);
+    return editDocument(action, group);
   }
   function editCourseRecord(action:(p:Project)=>void):boolean {
     if(!persistence.writable||openingId)return false;
@@ -440,6 +448,7 @@ export default function App() {
     )
       return false;
     setSelected([c.id]);
+    setNotice("");
     return true;
   }
   function remove() {
@@ -457,15 +466,20 @@ export default function App() {
   function undo(){if(persistence.writable&&!learningScene)restoreHistory(currentHistory.undo(savedDocument));}
   function redo(){if(persistence.writable&&!learningScene)restoreHistory(currentHistory.redo(savedDocument));}
   function copy() {
-    clipboard.current = copySelection(project, activeId, selected);
+    const copied = copySelection(project, activeId, selected);
+    if (copied.components.length) clipboard.current = copied;
   }
   function paste() {
-    if (clipboard.current)
-      edit((p) => setSelected(pasteSelection(p, activeId, clipboard.current!)));
+    const copied = clipboard.current;
+    if (!copied) return;
+    if (edit((p) => setSelected(pasteSelection(p, activeId, copied))))
+      // Repeated pastes cascade instead of stacking on the previous copy.
+      clipboard.current = offsetClipboard(copied, 40);
   }
   function duplicate() {
     const copied = copySelection(project, activeId, selected);
-    edit((p) => setSelected(pasteSelection(p, activeId, copied)));
+    if (copied.components.length)
+      edit((p) => setSelected(pasteSelection(p, activeId, copied)));
   }
   function toggle(id: string) {
     if (!!learningScene) {
@@ -653,6 +667,10 @@ export default function App() {
         e.preventDefault();
         e.shiftKey ? redo() : undo();
       }
+      if (e.ctrlKey && !e.metaKey && e.key.toLowerCase() === "y") {
+        e.preventDefault();
+        redo();
+      }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "d") {
         e.preventDefault();
         duplicate();
@@ -671,7 +689,12 @@ export default function App() {
         e.preventDefault();
         setSelected(circuit.components.map((c) => c.id));
       }
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "c") {
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        e.key.toLowerCase() === "c" &&
+        // Leave ordinary text copying (lesson text, reports) to the browser.
+        !window.getSelection()?.toString()
+      ) {
         e.preventDefault();
         copy();
       }
@@ -688,6 +711,30 @@ export default function App() {
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
   });
+  const query = search.trim().toLowerCase();
+  const matchesSearch = (...labels: string[]) =>
+    labels.some((label) => label.toLowerCase().includes(query));
+  const allowed = allowedKinds(savedDocument);
+  const palette = categories
+    .map((category) => ({
+      id: category.id,
+      kinds: category.kinds.filter(
+        (k) => (!allowed || allowed.includes(k)) && matchesSearch(t(k), k),
+      ),
+      builtins: savedDocument.course
+        ? []
+        : builtinCircuits.filter(
+            (b) => b.category === category.id && matchesSearch(t(b.id)),
+          ),
+    }))
+    .filter((category) => category.kinds.length || category.builtins.length);
+  const customPalette = Object.values(project.circuits).filter(
+    (c) =>
+      c.id !== project.root &&
+      c.id !== activeId &&
+      (!savedDocument.course || acceptedRoots(savedDocument).includes(c.id)) &&
+      matchesSearch(subcircuitLabel(c, lang), c.name),
+  );
   const modalOpen =
     showProjects ||
     showLibraries ||
@@ -723,9 +770,10 @@ export default function App() {
           value={project.name}
           disabled={!!savedDocument.courseReference || !!openingId || !persistence.writable || sim.isolated}
           onChange={(e) => {
-            currentHistory.push(savedDocument);
+            currentHistory.push(savedDocument, "project-name");
             setProject({...savedDocument,name:e.target.value,updatedAt:Date.now()});
           }}
+          onBlur={() => currentHistory.seal()}
         />
         <span className="local-indicator" data-status={persistence.status} title={t(persistence.status)}>
           {t(openingId ? "loading" : persistence.status === "loadFailed" ? "projectUnavailable" : persistence.status)}
@@ -766,7 +814,10 @@ export default function App() {
           </button>
           <button
             aria-label={dark ? t("light") : t("dark")}
-            onClick={() => setDark(!dark)}
+            onClick={() => {
+              localStorage.setItem("loom-theme", dark ? "light" : "dark");
+              setDark(!dark);
+            }}
           >
             {dark ? <Sun size={18} /> : <Moon size={18} />}
           </button>
@@ -841,13 +892,13 @@ export default function App() {
                   <button key={n.id} onClick={() => setSelected([n.id])}>
                     {n.name || n.id}{" "}
                     <small>
-                      {n.width}-bit · {n.ports.length}
+                      {n.width} {t("bits")} · {n.ports.length} {t("ports").toLowerCase()}
                     </small>
                   </button>
                 ))}
               </details>
               <details>
-                <summary>{t("wires")}</summary>
+                <summary>{t("wireList")}</summary>
                 {circuit.wires.map((w) => (
                   <button key={w.id} onClick={() => setSelected([w.id])}>
                     {
@@ -880,29 +931,13 @@ export default function App() {
                   title={t("search") + " (⌘ K / Ctrl K)"}
                 />
               </label>
-              {categories
-                .filter(
-                  (category) =>
-                    !allowedKinds(savedDocument) ||
-                    category.kinds.some((k) =>
-                      allowedKinds(savedDocument)!.includes(k),
-                    ),
-                )
-                .map((category) => (
+              {palette.map((category) => (
                   <section key={category.id}>
                     <h3>
                       {t(category.id)}
                     </h3>
                     <div className="component-grid">
                       {category.kinds
-                        .filter(
-                          (k) =>
-                            !allowedKinds(savedDocument) ||
-                            allowedKinds(savedDocument)!.includes(k),
-                        )
-                        .filter((k) =>
-                          t(k).toLowerCase().includes(search.toLowerCase()),
-                        )
                         .map((k) => (
                           <button
                             key={k}
@@ -947,7 +982,7 @@ export default function App() {
                             <span>{t(k)}</span>
                           </button>
                         ))}
-                      {!savedDocument.course && builtinCircuits.filter(b => b.category === category.id && t(b.id).toLowerCase().includes(search.toLowerCase())).map(b => (
+                      {category.builtins.map(b => (
                         <button key={b.id} className="component-item" {...placementSource({ builtin: b.id })} aria-label={t(b.id)} title={t(b.id)}>
                           <span className="symbol">{b.symbol}</span><span>{t(b.id)}</span>
                         </button>
@@ -955,23 +990,11 @@ export default function App() {
                     </div>
                   </section>
                 ))}
-              {Object.values(project.circuits).filter(
-                (c) =>
-                  c.id !== project.root &&
-                  c.id !== activeId &&
-                  (!savedDocument.course || acceptedRoots(savedDocument).includes(c.id)),
-              ).length > 0 && (
+              {customPalette.length > 0 && (
                 <section>
                   <h3>{t("subcircuits")}</h3>
                   <div className="component-grid subcircuit-list">
-                    {Object.values(project.circuits)
-                      .filter(
-                        (c) =>
-                          c.id !== project.root &&
-                          c.id !== activeId &&
-                          (!savedDocument.course ||
-                            acceptedRoots(savedDocument).includes(c.id)),
-                      )
+                    {customPalette
                       .map((c) => (
                         <button
                           key={c.id}
@@ -987,6 +1010,11 @@ export default function App() {
                       ))}
                   </div>
                 </section>
+              )}
+              {!palette.length && !customPalette.length && (
+                <p className="palette-empty" role="status">
+                  {t("noComponentMatches")}
+                </p>
               )}
             </>
           )}
@@ -1022,8 +1050,15 @@ export default function App() {
                   adder: fullAdder,
                 };
                 if (e.target.value) {
+                  let example: Project;
+                  try {
+                    example = factories[e.target.value as keyof typeof factories]();
+                  } catch {
+                    setNotice(t("exampleFailed"));
+                    return;
+                  }
                   void openProject(
-                    { ...factories[e.target.value as keyof typeof factories](), exampleId: e.target.value as ExampleId },
+                    { ...example, exampleId: e.target.value as ExampleId },
                     e.target.value === "segmentCpu" ? "Digit" : undefined,
                   );
                   setShowProgram(["cpu", "segmentCpu"].includes(e.target.value));
@@ -1102,19 +1137,20 @@ export default function App() {
                 <Redo2 size={17} />
               </button>
             </div>
-            <button
-              className="breadcrumb"
-              onClick={() => {
-                setNav(nav.slice(0, -1));
-                setSelected([]);
-                setPending(undefined);
-                setFocus(undefined);
-              }}
-              disabled={!nav.length}
-            >
-              {nav.length ? "← " : ""}
-              {circuitTitle}
-            </button>
+            {nav.length > 0 && (
+              <button
+                className="breadcrumb"
+                title={`${t("backTo")} ${parentTitle}`}
+                onClick={() => {
+                  setNav(nav.slice(0, -1));
+                  setSelected([]);
+                  setPending(undefined);
+                  setFocus(undefined);
+                }}
+              >
+                ← {circuitTitle}
+              </button>
+            )}
             <div className="sim-controls">
               <div className="test-controls">
               <button disabled={!!savedDocument.course?.needsVerification || !persistence.writable} onClick={runVisualTests}><Play size={16} aria-hidden="true" />{t('runVisualTests')}</button>
@@ -1203,6 +1239,7 @@ export default function App() {
             placement={placement}
             commitPlacement={commitPlacement}
             cancelPlacement={() => setPlacement(undefined)}
+            hintPlacement={() => setNotice(t("placementInstructions"))}
             notice={notice}
             dismissNotice={() => setNotice("")}
             running={sim.running && !sim.isolated && !visual.active}
@@ -1374,28 +1411,27 @@ export default function App() {
                       p.circuits[activeId].components.find(
                         (c) => c.id === component.id,
                       )!.name = e.target.value;
-                    })
+                    }, "name:" + activeId + "/" + component.id)
                   }
+                  onBlur={() => currentHistory.seal()}
                 />
               </label>
               {!["sevenSegment", "button"].includes(component.kind) && (
                 <label>
                   {t("width")}
-                  <input
-                    type="number"
+                  <NumberField
+                    key={component.id}
                     min={1}
                     max={32}
                     value={component.width}
-                    onChange={(e) =>
+                    commit={(width) =>
                       edit((p) => {
                         p.circuits[activeId].components.find(
                           (c) => c.id === component.id,
-                        )!.width = Math.min(
-                          32,
-                          Math.max(1, Math.trunc(Number(e.target.value))),
-                        );
-                      })
+                        )!.width = width;
+                      }, "width:" + activeId + "/" + component.id)
                     }
+                    onBlur={() => currentHistory.seal()}
                   />
                 </label>
               )}
@@ -1403,25 +1439,20 @@ export default function App() {
                 (component.kind === "portIn" && !nav.length)) && (
                 <label>
                   {t("value")}
-                  <input
+                  <NumberField
+                    key={component.id}
                     aria-label={t("value")}
-                    type="number"
                     min={0}
                     max={2 ** component.width - 1}
                     value={component.params.value ?? 0}
-                    onChange={(e) =>
+                    commit={(value) =>
                       edit((p) => {
                         p.circuits[activeId].components.find(
                           (c) => c.id === component.id,
-                        )!.params.value = Math.max(
-                          0,
-                          Math.min(
-                            2 ** component.width - 1,
-                            Math.trunc(Number(e.target.value)),
-                          ),
-                        );
-                      })
+                        )!.params.value = value;
+                      }, "value:" + activeId + "/" + component.id)
                     }
+                    onBlur={() => currentHistory.seal()}
                   />
                 </label>
               )}
@@ -1440,8 +1471,9 @@ export default function App() {
                           p.circuits[activeId].ports.find(
                             (p) => p.componentId === component.id,
                           )!.name = e.target.value;
-                        })
+                        }, "port:" + activeId + "/" + component.id)
                       }
+                      onBlur={() => currentHistory.seal()}
                     />
                   </label>
                 )}
@@ -1638,39 +1670,38 @@ export default function App() {
               {["register", "counter", "dff"].includes(component.kind) && (
                 <label>
                   {t("initialValue")}
-                  <input
-                    type="number"
+                  <NumberField
+                    key={component.id}
                     min={0}
                     max={2 ** component.width - 1}
                     value={component.params.initial ?? 0}
-                    onChange={(e) =>
+                    commit={(initial) =>
                       edit((p) => {
                         p.circuits[activeId].components.find(
                           (c) => c.id === component.id,
-                        )!.params.initial = Math.trunc(Number(e.target.value));
-                      })
+                        )!.params.initial = initial;
+                      }, "initial:" + activeId + "/" + component.id)
                     }
+                    onBlur={() => currentHistory.seal()}
                   />
                 </label>
               )}
               {["ram", "rom"].includes(component.kind) && (
                 <label>
                   {t("addressBits")}
-                  <input
-                    type="number"
+                  <NumberField
+                    key={component.id}
                     min={1}
                     max={16}
                     value={component.params.addressBits ?? 8}
-                    onChange={(e) =>
+                    commit={(addressBits) =>
                       edit((p) => {
                         p.circuits[activeId].components.find(
                           (c) => c.id === component.id,
-                        )!.params.addressBits = Math.max(
-                          1,
-                          Math.min(16, Math.trunc(Number(e.target.value))),
-                        );
-                      })
+                        )!.params.addressBits = addressBits;
+                      }, "addressBits:" + activeId + "/" + component.id)
                     }
+                    onBlur={() => currentHistory.seal()}
                   />
                 </label>
               )}
@@ -1884,12 +1915,21 @@ export default function App() {
       )}{" "}
       {showExtract && (
         <div className="modal-backdrop" onClick={() => setShowExtract(false)}>
-          <section
+          <form
             role="dialog"
             aria-modal="true"
             aria-label={t("package")}
             className="dialog"
             onClick={(e) => e.stopPropagation()}
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!extractName.trim()) return;
+              edit((p) => {
+                const id = extract(p, activeId, selected, extractName.trim());
+                setSelected([id]);
+              });
+              setShowExtract(false);
+            }}
           >
             <h2>{t("package")}</h2>
             <label>
@@ -1901,28 +1941,14 @@ export default function App() {
               />
             </label>
             <div className="project-actions">
-              <button
-                disabled={!extractName.trim()}
-                onClick={() => {
-                  edit((p) => {
-                    const id = extract(
-                      p,
-                      activeId,
-                      selected,
-                      extractName.trim(),
-                    );
-                    setSelected([id]);
-                  });
-                  setShowExtract(false);
-                }}
-              >
+              <button type="submit" disabled={!extractName.trim()}>
                 {t("package")}
               </button>
-              <button onClick={() => setShowExtract(false)}>
+              <button type="button" onClick={() => setShowExtract(false)}>
                 {t("close")}
               </button>
             </div>
-          </section>
+          </form>
         </div>
       )}
       {showTests && (

@@ -192,6 +192,11 @@ main {
 .library section {
   padding: 7px 14px 15px;
 }
+.palette-empty {
+  margin: 8px 16px;
+  color: var(--muted);
+  font-size: 0.93rem;
+}
 .library h3 {
   display: flex;
   justify-content: space-between;
@@ -278,6 +283,11 @@ main {
 .breadcrumb {
   font-size: 0.93rem;
   color: var(--muted);
+  min-width: 0;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
 }
 .toolbar-right {
   margin-left: auto;
@@ -684,7 +694,7 @@ th {
 }
 @media (max-width: 1100px) {
   .breadcrumb {
-    display: none;
+    max-width: 120px;
   }
   .sim-controls select {
     width: 72px;
@@ -1368,6 +1378,10 @@ button.primary:hover:not(:disabled) {
   max-height: 45vh;
   overflow: auto;
   border-top: 1px solid var(--border);
+}
+.devices-empty {
+  color: var(--muted);
+  font-size: 0.93rem;
 }
 .devices-panel textarea {
   width: 100%;

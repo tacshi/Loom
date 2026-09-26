@@ -171,6 +171,8 @@ export const messages: Record<string, [string, string]> = {
   display: ["Pixel display", "像素显示器"],
   keyboardInput: ["Keyboard input", "键盘输入"],
   queuedBytes: ["queued bytes", "个排队字节"],
+  noDevices: ["This circuit has no keyboard, terminal, or pixel display.", "此电路没有键盘、终端或像素显示器。"],
+  keyboardEnterHint: ["Enter sends the line · Shift+Enter adds a new line", "回车发送一行 · Shift+回车换行"],
   sendInput: ["Send input", "发送输入"],
   terminalOutput: ["Terminal output", "终端输出"],
   unknownDeviceState: [
@@ -286,6 +288,17 @@ export const messages: Record<string, [string, string]> = {
     "此位置没有事件，请选择其他事件顺序。",
   ],
   pauseBeforeEdit: ["Pause before editing memory.", "请先暂停再编辑内存。"],
+  missingKeyboard: [
+    "This circuit has no keyboard device to receive input.",
+    "此电路没有可接收输入的键盘设备。",
+  ],
+  traceRangeLimit: [
+    "Choose a range of at most 1,024 cycles.",
+    "请选择不超过 1024 个周期的范围。",
+  ],
+  exampleFailed: ["This example could not be opened.", "无法打开此示例。"],
+  noComponentMatches: ["No components match your search.", "没有匹配的元件。"],
+  backTo: ["Back to", "返回"],
   keyboardOverflow: [
     "Input exceeds the 256-byte queue. Wait or submit less text.",
     "输入超过256字节队列，请等待或减少输入。",
@@ -297,6 +310,7 @@ export const messages: Record<string, [string, string]> = {
 
   net: ["Signal connection", "信号连接"],
   nets: ["Named connections", "命名连接"],
+  wireList: ["Connections", "连接"],
   netName: ["Connection name", "连接名称"],
   appearance: ["Appearance & pins", "外观与引脚"],
   rotation: ["Rotation", "旋转"],

@@ -142,7 +142,10 @@ test("two production builds retain course and ROM data, and failed saves prevent
     await expect(page.getByLabel("Bug report", { exact: true })).toHaveValue(
       new RegExp("Build: " + "2".repeat(40)),
     );
-    await page.getByRole("button", { name: "Close", exact: true }).click();
+    await page
+      .getByRole("dialog", { name: "Help" })
+      .getByRole("button", { name: "Close", exact: true })
+      .click();
     await page.getByRole("button", { name: "Projects", exact: true }).click();
     const download = page.waitForEvent("download");
     await page

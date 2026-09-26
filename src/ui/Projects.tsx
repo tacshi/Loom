@@ -140,11 +140,17 @@ export default function Projects({
                 key={v.id}
                 className="recovery-row"
                 onClick={async () => {
-                  const p = parseProject(JSON.stringify(v.project));
-                  p.id = uid();
-                  p.name += " — " + t("recovered");
-                  p.updatedAt = Date.now();
-                  await open(p);
+                  try {
+                    const p = parseProject(JSON.stringify(v.project));
+                    p.id = uid();
+                    p.name += " — " + t("recovered");
+                    p.updatedAt = Date.now();
+                    await open(p);
+                  } catch (err) {
+                    setError(
+                      err instanceof Error ? err.message : "invalidProject",
+                    );
+                  }
                 }}
               >
                 {new Date(v.savedAt).toLocaleString()}
