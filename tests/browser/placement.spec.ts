@@ -180,11 +180,10 @@ test("built-in definitions are committed atomically, and subcircuits can be drag
   await page.getByRole("button", { name: "Redo", exact: true }).click();
   const definition =
     placed.circuits[placed.circuits[placed.root].components[0].definitionId!];
-  const source = page
-    .locator(".library")
-    .getByRole("button", { name: definition.name, exact: true });
-  // The built-in's localized label and its definition name may match.
-  const item = source.last();
+  // Drag the project's own definition, not the built-in that shares its name.
+  const item = page
+    .locator(".library .subcircuit-item")
+    .filter({ hasText: definition.name });
   await item.scrollIntoViewIfNeeded();
   const b = (await item.boundingBox())!;
   await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);

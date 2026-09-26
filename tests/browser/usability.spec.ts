@@ -132,7 +132,8 @@ test("undoing a failed edit shows verified status without the obsolete failure",
   await expect(
     page.getByRole("button",{name:"Next mission",exact:true}),
   ).toBeVisible();
-  await expect(page.locator(".course-learn")).not.toContainText(
-    "Check result:",
-  );
+  // The lesson header and the Learn panel both use .course-learn.
+  await expect(
+    page.locator(".course-learn").filter({ hasText: "Check result:" }),
+  ).toHaveCount(0);
 });
