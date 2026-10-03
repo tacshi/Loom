@@ -100,13 +100,13 @@ Browser storage can be cleared or evicted. Keep independent `.loom.json` exports
 
 Open example offers **Hexadecimal decoder**, **Hexadecimal counter**, **ROM hexadecimal display**, and **Loom 8 I/O · seven-segment display**. The decoder accepts four-bit `value` and produces eight-bit `segments`: bits 0–6 drive a–g, and bit 7 drives the decimal point. Hexadecimal glyphs are 0–9, A, b, C, d, E and F. Lit segments are green; unknown signals are amber.
 
-After the course's bus-selection lesson, build and check the decoder. **Try in counter** copies your accepted decoder and its dependencies into a separate counter project. Enable advances the counter; Reset returns it to zero. Your course remains in Projects.
+The **Hexadecimal counter** example connects a counter to a decoder. Enable advances the counter; Reset returns it to zero. Open its Decoder subcircuit to inspect the implementation.
 
 In the ROM example, select **Lookup** in Circuit. Download the [plain-hex lookup table](../public/rom/seven-segment.hex), set **Start address** to 0, then choose **Import memory**. Import replaces only the words starting at the selected address. **Export hex** and **Export binary** save the entire ROM. Hex files contain whitespace-separated hexadecimal words, not Intel HEX records. This eight-bit table has one byte per word; byte order does not change it.
 
 The CPU example starts at 2 Hz and writes each glyph to F7, then halts. Use Run clock or Advance clock to follow the sequence. Edit its commented assembly in Program and choose Assemble & load to run your version. Project export/import preserves circuits and ROM images; runtime history is session-only.
 
-七段数码管示例包括逻辑译码器、计数器、ROM 查表和 CPU 驱动显示。位 0–6 对应 a–g，位 7 对应小数点。课程译码器通过检查后，选择“用于计数器”可在独立工程中运行自己的元件。ROM 文件从所选地址开始导入；导出包含全部 ROM。F7 为段码寄存器，写入 0 可熄灭显示。
+七段数码管示例包括逻辑译码器、计数器、ROM 查表和 CPU 驱动显示。位 0–6 对应 a–g，位 7 对应小数点。可进入计数器示例中的译码器子电路查看实现。ROM 文件从所选地址开始导入；导出包含全部 ROM。F7 为段码寄存器，写入 0 可熄灭显示。
 
 ## Help and problem reports
 

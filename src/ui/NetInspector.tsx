@@ -39,12 +39,14 @@ export default function NetInspector({
   project,
   edit,
   t,
+  readOnly = false,
 }: {
   net: Net;
   circuit: Circuit;
   project: Project;
   edit: (fn: (p: Project) => void) => boolean;
   t: (s: string) => string;
+  readOnly?: boolean;
 }) {
   const [selected, setSelected] = useState("");
   return (
@@ -55,6 +57,7 @@ export default function NetInspector({
       <label>
         {t("netName")}
         <input
+          disabled={readOnly}
           aria-label={t("netName")}
           maxLength={200}
           value={net.name ?? ""}
@@ -74,6 +77,7 @@ export default function NetInspector({
               {portAt(circuit, project, e)?.name ?? e.port}
             </span>
             <button
+              disabled={readOnly}
               aria-label={t("namedConnection") + " " + e.component}
               onClick={() =>
                 edit((p) => {
@@ -91,6 +95,7 @@ export default function NetInspector({
       <label>
         {t("attachPort")}
         <select
+          disabled={readOnly}
           aria-label={t("attachPort")}
           value={selected}
           onChange={(e) => setSelected(e.target.value)}
@@ -111,7 +116,7 @@ export default function NetInspector({
         </select>
       </label>
       <button
-        disabled={!selected}
+        disabled={readOnly || !selected}
         onClick={() =>
           edit((p) => {
             const c = p.circuits[circuit.id],
@@ -130,6 +135,7 @@ export default function NetInspector({
       </button>
       <button
         className="danger"
+        disabled={readOnly}
         onClick={() =>
           edit((p) => {
             const c = p.circuits[circuit.id];

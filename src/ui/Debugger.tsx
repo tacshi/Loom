@@ -9,6 +9,7 @@ import { signalLabel } from "../model/nets";
 import { readableSignal } from "./VisualTests";
 import SignalValue from "./SignalValue";
 import Devices from "./Devices";
+import MomentaryButton from "./MomentaryButton";
 type Props = Omit<ComponentProps<typeof TechnicalDebugger>, "view"> & {
   project: Project;
   circuit: Circuit;
@@ -53,6 +54,7 @@ export default function Debugger(props: Props) {
         continue;
       signals.push({
         label: c.name + " · " + port.name,
+        kind: c.kind,
         direction: "output",
         width: port.width,
         interactive: false,
@@ -159,7 +161,12 @@ export default function Debugger(props: Props) {
                     </small>
                   </span>
                   {s.interactive && !visual.active ? (
-                    width === 1 ? (
+                    s.kind === "button" ? (
+                      <MomentaryButton label={`${t("holdButton")} ${s.label}`}
+                        held={value?.value === 1}
+                        disabled={simulation.isolated || !!simulation.history?.historical}
+                        change={(down, source) => simulation.button([...s.ref.instancePath, s.ref.componentId].join("/"), down, source)} />
+                    ) : width === 1 ? (
                       <button
                         aria-label={`${t("toggleInput")} ${s.label}`}
                         aria-pressed={!!value?.value}

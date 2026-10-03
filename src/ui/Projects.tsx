@@ -4,18 +4,21 @@ import type { Project } from "../model/types";
 import { uid } from "../model/types";
 import { listProjects, recoveries, loadProject } from "../persistence/store";
 import { MAX_FILE_BYTES, parseProject } from "../persistence/validation";
+import { suffixedName } from "../model/names";
 export default function Projects({
   project,
   open,
   close,
   flush,
   t,
+  recoveryProjectId,
 }: {
   project: Project;
   open: (p: Project) => Promise<void>;
   close: () => void;
   flush: () => Promise<boolean>;
   t: (s: string) => string;
+  recoveryProjectId?: string;
 }) {
   const [list, setList] = useState<Awaited<ReturnType<typeof listProjects>>>(
       [],
@@ -23,20 +26,51 @@ export default function Projects({
     [versions, setVersions] = useState<Awaited<ReturnType<typeof recoveries>>>(
       [],
     ),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [busy, setBusy] = useState(false),
+    [recoveryId, setRecoveryId] = useState(recoveryProjectId ?? project.id);
+  const operation = useRef(false);
   const file = useRef<HTMLInputElement>(null);
   useEffect(() => {
-    void listProjects()
-      .then(setList)
+    let live = true;
+    void flush()
+      .then(() => listProjects())
+      .then((items) => {
+        if (live) setList(items);
+      })
       .catch(() => setError("loadFailed"));
-    void recoveries(project.id)
-      .then(setVersions)
+    setVersions([]);
+    void recoveries(recoveryId)
+      .then((items) => {
+        if (live) setVersions(items);
+      })
       .catch(() => {});
-  }, [project.id]);
+    return () => {
+      live = false;
+    };
+  }, [project.id, recoveryId]);
+  useEffect(
+    () => setRecoveryId(recoveryProjectId ?? project.id),
+    [project.id, recoveryProjectId],
+  );
+  async function perform(action: () => Promise<void>) {
+    if (operation.current) return;
+    operation.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      await action();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "loadFailed");
+    } finally {
+      operation.current = false;
+      setBusy(false);
+    }
+  }
   const copy = async () => {
     const p = structuredClone(project);
     p.id = uid();
-    p.name += " — " + t("copy");
+    p.name = suffixedName(p.name, " — " + t("copy"));
     p.updatedAt = Date.now();
     await open(p);
   };
@@ -68,9 +102,15 @@ export default function Projects({
           </button>
         </div>
         <div className="project-actions">
-          <button onClick={download}>{t("export")}</button>
-          <button onClick={() => file.current?.click()}>{t("import")}</button>
-          <button onClick={copy}>{t("duplicateProject")}</button>
+          <button disabled={busy} onClick={() => void perform(download)}>
+            {t("export")}
+          </button>
+          <button disabled={busy} onClick={() => file.current?.click()}>
+            {t("import")}
+          </button>
+          <button disabled={busy} onClick={() => void perform(copy)}>
+            {t("duplicateProject")}
+          </button>
           <button
             onClick={() => {
               void navigator.storage
@@ -93,16 +133,14 @@ export default function Projects({
           onChange={async (e) => {
             const f = e.target.files?.[0];
             if (!f) return;
-            try {
+            await perform(async () => {
               if (f.size > MAX_FILE_BYTES) throw new Error("fileTooLarge");
               const text = await f.text();
               const p = parseProject(text);
               p.id = uid();
               p.updatedAt = Date.now();
               await open(p);
-            } catch (err) {
-              setError(err instanceof Error ? err.message : "invalidProject");
-            }
+            });
             e.target.value = "";
           }}
         />
@@ -115,14 +153,20 @@ export default function Projects({
           {list.map((p) => (
             <button
               key={p.id}
-              onClick={async () => {
-                try {
-                  const loaded = await loadProject(p.id);
-                  if (loaded) await open(loaded);
-                } catch {
-                  setError("loadFailed");
-                }
-              }}
+              disabled={busy}
+              onClick={() =>
+                void perform(async () => {
+                  if (!(await flush())) throw new Error("saveFailed");
+                  try {
+                    const loaded = await loadProject(p.id);
+                    if (!loaded) throw new Error("loadFailed");
+                    await open(loaded);
+                  } catch {
+                    setRecoveryId(p.id);
+                    throw new Error("loadFailed");
+                  }
+                })
+              }
             >
               <span>
                 {p.name}
@@ -133,25 +177,26 @@ export default function Projects({
           ))}
         </div>
         {versions.length > 0 && (
-          <details>
-            <summary>{t("recoverySnapshots")}</summary>
+          <details open={recoveryId !== project.id ? true : undefined}>
+            <summary>
+              {t("recoverySnapshots")}
+              {recoveryId !== project.id &&
+                ` · ${list.find((p) => p.id === recoveryId)?.name ?? ""}`}
+            </summary>
             {versions.map((v) => (
               <button
                 key={v.id}
                 className="recovery-row"
-                onClick={async () => {
-                  try {
+                disabled={busy}
+                onClick={() =>
+                  void perform(async () => {
                     const p = parseProject(JSON.stringify(v.project));
                     p.id = uid();
-                    p.name += " — " + t("recovered");
+                    p.name = suffixedName(p.name, " — " + t("recovered"));
                     p.updatedAt = Date.now();
                     await open(p);
-                  } catch (err) {
-                    setError(
-                      err instanceof Error ? err.message : "invalidProject",
-                    );
-                  }
-                }}
+                  })
+                }
               >
                 {new Date(v.savedAt).toLocaleString()}
                 <span>{t("restoreCopy")}</span>

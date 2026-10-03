@@ -6,6 +6,7 @@ export function usePersistence(
   setProject: (p: Project) => void,
 ) {
   const [loadError, setLoadError] = useState(false);
+  const [failedProjectId, setFailedProjectId] = useState<string>();
   const [loaded, setLoaded] = useState(false),
     [owner, setOwner] = useState<string>(),
     [status, setStatus] = useState("loading");
@@ -13,7 +14,10 @@ export function usePersistence(
   const current = useRef(project);
   current.current = project;
   const saved = useRef("");
+  const latestStatus = useRef(status);
+  latestStatus.current = status;
   const queue = useRef<Promise<void>>(Promise.resolve());
+  const pendingWrites = useRef(0);
   const owned = useRef<string | undefined>(undefined);
   owned.current = owner;
   useEffect(() => {
@@ -30,6 +34,7 @@ export function usePersistence(
         if (live) {
           setStatus("loadFailed");
           setLoadError(true);
+          setFailedProjectId(id ?? undefined);
         }
       } finally {
         if (live) setLoaded(true);
@@ -49,6 +54,28 @@ export function usePersistence(
       setStatus("locksUnavailable");
       return;
     }
+    const leave = () => {
+      cancelled = true;
+      if (
+        owned.current === project.id &&
+        saved.current !== JSON.stringify(current.current)
+      )
+        void flush();
+      const relinquish = () => {
+        if (owned.current === project.id) owned.current = undefined;
+        release?.();
+      };
+      setOwner(undefined);
+      // A cached document must not keep ownership after navigation.
+      if (pendingWrites.current)
+        void queue.current.then(relinquish, relinquish);
+      else relinquish();
+    };
+    const restore = (e: PageTransitionEvent) => {
+      if (e.persisted) location.reload();
+    };
+    window.addEventListener("pagehide", leave);
+    window.addEventListener("pageshow", restore);
     navigator.locks
       .request(
         "loom-project:" + project.id,
@@ -70,25 +97,34 @@ export function usePersistence(
       .catch(() => setStatus("readOnly"));
     return () => {
       cancelled = true;
+      window.removeEventListener("pagehide", leave);
+      window.removeEventListener("pageshow", restore);
       release?.();
     };
   }, [project.id, loaded, loadError]);
   useEffect(() => {
-    if (loadError && project.id !== initialId.current) setLoadError(false);
+    if (loadError && project.id !== initialId.current) {
+      setLoadError(false);
+      setFailedProjectId(undefined);
+    }
   }, [project.id]);
   async function flush() {
     const p = structuredClone(current.current);
-    if (owned.current !== p.id) return false;
+    if (owned.current !== p.id)
+      return ["readOnly", "locksUnavailable", "loadFailed"].includes(
+        latestStatus.current,
+      );
     const data = JSON.stringify(p);
     if (saved.current === data) return true;
     setStatus("saving");
     let okay = true;
+    pendingWrites.current += 1;
     queue.current = queue.current
       .catch(() => {})
       .then(() => saveProject(p))
       .then(() => {
         saved.current = data;
-        if (current.current.id === p.id)
+        if (current.current.id === p.id && owned.current === p.id)
           setStatus(
             JSON.stringify(current.current) === data ? "saved" : "saving",
           );
@@ -96,6 +132,9 @@ export function usePersistence(
       .catch(() => {
         okay = false;
         setStatus("saveFailed");
+      })
+      .finally(() => {
+        pendingWrites.current -= 1;
       });
     await queue.current;
     return okay;
@@ -139,6 +178,7 @@ export function usePersistence(
           : status;
   return {
     loaded,
+    failedProjectId,
     writable: owner === project.id,
     status: displayStatus,
     flush,

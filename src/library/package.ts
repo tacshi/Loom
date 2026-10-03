@@ -2,8 +2,9 @@ import type { Project, Circuit } from "../model/types";
 import { emptyProject, uid } from "../model/types";
 import { canonical, stableId } from "../model/nets";
 import { validateProject, MAX_FILE_BYTES } from "../persistence/validation";
-import { vectorCases } from "../verification/vectors";
+import { circuitCases } from "../verification/vectors";
 import { moveComponents } from "../editor/routing";
+import { remapComponent } from "../editor/session";
 export type ComponentPackage = {
   format: "loom-component";
   schemaVersion: 2;
@@ -21,7 +22,7 @@ export async function contentHash(data: unknown) {
   ).join("");
 }
 export function closure(project: Pick<Project, "circuits">, root: string) {
-  const result: Record<string, Circuit> = {},
+  const result: Record<string, Circuit> = Object.create(null),
     active = new Set<string>();
   function visit(id: string) {
     if (active.has(id)) throw new Error("recursive");
@@ -78,6 +79,7 @@ export async function parsePackage(text: string): Promise<ComponentPackage> {
     raw.id.length > 200 ||
     !Number.isInteger(raw.version) ||
     raw.version < 1 ||
+    raw.version > 0x7fffffff ||
     typeof raw.hash !== "string"
   )
     throw new Error("invalidLibrary");
@@ -141,9 +143,7 @@ export function reviewUpdate(p: Project, id: string, pkg: ComponentPackage) {
     tests:
       canonical(old.tests) !== canonical(next.tests) ||
       canonical(old.vectors) !== canonical(next.vectors),
-    cases: next.tests.length
-      ? next.tests
-      : vectorCases(
+    cases: circuitCases(
           { ...emptyProject(), root: pkg.root, circuits: pkg.circuits },
           next,
         ),
@@ -158,28 +158,26 @@ export function applyUpdate(
   reviewUpdate(p, id, pkg);
   const old = p.circuits[id],
     next = pkg.circuits[pkg.root];
+  const targets = new Set<string>();
   for (const port of old.ports) {
     const replacement = next.ports.find(
       (q) => q.id === (mapping[port.id] ?? port.id),
     );
     if (
       !replacement ||
+      targets.has(replacement.id) ||
       replacement.direction !== port.direction ||
       replacement.width !== port.width
     )
       throw new Error("libraryInterfaceMismatch");
+    targets.add(replacement.id);
   }
   const fresh = embedPackage(p, pkg);
   for (const c of Object.values(p.circuits).filter((c) => !c.library))
     for (const n of c.components)
       if (n.definitionId === id) {
         n.definitionId = fresh;
-        for (const net of c.nets)
-          for (const e of net.ports)
-            if (e.component === n.id) e.port = mapping[e.port] ?? e.port;
-        for (const route of c.wires)
-          for (const e of [route.from, route.to])
-            if (e.component === n.id) e.port = mapping[e.port] ?? e.port;
+        remapComponent(c, n.id, mapping);
         if (
           canonical(old.appearance ?? {}) !==
             canonical(next.appearance ?? {}) ||

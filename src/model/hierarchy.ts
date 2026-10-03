@@ -9,6 +9,7 @@ import {
 import { deriveNets, electricalWires, removeRouteConnection } from "./nets";
 import { ports, pinPosition } from "./components";
 import { orthogonal, protectTerminals, route } from "../editor/routing";
+import { NAME_LIMIT } from "./names";
 export function extract(
   project: Project,
   circuitId: string,
@@ -16,6 +17,7 @@ export function extract(
   name: string,
   routeLayout = true,
 ): string {
+  if (!name.trim() || name.length > NAME_LIMIT) throw new Error("invalidName");
   project.circuits[circuitId].wires = electricalWires(
     project.circuits[circuitId],
     project,
@@ -71,6 +73,7 @@ export function extract(
     group: string,
     label: string,
   ) {
+    label = (label.trim() || endpoint.port).slice(0, NAME_LIMIT);
     let mapped = mapping.get(group);
     if (!mapped) {
       const c = selected.find((c) => c.id === endpoint.component)!,
@@ -249,6 +252,7 @@ export function removeSelection(
           .filter((c) => c.definitionId === circuitId)
           .map((c) => c.id),
       );
+      if (!instances.size) continue;
       for (const net of parent.nets)
         net.ports = net.ports.filter(
           (e) => !(instances.has(e.component) && removedPorts.has(e.port)),
@@ -258,5 +262,6 @@ export function removeSelection(
           !(instances.has(w.from.component) && removedPorts.has(w.from.port)) &&
           !(instances.has(w.to.component) && removedPorts.has(w.to.port)),
       );
+      parent.markers = parent.markers.filter(m => !m.endpoint || !(instances.has(m.endpoint.component) && removedPorts.has(m.endpoint.port)));
     }
 }

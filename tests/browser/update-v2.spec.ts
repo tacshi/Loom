@@ -6,8 +6,9 @@ import { resolve, extname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
 
-test("two production builds retain course and ROM data, and failed saves prevent activation", async ({
+test("production updates retain course and ROM data, protect failed saves, and accept a read-only initiator", async ({
   page,
+  context,
 }, info) => {
   test.skip(
     info.project.name !== "chromium",
@@ -97,6 +98,9 @@ test("two production builds retain course and ROM data, and failed saves prevent
       navigator.serviceWorker.ready.then(() => undefined),
     );
     await page.reload();
+    const second = await context.newPage();
+    await second.goto(page.url());
+    await expect(second.locator(".local-indicator")).toHaveAttribute("data-status", "readOnly");
     await page.evaluate(() => {
       (window as any).__beforeUpdate = true;
     });
@@ -109,6 +113,8 @@ test("two production builds retain course and ROM data, and failed saves prevent
       exact: true,
     });
     await expect(update).toBeVisible();
+    const peerUpdate = second.getByRole("button", {name: "Save & update", exact: true});
+    await expect(peerUpdate).toBeVisible();
     await page.evaluate(() => {
       (window as any).__rejectSaves = true;
     });
@@ -128,9 +134,13 @@ test("two production builds retain course and ROM data, and failed saves prevent
     await page.evaluate(() => {
       (window as any).__rejectSaves = false;
     });
-    await Promise.all([page.waitForEvent("load"), update.click()]);
+    await page.getByLabel("Project", {exact: true}).fill("Saved before peer update");
+    await expect(page.getByText("Saved locally", {exact: true})).toBeVisible();
+    await Promise.all([page.waitForEvent("load"), second.waitForEvent("load"), peerUpdate.click()]);
+    await second.close();
+    await page.reload();
     await expect(page.getByLabel("Project", { exact: true })).toHaveValue(
-      "Unsaved during update",
+      "Saved before peer update",
     );
     await expect(
       page.getByText("Saved locally", { exact: true }),

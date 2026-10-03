@@ -695,8 +695,8 @@ function Canvas({
                     setSelected(
                       e.evt.shiftKey
                         ? [...new Set([...selectionRef.current, c.id])]
-                        : selected.includes(c.id)
-                          ? selected
+                        : selectionRef.current.includes(c.id)
+                          ? selectionRef.current
                           : [c.id],
                     );
                   }}

@@ -97,6 +97,8 @@ export type CourseRequest = {
   example?: boolean;
 };
 export type CourseResponse = {
+  project?: Project;
+  results?: CourseCheck[];
   progress?: { exercise: ExerciseId; caseName?: string };
   requestId: number;
   result?: CourseCheck;

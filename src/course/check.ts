@@ -229,6 +229,7 @@ export async function reverifyCourse(
     const record = p.course.accepted[spec.id];
     if (!record) continue;
     if (spec.prerequisites.some((k) => !p.course!.accepted[k])) {
+      results.push({exercise: spec.id, status: "blocked", message: "Complete prerequisite checks first", results: [], cases: []});
       delete p.course.accepted[spec.id];
       continue;
     }
@@ -236,6 +237,7 @@ export async function reverifyCourse(
     copy.course!.drafts[spec.id] = record.acceptedRoot;
     if (spec.mission!.work === "program") {
       if (!record.source) {
+        results.push({exercise: spec.id, status: "invalid", message: "sourceChanged", results: [], cases: []});
         delete p.course.accepted[spec.id];
         continue;
       }
@@ -244,12 +246,14 @@ export async function reverifyCourse(
       copy.sourceMap = record.source.sourceMap;
     }
     const result = await checkCourse(copy, spec.id, true, progress);
+    if (result.status === "passed" && (record.exerciseRevision !== spec.revision || record.hash !== result.hash)) {
+      result.status = "invalid";
+      result.message = "courseRecordMismatch";
+    }
     results.push(result);
     // The electrical hash normalizes remapped definition IDs.
     if (
-      result.status !== "passed" ||
-      record.exerciseRevision !== spec.revision ||
-      record.hash !== result.hash
+      result.status !== "passed"
     )
       delete p.course.accepted[spec.id];
   }

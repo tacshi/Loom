@@ -9,7 +9,8 @@ import type {
 import type { TestResult } from "../verification/runner";
 import type { useSimulation } from "../simulator/useSimulation";
 import { resolveSignalRef, signalLabel } from "../model/nets";
-import { vectorCases } from "../verification/vectors";
+import { circuitCases, vectorCases } from "../verification/vectors";
+import { validateTest } from "../persistence/v2Validation";
 import { compile } from "../simulator/compiler";
 import { ports } from "../model/components";
 export default function SequentialTests({
@@ -20,6 +21,7 @@ export default function SequentialTests({
   close,
   debug,
   t,
+  readOnly = false,
 }: {
   project: Project;
   circuit: Circuit;
@@ -28,6 +30,7 @@ export default function SequentialTests({
   close: () => void;
   debug: (refs: string[]) => void;
   t: (s: string) => string;
+  readOnly?: boolean;
 }) {
   const [results, setResults] = useState<TestResult[]>([]),
     [busy, setBusy] = useState(false),
@@ -47,9 +50,7 @@ export default function SequentialTests({
     [y, setY] = useState(0),
     [known, setKnown] = useState(""),
     [highZ, setHighZ] = useState("");
-  const cases = circuit.tests.length
-      ? circuit.tests
-      : vectorCases(project, circuit),
+  const cases = circuitCases(project, circuit),
     worker = useRef<Worker>(null),
     request = useRef(0),
     timer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -84,17 +85,25 @@ export default function SequentialTests({
     },
     [],
   );
+  const caseKey = JSON.stringify(cases);
+  useEffect(() => {
+    request.current++; worker.current?.terminate(); clearTimeout(timer.current);
+    setResults([]); setBusy(false);
+  }, [project.id, circuit.id, caseKey]);
   useEffect(() => {
     if (simulation.captured) {
-      edit((p) =>
-        p.circuits[circuit.id].tests.push({
-          ...simulation.captured!,
-          name: name || t("recordedRun"),
-        }),
-      );
+      save({...simulation.captured, name: name.trim() || t("recordedRun")});
       simulation.clearCaptured();
     }
   }, [simulation.captured]);
+  function save(test: TestCase) {
+    try {
+      validateTest(test);
+      if (edit(p => {p.circuits[circuit.id].tests.push(test);})) {
+        setSteps([]); setError("");
+      }
+    } catch {setError("testInput");}
+  }
   function assertion(): TestAssertion {
     const key = signal || signals[0];
     if (!key) throw new Error("testInput");
@@ -132,10 +141,11 @@ export default function SequentialTests({
             text: input,
           },
         ];
+      validateTest({id: "draft", name: "draft", seed: 0, maxCycles: 1000000, steps: [...steps, step]});
       setSteps([...steps, step]);
       setError("");
     } catch (e) {
-      setError((e as Error).message);
+      setError("testInput");
     }
   }
   function run() {
@@ -154,7 +164,7 @@ export default function SequentialTests({
       setError("testLimit");
     }, 30000);
     w.onmessage = ({ data }) => {
-      if (data.requestId !== id) return;
+      if (data.requestId !== request.current) return;
       clearTimeout(timer.current);
       setBusy(false);
       setResults(data.results ?? []);
@@ -188,6 +198,7 @@ export default function SequentialTests({
           {t(busy ? "testing" : "runTests")}
         </button>
         <button
+          disabled={readOnly || busy}
           onClick={() => {
             try {
               simulation.capture([assertion()]);
@@ -253,13 +264,14 @@ export default function SequentialTests({
                       </button>
                     )}
                     <button
+                      disabled={readOnly || busy}
                       aria-label={t("delete") + " " + c.name}
                       onClick={() =>
                         edit((p) => {
-                          p.circuits[circuit.id].tests = cases.filter(
-                            (x) => x.id !== c.id,
-                          );
-                          p.circuits[circuit.id].vectors = [];
+                          const target = p.circuits[circuit.id];
+                          const vectorIndex = vectorCases(p, target).findIndex(v => v.id === c.id);
+                          if (vectorIndex !== -1) target.vectors.splice(vectorIndex, 1);
+                          else target.tests = target.tests.filter(t => t.id !== c.id);
                         })
                       }
                     >
@@ -271,11 +283,11 @@ export default function SequentialTests({
             })}
           </tbody>
         </table>
-        <details>
+        <details hidden={readOnly}>
           <summary>{t("addTest")}</summary>
           <label>
             {t("name")}
-            <input value={name} onChange={(e) => setName(e.target.value)} />
+            <input disabled={readOnly} maxLength={200} value={name} onChange={(e) => setName(e.target.value)} />
           </label>
           <div className="sequence-fields">
             <label>
@@ -423,7 +435,7 @@ export default function SequentialTests({
               </label>
             )}
           </div>
-          <button onClick={addStep}>{t("appendStep")}</button>
+          <button disabled={readOnly} onClick={addStep}>{t("appendStep")}</button>
           <ol>
             {steps.map((s, i) => (
               <li key={i}>
@@ -438,7 +450,7 @@ export default function SequentialTests({
             ))}
           </ol>
           <button
-            disabled={!steps.length}
+            disabled={readOnly || !steps.length}
             onClick={() => {
               const test: TestCase = {
                 id: crypto.randomUUID(),
@@ -450,12 +462,7 @@ export default function SequentialTests({
                 ),
                 seed: 12345,
               };
-              if (
-                edit((p) => {
-                  p.circuits[circuit.id].tests = [...cases, test];
-                })
-              )
-                setSteps([]);
+              save(test);
             }}
           >
             {t("saveTest")}

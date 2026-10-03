@@ -4,9 +4,11 @@ import type { Project, TestCase, SignalRef } from "../model/types";
 import type { Snapshot } from "../simulator/engine";
 import type { TestResult } from "../verification/runner";
 import type { sourceChain } from "../simulator/debug";
-export function useVisualTests(project: Project, root: string) {
+export function useVisualTests(project: Project, hostRoot: string) {
+  const [requestedRoot, setRoot] = useState(hostRoot);
+  const root = Object.hasOwn(project.circuits, requestedRoot) ? requestedRoot : hostRoot;
   const documentKey = useMemo(
-    () => JSON.stringify(closure(project, root)),
+    () => {try {return JSON.stringify(closure(project, root));} catch {return "invalid";}},
     [project.circuits, root],
   );
   const [results, setResults] = useState<TestResult[]>([]),
@@ -25,6 +27,7 @@ export function useVisualTests(project: Project, root: string) {
     replaying = useRef(false);
   const current = useRef({ project, root, cases });
   current.current = { project, root, cases };
+  const observed = useRef({id: project.id, hostRoot, key: documentKey});
   const rows = useMemo(
     () =>
       results.flatMap((r, caseIndex) =>
@@ -50,12 +53,21 @@ export function useVisualTests(project: Project, root: string) {
     setIndex(-1);
   };
   useEffect(() => {
+    const previous = observed.current;
+    if (previous.id === project.id && previous.hostRoot === hostRoot && previous.key === documentKey) return;
+    observed.current = {id: project.id, hostRoot, key: documentKey};
     close();
     setResults([]);
     setCases([]);
     setError("");
-  }, [documentKey, root, project.id]);
+    if (previous.hostRoot !== hostRoot || previous.id !== project.id) setRoot(hostRoot);
+  }, [documentKey, hostRoot, project.id]);
   useEffect(() => () => worker.current?.terminate(), []);
+  function useRoot(selectedRoot: string) {
+    observed.current = {id: project.id, hostRoot, key: JSON.stringify(closure(project, selectedRoot))};
+    current.current = {...current.current, project, root: selectedRoot};
+    setRoot(selectedRoot);
+  }
   function ensureWorker() {
     if (!worker.current)
       worker.current = new Worker(
@@ -107,8 +119,10 @@ export function useVisualTests(project: Project, root: string) {
     testResults: TestResult[],
     autoplay = true,
     message?: string,
+    selectedRoot = hostRoot,
   ) {
     close();
+    useRoot(selectedRoot);
     setCases(testCases);
     setResults(testResults);
     setActive(true);
@@ -117,8 +131,9 @@ export function useVisualTests(project: Project, root: string) {
     setPlaying(autoplay);
     setBusy(false);
   }
-  function run(testCases: TestCase[]) {
+  function run(testCases: TestCase[], selectedRoot = hostRoot) {
     close();
+    useRoot(selectedRoot);
     setCases(testCases);
     setResults([]);
     setActive(true);
@@ -149,7 +164,7 @@ export function useVisualTests(project: Project, root: string) {
       type: "run",
       requestId: id,
       project,
-      root,
+      root: selectedRoot,
       cases: testCases,
     });
   }
@@ -178,6 +193,7 @@ export function useVisualTests(project: Project, root: string) {
     w.postMessage({ type: "trace", requestId: id, ref });
   }
   return {
+    root,
     active,
     loadingCase,
     busy,
@@ -191,8 +207,9 @@ export function useVisualTests(project: Project, root: string) {
     error,
     progress,
     run,
-    begin: () => {
+    begin: (selectedRoot = hostRoot) => {
       close();
+      useRoot(selectedRoot);
       setResults([]);
       setCases([]);
       setActive(true);

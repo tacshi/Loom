@@ -1,5 +1,5 @@
 import { useRegisterSW } from "virtual:pwa-register/react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 export default function UpdateNotice({
   flush,
   t,
@@ -7,12 +7,32 @@ export default function UpdateNotice({
   flush: () => Promise<boolean>;
   t: (s: string) => string;
 }) {
+  const latestFlush = useRef(flush);
+  latestFlush.current = flush;
+  const reloading = useRef(false);
+  const cleanup = useRef(() => {});
+  const [error, setError] = useState(""),
+    [busy, setBusy] = useState(false);
+  async function reloadSafely() {
+    if (reloading.current) return;
+    reloading.current = true;
+    cleanup.current();
+    try {
+      if (await latestFlush.current()) {
+        location.reload();
+        return;
+      }
+    } catch {
+      /* Keep the document available for export when storage fails. */
+    }
+    reloading.current = false;
+    setError("saveFailed");
+    setBusy(false);
+  }
   const {
     needRefresh: [needed],
     updateServiceWorker,
-  } = useRegisterSW();
-  const [error, setError] = useState(""),
-    [busy, setBusy] = useState(false);
+  } = useRegisterSW({ onNeedReload: () => void reloadSafely() });
   if (!needed) return null;
   async function update() {
     setBusy(true);
@@ -26,7 +46,7 @@ export default function UpdateNotice({
     const reload = () => {
       clearTimeout(timer);
       navigator.serviceWorker.removeEventListener("controllerchange", reload);
-      location.reload();
+      void reloadSafely();
     };
     try {
       const registration = await navigator.serviceWorker.getRegistration();
@@ -34,13 +54,21 @@ export default function UpdateNotice({
       navigator.serviceWorker.addEventListener("controllerchange", reload, {
         once: true,
       });
+      cleanup.current = () => {
+        clearTimeout(timer);
+        navigator.serviceWorker.removeEventListener("controllerchange", reload);
+      };
       const waiting = registration.waiting;
       if (waiting) {
         waiting.addEventListener("statechange", () => {
           if (waiting.state === "activated") reload();
         });
         waiting.postMessage({ type: "SKIP_WAITING" });
-      } else await updateServiceWorker(true);
+      } else {
+        await updateServiceWorker(true);
+        await reloadSafely();
+        return;
+      }
       timer = setTimeout(() => {
         navigator.serviceWorker.removeEventListener("controllerchange", reload);
         setError("updateFailed");

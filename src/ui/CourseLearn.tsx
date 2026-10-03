@@ -89,6 +89,7 @@ export default function CourseLearn({
     [operation, setOperation] = useState<"check" | "prepare" | "example">(
       "check",
     );
+  const [reverified, setReverified] = useState<CourseCheck[]>();
   const request = useRef(0),
     worker = useRef<Worker | null>(null),
     missionNav = useRef<HTMLElement>(null),
@@ -111,6 +112,7 @@ export default function CourseLearn({
     setBusy(false);
     setResult(undefined);
     setError("");
+    setReverified(undefined);
   }, [project.id, selected]);
   useEffect(() => () => stop.current(), []);
   useEffect(() => {
@@ -208,6 +210,7 @@ export default function CourseLearn({
           callbacks.current.edit((p) => {
             p.course = data.project!.course;
           });
+          setReverified(data.results ?? []);
         } else if (data.result) {
           const r = data.result;
           const root = current.current.course?.drafts[selected];
@@ -474,6 +477,13 @@ export default function CourseLearn({
               {label("Verify imported progress", "验证导入的进度")}
             </button>
           )}
+          {reverified && <div className="course-verification">
+            <p role="status">{label("Saved progress verified: ", "已验证保存的进度：")}{reverified.filter(r => r.status === "passed").length}{label(" kept, ", " 项保留，")}{reverified.filter(r => r.status !== "passed").length}{label(" need checking.", " 项需要重新检查。")}</p>
+            {reverified.some(r => r.status !== "passed") && <details>
+              <summary>{label("Missions to check", "需要检查的任务")}</summary>
+              <ul>{reverified.filter(r => r.status !== "passed").map(r => <li key={r.exercise}>{exercise(r.exercise).title[index]}: {message(r.message ?? r.status)}</li>)}</ul>
+            </details>}
+          </div>}
           {busy && (
             <p role="status">
               {operation === "check"

@@ -101,3 +101,13 @@ it("writes JSON and safely escaped HTML reports under Bun", () => {
   expect(html).toContain("&lt;script&gt;");
   expect(html).not.toContain("<script>");
 });
+
+it("runs failing truth-table vectors alongside saved sequential cases", () => {
+  const path = fixture();
+  const p = JSON.parse(readFileSync(path, "utf8"));
+  p.circuits[p.root].vectors = [{name: "Vector mismatch", inputs: {A: 1}, outputs: {"P:in": 0}}];
+  writeFileSync(path, JSON.stringify(p));
+  const result = run("test", path, "--json");
+  expect(result.status).toBe(1);
+  expect(JSON.parse(result.stdout).results.map((r: {status: string}) => r.status)).toEqual(["passed", "failed"]);
+});

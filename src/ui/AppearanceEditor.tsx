@@ -11,11 +11,13 @@ export default function AppearanceEditor({
   project,
   apply,
   t,
+  readOnly = false,
 }: {
   component: Component;
   project: Project;
   apply: (a: ComponentAppearance) => boolean;
   t: (s: string) => string;
+  readOnly?: boolean;
 }) {
   const current = (): ComponentAppearance => {
     const a = appearance(component, project),
@@ -41,6 +43,7 @@ export default function AppearanceEditor({
       <label>
         {t("rotation")}
         <select
+          disabled={readOnly}
           aria-label={t("rotation")}
           value={draft.rotation}
           onChange={(e) =>
@@ -64,6 +67,7 @@ export default function AppearanceEditor({
           <label key={k}>
             {t(k === "width" ? "boxWidth" : "boxHeight")}
             <input
+              disabled={readOnly}
               aria-label={t(k === "width" ? "boxWidth" : "boxHeight")}
               type="number"
               min={80}
@@ -81,6 +85,7 @@ export default function AppearanceEditor({
         <div className="pin-layout" key={p.id}>
           <span>{p.name}</span>
           <select
+            disabled={readOnly}
             aria-label={t("pinSide") + " " + p.name}
             value={draft.pins?.[p.id]?.side ?? "left"}
             onChange={(e) =>
@@ -103,6 +108,7 @@ export default function AppearanceEditor({
             ))}
           </select>
           <input
+            disabled={readOnly}
             aria-label={t("pinSlot") + " " + p.name}
             type="number"
             min={1}
@@ -122,7 +128,7 @@ export default function AppearanceEditor({
           />
         </div>
       ))}
-      <button onClick={() => apply(draft)}>{t("applyLayout")}</button>
+      <button disabled={readOnly} onClick={() => apply(draft)}>{t("applyLayout")}</button>
     </details>
   );
 }

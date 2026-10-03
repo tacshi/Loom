@@ -25,6 +25,7 @@ const database = () =>
     },
   });
 export async function saveProject(project: Project) {
+  project = validateProject(project);
   const db = await database();
   try {
     const tx = db.transaction(["projects", "snapshots"], "readwrite");

@@ -79,7 +79,8 @@ it("preserves accepted snapshots and rejects stale checks after an electrical ed
   expect(available(p, "core-06")).toBe(true);
   const imported = parseProject(exportProject(p));
   imported.course!.accepted["core-05"]!.hash = "0".repeat(64);
-  await reverifyCourse(imported);
+  const verification = await reverifyCourse(imported);
+  expect(verification.find(r => r.exercise === "core-05")).toMatchObject({status: "invalid", message: "courseRecordMismatch"});
   expect(imported.course!.accepted["core-05"]).toBeUndefined();
 });
 it("checks declared width variants rather than assuming a one-bit circuit scales", async () => {

@@ -48,6 +48,7 @@ export default function Libraries({
   const [reviewResults, setReviewResults] = useState<TestResult[]>(),
     [reviewBusy, setReviewBusy] = useState(false);
   useEffect(() => {
+    setReviewBusy(false);
     if (!review) return;
     setReviewResults(undefined);
     const cases = review.diff.cases;
@@ -90,6 +91,7 @@ export default function Libraries({
     return () => {
       clearTimeout(timer);
       w.terminate();
+      setReviewBusy(false);
     };
   }, [review]);
   const file = useRef<HTMLInputElement>(null);

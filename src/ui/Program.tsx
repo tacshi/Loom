@@ -178,6 +178,7 @@ export default function Program({
             })}
           </div>
           <textarea
+            maxLength={100000}
             ref={editor}
             readOnly={!!project.courseReference}
             aria-label={t("assemblySource")}
@@ -185,7 +186,7 @@ export default function Program({
             spellCheck={false}
             onChange={(e) => {
               edit((p) => {
-                p.source = e.target.value;
+                p.source = e.target.value.slice(0, 100000);
               });
               setLoaded(0);
             }}
