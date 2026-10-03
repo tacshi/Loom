@@ -6,7 +6,7 @@ import { resolve } from "node:path";
 import { parseProject, MAX_FILE_BYTES } from "../persistence/validation";
 import { compile } from "../simulator/compiler";
 import { runCases, reportCode } from "../verification/runner";
-import { vectorCases } from "../verification/vectors";
+import { circuitCases } from "../verification/vectors";
 import { canonical } from "../model/nets";
 let phase: "input" | "execution" = "input";
 async function main() {
@@ -64,7 +64,7 @@ async function main() {
     return diagnostics.some((d) => d.severity === "error") ? 2 : 0;
   }
   const c = p.circuits[root],
-    cases = c.tests.length ? c.tests : vectorCases(p, c);
+    cases = circuitCases(p, c);
   const results = runCases(p, root, cases),
     report = { schemaVersion: 1, circuit: root, results };
   if (options.has("--json")) process.stdout.write(canonical(report) + "\n");

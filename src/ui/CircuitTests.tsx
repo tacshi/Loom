@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Circuit, Project, TestVector } from "../model/types";
 import type { VectorResult } from "../simulator/engine";
+import { validateVector } from "../persistence/v2Validation";
 export default function CircuitTests({
   project,
   circuit,
@@ -9,20 +10,23 @@ export default function CircuitTests({
   edit,
   t,
   close,
+  readOnly = false,
 }: {
   project: Project;
   circuit: Circuit;
   results: VectorResult[];
   run: () => void;
-  edit: (f: (p: Project) => void) => void;
+  edit: (f: (p: Project) => void) => boolean;
   t: (s: string) => string;
   close: () => void;
+  readOnly?: boolean;
 }) {
   const [adding, setAdding] = useState(false),
     [name, setName] = useState(""),
     [cycles, setCycles] = useState(0),
     [inputs, setInputs] = useState<Record<string, number>>({}),
-    [outputs, setOutputs] = useState<Record<string, number>>({});
+    [outputs, setOutputs] = useState<Record<string, number>>({}),
+    [error, setError] = useState("");
   const inputComponents = circuit.components.filter((c) =>
       ["input", "portIn", "button"].includes(c.kind),
     ),
@@ -40,10 +44,12 @@ export default function CircuitTests({
         outputComponents.map((c) => [c.id + ":in", outputs[c.id] ?? 0]),
       ),
     };
-    edit((p) => {
-      p.circuits[circuit.id].vectors.push(vector);
-    });
-    setAdding(false);
+    try {
+      validateVector(vector);
+      if (edit((p) => {p.circuits[circuit.id].vectors.push(vector);})) {
+        setAdding(false); setError("");
+      }
+    } catch {setError("testInput");}
   }
   return (
     <div className="modal-backdrop" onClick={close}>
@@ -60,6 +66,7 @@ export default function CircuitTests({
             ×
           </button>
         </div>
+        {error && <p role="alert">{t(error)}</p>}
         <div className="project-actions">
           <button
             className="primary"
@@ -68,13 +75,13 @@ export default function CircuitTests({
           >
             {t("runTests")}
           </button>
-          <button onClick={() => setAdding(!adding)}>{t("addTest")}</button>
+          <button disabled={readOnly} onClick={() => setAdding(!adding)}>{t("addTest")}</button>
         </div>
         {adding && (
           <div className="test-form">
             <label>
               {t("name")}
-              <input value={name} onChange={(e) => setName(e.target.value)} />
+              <input maxLength={200} value={name} onChange={(e) => setName(e.target.value)} />
             </label>
             <label>
               {t("cycles")}
@@ -166,6 +173,7 @@ export default function CircuitTests({
                   </td>
                   <td>
                     <button
+                      disabled={readOnly}
                       aria-label={t("delete") + " " + v.name}
                       onClick={() =>
                         edit((p) => {

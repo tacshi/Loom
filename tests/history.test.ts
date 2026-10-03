@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { History } from "../src/editor/history";
+import { History, HistoryBudget } from "../src/editor/history";
 import { emptyProject } from "../src/model/types";
 describe("atomic history", () => {
   it("restores snapshots and discards redo after divergent editing", () => {
@@ -36,4 +36,16 @@ describe("atomic history", () => {
   it("uses independent identities for new projects", () => {
     expect(emptyProject().root).not.toBe(emptyProject().root);
   });
+});
+
+it("bounds undo and redo across independent mission histories", () => {
+  const budget = new HistoryBudget(1000);
+  const a = new History<{text: string}>(100, budget);
+  const b = new History<{text: string}>(100, budget);
+  for (let i = 0; i < 30; i++) (i % 2 ? a : b).push({text: "a".repeat(100) + i});
+  expect(budget.bytes).toBeLessThanOrEqual(1000);
+  expect(a.undo({text: "current"})).toBeDefined();
+  expect(budget.bytes).toBeLessThanOrEqual(1000);
+  a.clear(); b.clear();
+  expect(budget.bytes).toBe(0);
 });

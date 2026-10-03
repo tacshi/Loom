@@ -1,5 +1,11 @@
 export type Language = "en" | "zh";
 export const messages: Record<string, [string, string]> = {
+  courseRecordMismatch: ["The saved completion does not match this mission. Check its draft again.", "保存的完成记录与该任务不符，请重新检查任务草稿。"],
+  memoryWidthRange: ["A stored word does not fit this width. Edit or clear it before reducing the width.", "已有数据超出该位宽，请先修改或清除数据，再缩小位宽。"],
+  invalidName: ["Enter a name of 1–200 characters.", "请输入 1–200 个字符的名称。"],
+  wire: ["Wire", "导线"],
+  deleteWire: ["Delete wire", "删除导线"],
+  inspectConnection: ["Inspect entire connection", "检查整个连接"],
   courseDependencyUnavailable: ["This mission cannot use that course component. Choose an available core component.", "本任务不能使用该课程元件，请选择可用的主线元件。"],
   emptyOutput: ["No text output", "无文本输出"],
   helpWiring: ["Drag components onto the canvas. Click an output pin, then an input pin to connect them. Right-click or press Esc to cancel a wire.", "将元件拖到画布上。先点击输出引脚，再点击输入引脚进行连接。右键或 Esc 取消连线。"],
@@ -332,7 +338,7 @@ export const messages: Record<string, [string, string]> = {
   attachPort: ["Attach port", "连接引脚"],
   choosePort: ["Choose a port…", "选择引脚…"],
   connectNamed: ["Connect by name", "按名称连接"],
-  deleteNet: ["Delete connection", "删除连接"],
+  deleteNet: ["Delete entire connection", "删除整个连接"],
   alreadyConnected: ["This pin belongs to another connection. Disconnect it first.", "此引脚已有其他连接，请先断开。"],
   ambiguousSignal: [
     "A signal reference is missing or ambiguous. Choose a valid project.",

@@ -1,4 +1,5 @@
 import { it, expect } from "vitest";
+import { createComponent } from "../src/model/types";
 import { fullAdder } from "../src/examples/adder";
 import { validateProject, parseProject } from "../src/persistence/validation";
 import { exportProject } from "../src/persistence/serialization";
@@ -33,4 +34,28 @@ it("rejects an inherited root", () => {
   const p = fullAdder();
   p.root = "constructor";
   expect(() => parseProject(JSON.stringify(p))).toThrow("invalidProject");
+});
+
+it("rejects unsafe optional metadata and incomplete ROM images without changing them", () => {
+  const p = fullAdder();
+  for (const field of ["assembledSource", "checkpoint"] as const)
+    expect(() => validateProject({ ...p, [field]: 42 })).toThrow("invalidProject");
+  const rom = createComponent("rom", 0, 0, 8);
+  rom.image = [];
+  rom.image[1] = 42;
+  p.circuits[p.root].components.push(rom);
+  expect(() => validateProject(p)).toThrow("invalidProject");
+  expect(0 in rom.image).toBe(false);
+});
+
+it("rejects missing and recursive definitions before opening the project", () => {
+  const p = fullAdder();
+  const instance = createComponent("instance", 0, 0);
+  p.circuits[p.root].components.push(instance);
+  for (const id of ["missing", p.root]) {
+    instance.definitionId = id;
+    const before = JSON.stringify(p);
+    expect(() => parseProject(before)).toThrow("invalidProject");
+    expect(JSON.stringify(p)).toBe(before);
+  }
 });

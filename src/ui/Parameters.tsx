@@ -5,10 +5,12 @@ export function ParameterDefinitions({
   circuit,
   apply,
   t,
+  readOnly = false,
 }: {
   circuit: Circuit;
   apply: (values: Parameter[]) => boolean;
   t: (s: string) => string;
+  readOnly?: boolean;
 }) {
   const [name, setName] = useState("width"),
     [value, setValue] = useState(8),
@@ -21,6 +23,7 @@ export function ParameterDefinitions({
         <p key={p.name}>
           {p.name} = {p.default} [{p.min}–{p.max}]
           <button
+            disabled={readOnly}
             aria-label={t("delete") + " " + p.name}
             onClick={() =>
               apply((circuit.parameters ?? []).filter((q) => q !== p))
@@ -32,7 +35,7 @@ export function ParameterDefinitions({
       ))}
       <label>
         {t("parameterName")}
-        <input value={name} onChange={(e) => setName(e.target.value)} />
+        <input disabled={readOnly} value={name} onChange={(e) => setName(e.target.value)} />
       </label>
       <div className="parameter-fields">
         {[
@@ -43,6 +46,7 @@ export function ParameterDefinitions({
           <label key={label as string}>
             {label as string}
             <input
+              disabled={readOnly}
               type="number"
               min={1}
               max={32}
@@ -56,6 +60,7 @@ export function ParameterDefinitions({
       </div>
       <button
         disabled={
+          readOnly ||
           !validParameterDefinition({ name, min, max, default: value }) ||
           (circuit.parameters ?? []).some((p) => p.name === name)
         }
@@ -76,11 +81,13 @@ export function InstanceParameters({
   project,
   apply,
   t,
+  readOnly = false,
 }: {
   component: Component;
   project: Project;
   apply: (args: Record<string, number>) => boolean;
   t: (s: string) => string;
+  readOnly?: boolean;
 }) {
   const def = project.circuits[component.definitionId!];
   if (!def?.parameters?.length) return null;
@@ -90,6 +97,7 @@ export function InstanceParameters({
         <label key={p.name}>
           {p.name} ({p.min}–{p.max})
           <input
+            disabled={readOnly}
             type="number"
             min={p.min}
             max={p.max}

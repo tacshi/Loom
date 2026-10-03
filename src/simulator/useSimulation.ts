@@ -11,7 +11,7 @@ import type { Payload, Response, Breakpoint } from "./protocol";
 import type { TimelineInfo, Position } from "./timeline";
 import type { sourceChain } from "./debug";
 import { semanticDocument } from "./state";
-export function useSimulation(project: Project, enabled = true) {
+export function useSimulation(project: Project, enabled = true, epoch = 0) {
   const [snapshot, setSnapshot] = useState<Snapshot>({
       cycle: 0,
       values: {},
@@ -97,6 +97,7 @@ export function useSimulation(project: Project, enabled = true) {
   useEffect(() => { heldButtons.current.clear(); }, [project.id, project.root, sig]);
   useEffect(() => {
     if (!enabled) return;
+    heldButtons.current.clear();
     const w = new Worker(new URL("./worker.ts", import.meta.url), {
       type: "module",
     });
@@ -110,6 +111,8 @@ export function useSimulation(project: Project, enabled = true) {
     setRange([]);
     setResults([]);
     setHistory(undefined);
+    setChain([]);
+    setCaptured(undefined);
     setSnapshot({ cycle: 0, values: {}, memory: {} });
     setReason("");
     seen.current = performance.now();
@@ -191,7 +194,7 @@ export function useSimulation(project: Project, enabled = true) {
       w.terminate();
       if (worker.current === w) worker.current = null;
     };
-  }, [sig, restart, enabled]);
+  }, [sig, restart, enabled, project.id, epoch]);
   // Only actual root input changes generate events; layout edits never branch history.
   const inputValues = JSON.stringify(
     project.circuits[project.root]?.components

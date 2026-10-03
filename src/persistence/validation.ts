@@ -1,4 +1,5 @@
 import { validateV2 } from "./v2Validation";
+import { validateDefinitions } from "../model/definitions";
 import type { Project, Kind } from "../model/types";
 const kinds = new Set<Kind>([
   "input",
@@ -72,6 +73,10 @@ export function validateProject(raw: unknown): Project {
       raw.progress.every((p) => str(p)),
   );
   assert(Object.keys(raw.circuits).length <= 2048);
+  assert(integer(raw.updatedAt, 0, Number.MAX_SAFE_INTEGER));
+  if (raw.assembledSource !== undefined)
+    assert(typeof raw.assembledSource === "string" && raw.assembledSource.length <= 100000);
+  if (raw.checkpoint !== undefined) assert(str(raw.checkpoint));
   let totalComponents = 0,
     totalWires = 0;
   for (const [id, value] of Object.entries(raw.circuits)) {
@@ -117,7 +122,7 @@ export function validateProject(raw: unknown): Project {
         assert(
           Array.isArray(c.image) &&
             c.image.length <= 65536 &&
-            c.image.every((n) => integer(n, 0, 2 ** (c.width as number) - 1)),
+            Array.from(c.image).every((n) => integer(n, 0, 2 ** (c.width as number) - 1)),
         );
     }
     const wireIds = new Set<string>();
@@ -239,6 +244,7 @@ export function validateProject(raw: unknown): Project {
   const project = JSON.parse(JSON.stringify(raw)) as Project;
   try {
     validateV2(project);
+    validateDefinitions(project);
   } catch {
     throw new Error("invalidProject");
   }

@@ -9,6 +9,7 @@ import {
   type NetMarker,
 } from "../model/types";
 import { canonical, connect, endpointKey, refreshWidths } from "../model/nets";
+import { editingScope, validateDefinitions } from "../model/definitions";
 export type Clipboard = {
   components: Component[];
   nets: Net[];
@@ -19,12 +20,18 @@ export type Clipboard = {
 export function editProject(
   project: Project,
   command: (draft: Project) => void,
+  circuitId?: string,
 ): Project {
-  const draft = structuredClone(project);
+  const { circuits, ...metadata } = project;
+  const scope = circuitId ? editingScope(project, circuitId) : new Set(Object.keys(circuits));
+  const draft: Project = { ...structuredClone(metadata), circuits: { ...circuits } };
+  for (const id of scope) draft.circuits[id] = structuredClone(circuits[id]);
   command(draft);
-  for (const c of Object.values(draft.circuits)) refreshWidths(c, draft);
+  validateDefinitions(draft);
+  for (const c of Object.values(draft.circuits))
+    if (c !== circuits[c.id]) refreshWidths(c, draft);
   for (const c of Object.values(project.circuits))
-    if (c.library && canonical(draft.circuits[c.id]) !== canonical(c))
+    if (c.library && draft.circuits[c.id] !== c && canonical(draft.circuits[c.id]) !== canonical(c))
       throw new Error("libraryReadOnly");
   draft.updatedAt = Date.now();
   return draft;
@@ -154,4 +161,7 @@ export function remapComponent(
       w.from.port = mapping[w.from.port] ?? w.from.port;
     if (w.to.component === id) w.to.port = mapping[w.to.port] ?? w.to.port;
   }
+  for (const marker of c.markers)
+    if (marker.endpoint?.component === id)
+      marker.endpoint.port = mapping[marker.endpoint.port] ?? marker.endpoint.port;
 }

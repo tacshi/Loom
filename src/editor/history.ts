@@ -1,41 +1,81 @@
+type BudgetEntry = { bytes: number; evict: () => void };
+
+/** Shared across mission stacks so visiting more missions cannot grow undo indefinitely. */
+export class HistoryBudget {
+  private entries = new Set<BudgetEntry>();
+  bytes = 0;
+  constructor(readonly limit = 64 * 1024 * 1024) {}
+  retain(entry: BudgetEntry) {
+    this.entries.add(entry);
+    this.bytes += entry.bytes;
+    while (this.bytes > this.limit && this.entries.size) {
+      const oldest = this.entries.values().next().value!;
+      this.release(oldest);
+      oldest.evict();
+    }
+  }
+  release(entry: BudgetEntry) {
+    if (this.entries.delete(entry)) this.bytes -= entry.bytes;
+  }
+}
+
+type Entry<T> = BudgetEntry & { value: T };
 export class History<T> {
-  private past: T[] = [];
-  private future: T[] = [];
+  private past: Entry<T>[] = [];
+  private future: Entry<T>[] = [];
   private group?: string;
-  constructor(private limit = 100) {}
-  /**
-   * Records the state before an edit. Consecutive pushes with the same group
-   * (for example, keystrokes in one text field) form a single undo step until
-   * the group is sealed or another edit intervenes.
-   */
+  constructor(
+    private limit = 100,
+    private budget = new HistoryBudget(),
+  ) {}
+  private discard(entries: Entry<T>[]) {
+    for (const entry of entries) this.budget.release(entry);
+    entries.length = 0;
+  }
+  private record(value: T, entries: Entry<T>[]) {
+    const copy = structuredClone(value);
+    const entry: Entry<T> = {
+      value: copy,
+      bytes: JSON.stringify(copy).length * 2,
+      evict: () => {
+        const index = entries.indexOf(entry);
+        if (index !== -1) entries.splice(index, 1);
+        if (!this.past.length) this.group = undefined;
+      },
+    };
+    entries.push(entry);
+    this.budget.retain(entry);
+    while (entries.length > this.limit) this.budget.release(entries.shift()!);
+  }
+  /** Consecutive edits to one field share an undo step until blur or another edit. */
   push(value: T, group?: string) {
-    this.future = [];
+    this.discard(this.future);
     if (group !== undefined && group === this.group) return;
     this.group = group;
-    this.past.push(structuredClone(value));
-    if (this.past.length > this.limit) this.past.shift();
+    this.record(value, this.past);
   }
-  /** Ends the current edit group so the next push starts a new undo step. */
   seal() {
     this.group = undefined;
   }
   undo(current: T): T | undefined {
     this.group = undefined;
-    const result = this.past.pop();
-    if (result) {
-      this.future.push(structuredClone(current));
-    }
-    return result;
+    const entry = this.past.pop();
+    if (!entry) return;
+    this.budget.release(entry);
+    this.record(current, this.future);
+    return entry.value;
   }
   redo(current: T): T | undefined {
     this.group = undefined;
-    const result = this.future.pop();
-    if (result) this.past.push(structuredClone(current));
-    return result;
+    const entry = this.future.pop();
+    if (!entry) return;
+    this.budget.release(entry);
+    this.record(current, this.past);
+    return entry.value;
   }
   clear() {
-    this.past = [];
-    this.future = [];
+    this.discard(this.past);
+    this.discard(this.future);
     this.group = undefined;
   }
   get canUndo() {

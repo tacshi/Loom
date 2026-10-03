@@ -6,6 +6,7 @@ import type {
   SignalRef,
   ComponentAppearance,
   TestCase,
+  TestVector,
 } from "../model/types";
 const fail = () => {
   throw new Error("invalidProject");
@@ -111,6 +112,13 @@ export function validateTest(t: TestCase) {
       } else fail();
     }
   }
+}
+
+export function validateVector(v: TestVector) {
+  if (!v || !text(v.name) || !v.inputs || !v.outputs ||
+    Object.values(v.inputs).some(n => !integer(n, 0, 0xffffffff)) ||
+    Object.values(v.outputs).some(n => !integer(n, 0, 0xffffffff)) ||
+    (v.cycles !== undefined && !integer(v.cycles, 0, 10000))) fail();
 }
 export function validateV2(p: Project) {
   if (p.exampleId !== undefined && !Object.hasOwn(exampleGuides, p.exampleId)) throw new Error("invalidProject");

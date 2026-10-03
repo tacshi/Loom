@@ -86,7 +86,12 @@ import {
   remapComponent,
   type Clipboard,
 } from "../editor/session";
-import { History } from "../editor/history";
+import { History, HistoryBudget } from "../editor/history";
+import { editSnapshot, restoreSnapshot, type EditSnapshot } from "../editor/snapshot";
+import { componentWidthLimit, setComponentWidth, writeRomWord } from "../model/editing";
+import { NAME_LIMIT } from "../model/names";
+import NameField from "./NameField";
+import { dialogControls } from "./focus";
 import { translator, type Language } from "./i18n";
 import Canvas from "./Canvas";
 import { useSimulation } from "../simulator/useSimulation";
@@ -160,22 +165,34 @@ export default function App() {
   const [search, setSearch] = useState("");
   const [fit, setFit] = useState(0);
   const [help, setHelp] = useState(false);
-  const history = useRef(new History<Project>());
-  const missionHistories=useRef(new Map<string,History<Project>>());
-  if(savedDocument.course&&!missionHistories.current.has(savedDocument.root))missionHistories.current.set(savedDocument.root,new History<Project>());
+  const undoBudget = useRef(new HistoryBudget());
+  const history = useRef(new History<EditSnapshot>(100, undoBudget.current));
+  const missionHistories=useRef(new Map<string,History<EditSnapshot>>());
+  if(savedDocument.course&&!missionHistories.current.has(savedDocument.root))missionHistories.current.set(savedDocument.root,new History<EditSnapshot>(100, undoBudget.current));
   const currentHistory=savedDocument.course?missionHistories.current.get(savedDocument.root)!:history.current;
   const t = useMemo(() => translator(lang), [lang]);
   const persistence = usePersistence(savedDocument, setProject);
-  const liveSim = useSimulation(savedDocument);
+  const [simulationEpoch, setSimulationEpoch] = useState(0);
+  const liveSim = useSimulation(savedDocument, true, simulationEpoch);
   const exampleSim = useSimulation(project, !!learningScene);
   const sim = learningScene ? exampleSim : liveSim;
-  const activeId = nav.at(-1)?.circuit ?? project.root;
+  const visual = useVisualTests(project, project.root);
+  const viewedRoot = visual.active ? visual.root : project.root;
+  const testReturnNav = useRef<{projectId: string; nav: typeof nav} | undefined>(undefined);
+  const wasTesting = useRef(false);
+  useEffect(() => {
+    if (wasTesting.current && !visual.active && testReturnNav.current?.projectId === project.id) {
+      setNav(testReturnNav.current.nav); setSelected([]); setFocus(undefined);
+      testReturnNav.current = undefined;
+    }
+    wasTesting.current = visual.active;
+  }, [visual.active, project.id]);
+  const activeId = nav.at(-1)?.circuit ?? viewedRoot;
   const circuit = project.circuits[activeId] ?? project.circuits[project.root];
   const circuitTitle = savedDocument.course && !nav.length ? exercise(savedDocument.course.active).title[lang === "zh" ? 1 : 0] : circuit.name;
   const parentTitle = nav.length > 1
     ? project.circuits[nav.at(-2)!.circuit]?.name
-    : savedDocument.course ? exercise(savedDocument.course.active).title[lang === "zh" ? 1 : 0] : project.circuits[project.root].name;
-  const visual = useVisualTests(project, project.root);
+    : savedDocument.course ? exercise(savedDocument.course.active).title[lang === "zh" ? 1 : 0] : project.circuits[viewedRoot].name;
   const snapshot = visual.snapshot ?? sim.snapshot;
   const mode = savedDocument.course ? exercise(savedDocument.course.active).lesson.mode : circuitMode(project, project.root);
   const signalSignature = JSON.stringify(snapshot.values);
@@ -208,6 +225,7 @@ export default function App() {
       selected.includes(n.id) ||
       circuit.wires.some((w) => selected.includes(w.id) && w.netId === n.id),
   );
+  const selectedWire = circuit.wires.find(w => selected.includes(w.id));
   const component = circuit.components.find((c) => c.id === selected[0]);
   useEffect(() => {
     sim.subscribe({
@@ -235,9 +253,9 @@ export default function App() {
     localStorage.setItem("loom-language", lang);
   }, [lang]);
   useEffect(() => {
-    if (openingId === project.id && persistence.writable)
+    if (openingId === project.id && persistence.loaded && (persistence.writable || ["readOnly", "locksUnavailable"].includes(persistence.status)))
       setOpeningId(undefined);
-  }, [openingId, project.id, persistence.writable]);
+  }, [openingId, project.id, persistence.writable, persistence.status]);
   const [courseReturn, setCourseReturn] = useState<Project>();
   const [pausedCourseId, setPausedCourseId] = useState<string | null>(() => localStorage.getItem("loom-paused-course"));
   useEffect(() => {
@@ -262,9 +280,11 @@ export default function App() {
       await openProject(course);
     } catch {
       setNotice(t("loadFailed"));
+      localStorage.removeItem("loom-paused-course");
+      setPausedCourseId(null);
     }
   }
-  function editDocument(action: (p: Project) => void, group?: string): boolean {
+  function editDocument(action: (p: Project) => void, group?: string, allDefinitions = false, scope = activeId): boolean {
     if (savedDocument.courseReference) {
       setNotice(
         lang === "zh"
@@ -283,8 +303,8 @@ export default function App() {
       return false;
     }
     try {
-      const next = editProject(savedDocument, action);
-      currentHistory.push(savedDocument, group);
+      const next = editProject(savedDocument, action, allDefinitions ? undefined : scope);
+      currentHistory.push(editSnapshot(savedDocument), group);
       next.updatedAt = Date.now();
       setProject(next);
       return true;
@@ -293,27 +313,29 @@ export default function App() {
       return false;
     }
   }
-  function edit(action: (p: Project) => void, group?: string): boolean {
+  function edit(action: (p: Project) => void, group?: string, scope = activeId): boolean {
     if(learningScene)return false;
     if(visual.active){cancelCourseCheck.current();visual.close();}
-    return editDocument(action, group);
+    return editDocument(action, group, false, scope);
   }
   function editCourseRecord(action:(p:Project)=>void):boolean {
     if(!persistence.writable||openingId)return false;
     const next=structuredClone(savedDocument);action(next);next.updatedAt=Date.now();setProject(next);return true;
   }
   function showLessonExample(scene:Project|undefined){
+    testReturnNav.current = undefined;
     cancelCourseCheck.current();visual.close();liveSim.command("pause");setNav([]);setPending(undefined);setSelected([]);setFocus(undefined);setFit(x=>x+1);
     setLearningScene(scene?{project:scene}:undefined);
   }
   function runVisualTests() {
     sim.command("pause");setPending(undefined);
+    testReturnNav.current = {projectId: project.id, nav}; setNav([]); setSelected([]); setFocus(undefined);
     if (savedDocument.course && !learningScene) {visual.begin();setCourseRun(x=>x+1);return;}
-    const cases = savedDocument.course ? exercise(savedDocument.course.active).checks() : savedCases(circuit);
-    if(cases.length) visual.run(cases); else setShowDebug(true);
+    const cases = savedDocument.course ? exercise(savedDocument.course.active).checks() : savedCases(project, circuit);
+    if(cases.length) visual.run(cases, savedDocument.course ? project.root : circuit.id); else {testReturnNav.current = undefined; setNav(nav); setShowDebug(true);}
   }
   function focusSignal(ref: SignalRef) {
-    let c=project.circuits[project.root];const route: typeof nav=[];
+    let c=project.circuits[viewedRoot];const route: typeof nav=[];
     for(const id of ref.instancePath){const n=c.components.find(n=>n.id===id);if(!n?.definitionId)break;route.push({circuit:n.definitionId,instance:id});c=project.circuits[n.definitionId];}
     setNav(route);setSelected([ref.componentId]);setFocus(ref.componentId);setFit(x=>x+1);setShowDebug(true);
     if(!visual.active)sim.inspectSource([...ref.instancePath,ref.componentId].join('/'),ref.portId);
@@ -326,11 +348,15 @@ export default function App() {
       setOpeningId(undefined);
       return;
     }
+    testReturnNav.current = undefined;
     setLearningScene(undefined);visual.close();
     setProject(p);
+    setSimulationEpoch(x => x + 1);
     if (libraryTab === "learn" && !p.course && !p.courseReference)
       setLibraryTab("circuit");
-    history.current.clear();missionHistories.current.clear();
+    history.current.clear();
+    for (const h of missionHistories.current.values()) h.clear();
+    missionHistories.current.clear();
     setSelected([]);
     setNav([]);
     setShowTests(false);
@@ -350,6 +376,7 @@ export default function App() {
     !!project.courseReference ||
     sim.isolated || visual.active ||
     !!openingId;
+  const inspectorReadOnly = !persistence.writable || !!circuit.library || !!project.courseReference || sim.isolated || !!openingId;
   useEffect(() => {
     setPlacement(undefined);
   }, [project.id, activeId, instancePath, placementBlocked]);
@@ -457,14 +484,23 @@ export default function App() {
     edit((p) => removeSelection(p, activeId, selected));
     setSelected([]);
   }
-  function restoreHistory(next:Project|undefined){
+  function restoreHistory(next:EditSnapshot|undefined){
     if(!next)return;
-    if(savedDocument.course){setProject(p=>({...p,circuits:{...p.circuits,...closure(next,next.root)},source:next.source,assembledSource:next.assembledSource,sourceMap:next.sourceMap,updatedAt:Date.now()}));}
-    else setProject(next);
+    const restored = restoreSnapshot(savedDocument, next);
+    const candidate = visual.active ? testReturnNav.current?.nav ?? [] : nav;
+    let root = restored.circuits[restored.root];
+    const valid = candidate.every(step => {
+      const instance = root?.components.find(c => c.id === step.instance && c.definitionId === step.circuit);
+      root = restored.circuits[step.circuit];
+      return !!instance && !!root;
+    });
+    testReturnNav.current = undefined;
+    cancelCourseCheck.current(); visual.close();
+    setProject(restored); setNav(valid ? candidate : []);
     setSelected([]);
   }
-  function undo(){if(persistence.writable&&!learningScene)restoreHistory(currentHistory.undo(savedDocument));}
-  function redo(){if(persistence.writable&&!learningScene)restoreHistory(currentHistory.redo(savedDocument));}
+  function undo(){if(persistence.writable&&!learningScene&&!sim.isolated&&!openingId)restoreHistory(currentHistory.undo(editSnapshot(savedDocument)));}
+  function redo(){if(persistence.writable&&!learningScene&&!sim.isolated&&!openingId)restoreHistory(currentHistory.redo(editSnapshot(savedDocument)));}
   function copy() {
     const copied = copySelection(project, activeId, selected);
     if (copied.components.length) clipboard.current = copied;
@@ -481,16 +517,19 @@ export default function App() {
     if (copied.components.length)
       edit((p) => setSelected(pasteSelection(p, activeId, copied)));
   }
-  function toggle(id: string) {
-    if (!!learningScene) {
-      const key=instancePath+id;sim.setInput(key, snapshot.values[key+":out"]?.value?0:1);return;
+  function setInputValue(id: string, value: number, group?: string) {
+    if (visual.active) return;
+    const root = project.circuits[project.root];
+    const source = root.components.find(c => c.id === id && ["input", "portIn"].includes(c.kind));
+    if (source && !root.library && !learningScene && persistence.writable && !sim.isolated && source.params.value !== value) {
+      if (!edit(p => {p.circuits[p.root].components.find(c => c.id === id)!.params.value = value;}, group)) return;
     }
+    sim.setInput(id, value);
+  }
+  function toggle(id: string) {
     const c = circuit.components.find((c) => c.id === id);
     if (c?.kind === "input" || (c?.kind === "portIn" && !nav.length))
-      edit((p) => {
-        const n = p.circuits[activeId].components.find((c) => c.id === id)!;
-        n.params.value = n.params.value ? 0 : 1;
-      });
+      setInputValue(instancePath + id, snapshot.values[instancePath + id + ":out"]?.value ? 0 : 1);
   }
   function move(id: string, delta: Point) {
     const ids = selected.includes(id) ? selected : [id];
@@ -637,11 +676,7 @@ export default function App() {
           setShowTests(false);
           setHelp(false);
         } else if (e.key === "Tab") {
-          const nodes = [
-            ...dialog.querySelectorAll<HTMLElement>(
-              'button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex="0"]',
-            ),
-          ].filter((n) => n.offsetParent !== null);
+          const nodes = dialogControls(dialog);
           const first = nodes[0],
             last = nodes.at(-1);
           if (!dialog.contains(document.activeElement)) {
@@ -684,6 +719,10 @@ export default function App() {
         setSelected([]);
         setPending(undefined);
         setHelp(false);
+      }
+      if (e.key.toLowerCase() === "v" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        setPanMode(false);
+        setPending(undefined);
       }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a") {
         e.preventDefault();
@@ -746,9 +785,10 @@ export default function App() {
   useEffect(() => {
     if (!modalOpen) return;
     const previous = document.activeElement as HTMLElement | null;
-    const frame = requestAnimationFrame(() =>
-      document.querySelector<HTMLElement>('[role="dialog"] button')?.focus(),
-    );
+    const frame = requestAnimationFrame(() => {
+      const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+      if (dialog && !dialog.contains(document.activeElement)) dialogControls(dialog)[0]?.focus();
+    });
     return () => {
       cancelAnimationFrame(frame);
       previous?.isConnected && previous.focus();
@@ -757,7 +797,7 @@ export default function App() {
   return (
     <div className="app">
       <UpdateNotice flush={persistence.flush} t={t} />
-      <header>
+      <header inert={modalOpen}>
         <div className="brand">
           <CircuitBoard size={25} />
           <span>Loom</span>
@@ -770,7 +810,7 @@ export default function App() {
           value={project.name}
           disabled={!!savedDocument.courseReference || !!openingId || !persistence.writable || sim.isolated}
           onChange={(e) => {
-            currentHistory.push(savedDocument, "project-name");
+            currentHistory.push(editSnapshot(savedDocument), "project-name");
             setProject({...savedDocument,name:e.target.value,updatedAt:Date.now()});
           }}
           onBlur={() => currentHistory.seal()}
@@ -778,7 +818,7 @@ export default function App() {
         <span className="local-indicator" data-status={persistence.status} title={t(persistence.status)}>
           {t(openingId ? "loading" : persistence.status === "loadFailed" ? "projectUnavailable" : persistence.status)}
         </span>
-        <div className="header-actions">
+        <div className="header-actions" inert={!!openingId || !persistence.loaded}>
           {pausedCourseId && savedDocument.id !== pausedCourseId && (savedDocument.course || libraryTab !== "learn") && <button disabled={!!openingId} onClick={() => void resumeCourse()}>{t("resumeCourse")}</button>}
           {(!savedDocument.course || project.cpu) && (
             <button
@@ -847,7 +887,7 @@ export default function App() {
           </button>
         </div>
       )}
-      <main inert={!!openingId || modalOpen}>
+      <main inert={!persistence.loaded || !!openingId || modalOpen}>
         <aside className="library" data-course={!!savedDocument.course}>
           <div ref={setLessonHeader} className="current-lesson" hidden={!savedDocument.course} />
           <LibraryTabs value={libraryTab} select={setLibraryTab} t={t} />
@@ -862,6 +902,7 @@ export default function App() {
             <div className="circuit-list">
               <h3>{circuitTitle}</h3>
               <ParameterDefinitions
+                readOnly={inspectorReadOnly}
                 circuit={circuit}
                 t={t}
                 apply={(values) =>
@@ -1124,14 +1165,14 @@ export default function App() {
               </button>
               <button
                 onClick={undo}
-                disabled={!currentHistory.canUndo}
+                disabled={!currentHistory.canUndo || !!learningScene || sim.isolated || !persistence.writable || !!openingId}
                 aria-label={t("undo")}
               >
                 <Undo2 size={17} />
               </button>
               <button
                 onClick={redo}
-                disabled={!currentHistory.canRedo}
+                disabled={!currentHistory.canRedo || !!learningScene || sim.isolated || !persistence.writable || !!openingId}
                 aria-label={t("redo")}
               >
                 <Redo2 size={17} />
@@ -1198,7 +1239,7 @@ export default function App() {
               </button>
             </div>
           </div>
-          {project.cpu && (
+          {project.cpu && viewedRoot === project.root && (
             <div className="cpu-registers">
               {(["pc", "accumulator", "zero", "carry", "output"] as const).map(
                 (k) => (
@@ -1221,7 +1262,7 @@ export default function App() {
                   </button>
                 ),
               )}
-              <span className="current-instruction">{t('currentInstruction')}: {(() => { const pc=snapshot.values[project.cpu.pc+':q']?.value??0; const line=project.sourceMap?.[pc]; return line ? (project.assembledSource ?? project.source).split('\n')[line-1]?.trim() : format(snapshot.values[project.cpu.rom+':out'],16); })()}</span>
+              <span className="current-instruction">{t('currentInstruction')}: {(() => { const pc=snapshot.values[project.cpu.pc+':q']?.value??0; const phase=snapshot.values[project.cpu.phase+':q']?.value??0; const line=project.sourceMap?.[phase ? (pc+255)%256 : pc]; return line ? (project.assembledSource ?? project.source).split('\n')[line-1]?.trim() : format(snapshot.values[project.cpu.ir+':q'],16); })()}</span>
               <span className="cpu-phase">
                 {t(
                   snapshot.values[project.cpu.halt + ":q"]?.value
@@ -1327,7 +1368,7 @@ export default function App() {
             <Program
               key={project.id + ":" + project.root}
               project={project}
-              edit={edit}
+              edit={action => edit(action, undefined, savedDocument.root)}
               snapshot={snapshot}
               t={t}
               close={() => setShowProgram(false)}
@@ -1338,7 +1379,7 @@ export default function App() {
             />
           )}{" "}
           <div className="workbench-dock">
-            {visual.active && <VisualTests controller={visual} project={project} root={project.root} t={t} focus={focusSignal} cancel={()=>{cancelCourseCheck.current();visual.close();}}/>}
+            {visual.active && <VisualTests controller={visual} project={project} root={visual.root} t={t} focus={focusSignal} cancel={()=>{cancelCourseCheck.current();visual.close();}}/>}
 
             {sim.isolated && (
               <div className="notice">
@@ -1359,9 +1400,9 @@ export default function App() {
               <Debugger
                 simulation={sim}
                 snapshot={snapshot}
-                project={project} circuit={circuit} path={nav.map(n=>n.instance)}
+                project={viewedRoot === project.root ? project : {...project, root: viewedRoot}} circuit={circuit} path={nav.map(n=>n.instance)}
                 mode={mode} visual={visual} focusSignal={focusSignal} runTests={runVisualTests} watchSignals={setProbes} devicesVisible={showDevices} selected={selected}
-                setInput={(id,value)=>{if(!visual.active)sim.setInput(id,value);}}
+                setInput={setInputValue}
                 trace={sim.trace}
                 probes={probes}
                 removeProbe={(id) => setProbes(probes.filter((p) => p !== id))}
@@ -1403,6 +1444,7 @@ export default function App() {
               <label>
                 {t("name")}
                 <input
+                  disabled={inspectorReadOnly}
                   aria-label={t("name")}
                   maxLength={200}
                   value={component.name}
@@ -1422,14 +1464,11 @@ export default function App() {
                   <NumberField
                     key={component.id}
                     min={1}
-                    max={32}
+                    max={componentWidthLimit(component.kind)}
+                    disabled={inspectorReadOnly}
                     value={component.width}
                     commit={(width) =>
-                      edit((p) => {
-                        p.circuits[activeId].components.find(
-                          (c) => c.id === component.id,
-                        )!.width = width;
-                      }, "width:" + activeId + "/" + component.id)
+                      edit((p) => setComponentWidth(p, activeId, component.id, width), "width:" + activeId + "/" + component.id)
                     }
                     onBlur={() => currentHistory.seal()}
                   />
@@ -1443,10 +1482,11 @@ export default function App() {
                     key={component.id}
                     aria-label={t("value")}
                     min={0}
-                    max={2 ** component.width - 1}
-                    value={component.params.value ?? 0}
+                    max={2 ** (snapshot.values[instancePath + component.id + ":out"]?.width ?? component.width) - 1}
+                    disabled={inspectorReadOnly}
+                    value={component.kind === "constant" ? component.params.value ?? 0 : snapshot.values[instancePath + component.id + ":out"]?.value ?? component.params.value ?? 0}
                     commit={(value) =>
-                      edit((p) => {
+                      component.kind !== "constant" ? setInputValue(instancePath + component.id, value, "value:" + activeId + "/" + component.id) : edit((p) => {
                         p.circuits[activeId].components.find(
                           (c) => c.id === component.id,
                         )!.params.value = value;
@@ -1460,17 +1500,19 @@ export default function App() {
                 circuit.ports.some((p) => p.componentId === component.id) && (
                   <label>
                     {t("portName")}
-                    <input
+                    <NameField
+                      key={activeId + "/" + component.id}
+                      disabled={inspectorReadOnly}
                       value={
                         circuit.ports.find(
                           (p) => p.componentId === component.id,
                         )!.name
                       }
-                      onChange={(e) =>
+                      commit={(name) =>
                         edit((p) => {
                           p.circuits[activeId].ports.find(
                             (p) => p.componentId === component.id,
-                          )!.name = e.target.value;
+                          )!.name = name;
                         }, "port:" + activeId + "/" + component.id)
                       }
                       onBlur={() => currentHistory.seal()}
@@ -1494,6 +1536,7 @@ export default function App() {
               {ports(component, project).map((p) => (
                 <button
                   className="port-row"
+                  disabled={inspectorReadOnly}
                   key={p.id}
                   aria-label={t("connect") + " " + p.name}
                   onClick={() => pin({ component: component.id, port: p.id })}
@@ -1521,17 +1564,11 @@ export default function App() {
                   }
                   running={sim.running}
                   t={t}
-                  readOnly={visual.active || !!learningScene}
+                  readOnly={visual.active || !!learningScene || (component.kind === "rom" && inspectorReadOnly)}
                   write={(address, value) => {
                     if (visual.active) return;
                     if (component.kind === "rom")
-                      edit((p) => {
-                        const c = p.circuits[activeId].components.find(
-                          (c) => c.id === component.id,
-                        )!;
-                        c.image ??= [];
-                        c.image[address] = value;
-                      });
+                      edit((p) => writeRomWord(p, activeId, component.id, address, value));
                     else
                       sim.memoryEdit(
                         instancePath + component.id,
@@ -1567,6 +1604,7 @@ export default function App() {
               )}
               {component.kind === "instance" && (
                 <InstanceParameters
+                  readOnly={inspectorReadOnly}
                   component={component}
                   project={project}
                   t={t}
@@ -1587,6 +1625,7 @@ export default function App() {
                 <label className="appearance-editor">
                   {t("widthParameter")}
                   <select
+                    disabled={inspectorReadOnly}
                     value={component.widthParameter ?? ""}
                     onChange={(e) =>
                       edit((p) => {
@@ -1613,6 +1652,7 @@ export default function App() {
                   <label className="appearance-editor">
                     {t("addressParameter")}
                     <select
+                      disabled={inspectorReadOnly}
                       value={component.addressParameter ?? ""}
                       onChange={(e) =>
                         edit((p) => {
@@ -1630,6 +1670,7 @@ export default function App() {
                   </label>
                 )}
               <AppearanceEditor
+                readOnly={inspectorReadOnly}
                 component={component}
                 project={project}
                 t={t}
@@ -1673,6 +1714,7 @@ export default function App() {
                   <NumberField
                     key={component.id}
                     min={0}
+                    disabled={inspectorReadOnly}
                     max={2 ** component.width - 1}
                     value={component.params.initial ?? 0}
                     commit={(initial) =>
@@ -1692,6 +1734,7 @@ export default function App() {
                   <NumberField
                     key={component.id}
                     min={1}
+                    disabled={inspectorReadOnly}
                     max={16}
                     value={component.params.addressBits ?? 8}
                     commit={(addressBits) =>
@@ -1706,13 +1749,14 @@ export default function App() {
                 </label>
               )}
               <div className="selection-actions">
-                <button onClick={() => setShowReplacement(true)}>
+                <button disabled={inspectorReadOnly} onClick={() => setShowReplacement(true)}>
                   {t("replaceComponent")}
                 </button>
               </div>
               {component.kind === "adder" && (
                 <div className="selection-actions">
                   <button
+                    disabled={inspectorReadOnly}
                     onClick={() => {
                       edit((p) => {
                         const def = nandAdder(component.width);
@@ -1732,6 +1776,7 @@ export default function App() {
               {component.kind === "instance" &&
                 project.circuits[component.definitionId!]?.library && (
                   <button
+                    disabled={inspectorReadOnly}
                     onClick={() =>
                       edit((p) => {
                         p.circuits[activeId].components.find(
@@ -1754,6 +1799,7 @@ export default function App() {
                       ? "替换为已验证的元件"
                       : "Replace with verified component"}
                     <select
+                      disabled={inspectorReadOnly}
                       value=""
                       onChange={(e) => {
                         const id = e.target.value;
@@ -1802,6 +1848,7 @@ export default function App() {
               )}
               <div className="selection-actions">
                 <button
+                  disabled={inspectorReadOnly}
                   onClick={() => {
                     setExtractName(t("subcircuit"));
                     setShowExtract(true);
@@ -1809,18 +1856,32 @@ export default function App() {
                 >
                   {t("package")}
                 </button>
-                <button onClick={duplicate}>
+                <button disabled={inspectorReadOnly} onClick={duplicate}>
                   <Copy size={15} />
                   {t("duplicate")}
                 </button>
-                <button onClick={remove} className="danger">
+                <button disabled={inspectorReadOnly} onClick={remove} className="danger">
                   <Trash2 size={15} />
                   {t("delete")}
                 </button>
               </div>
             </>
+          ) : selectedWire ? (
+            <div className="wire-inspector">
+              <h3>{t("wire")}</h3>
+              <p>{circuit.components.find(c => c.id === selectedWire.from.component)?.name}.{selectedWire.from.port} → {circuit.components.find(c => c.id === selectedWire.to.component)?.name}.{selectedWire.to.port}</p>
+              <div className="selection-actions">
+                <button disabled={inspectorReadOnly} onClick={() => edit(p => {
+                  const c = p.circuits[activeId], w = c.wires.find(w => w.id === selectedWire.id)!;
+                  w.points = route(c, p, w.from, w.to); w.pinned = false;
+                })}>{t("reroute")}</button>
+                <button disabled={inspectorReadOnly} onClick={remove}>{t("deleteWire")}</button>
+              </div>
+              {selectedNet && <button onClick={() => setSelected([selectedNet.id])}>{t("inspectConnection")}</button>}
+            </div>
           ) : selectedNet ? (
             <NetInspector
+              readOnly={inspectorReadOnly}
               net={selectedNet}
               circuit={circuit}
               project={project}
@@ -1883,6 +1944,7 @@ export default function App() {
       )}
       {showSequences && (
         <SequentialTests
+          readOnly={inspectorReadOnly}
           project={project}
           circuit={circuit}
           simulation={sim}
@@ -1899,7 +1961,7 @@ export default function App() {
         <Libraries
           project={project}
           circuitId={circuit.id}
-          edit={edit}
+          edit={action => !learningScene && editDocument(action, undefined, true)}
           t={t}
           close={() => setShowLibraries(false)}
         />
@@ -1907,6 +1969,7 @@ export default function App() {
       {showProjects && (
         <Projects
           project={savedDocument}
+          recoveryProjectId={persistence.failedProjectId}
           open={openProject}
           close={() => setShowProjects(false)}
           flush={persistence.flush}
@@ -1936,6 +1999,7 @@ export default function App() {
               {t("name")}
               <input
                 autoFocus
+                maxLength={NAME_LIMIT}
                 value={extractName}
                 onChange={(e) => setExtractName(e.target.value)}
               />
@@ -1953,10 +2017,11 @@ export default function App() {
       )}
       {showTests && (
         <CircuitTests
+          readOnly={inspectorReadOnly}
           project={project}
           circuit={circuit}
           results={sim.results}
-          run={() => {setShowTests(false);visual.run(savedCases(circuit));}}
+          run={() => {setShowTests(false);runVisualTests();}}
           edit={edit}
           t={t}
           close={() => setShowTests(false)}

@@ -1,6 +1,7 @@
 import type { Project, Circuit, SignalRef, TestCase } from "../model/types";
 import { ports } from "../model/components";
 import { ref } from "../model/nets";
+import { circuitCases } from "../verification/vectors";
 export function observedSignals(
   circuit: Circuit,
   project: Project,
@@ -20,42 +21,16 @@ export function observedSignals(
     return [
       {
         label: c.name,
+        kind: c.kind,
         direction,
         width: c.width,
         ref: ref(c.id, port, path),
-        interactive: direction === "input",
+        interactive: direction === "input" && (c.kind !== "portIn" || !path.length),
       },
     ];
   });
 }
-export function savedCases(circuit: Circuit): TestCase[] {
-  return [
-    ...circuit.tests,
-    ...circuit.vectors.map((v, i) => ({
-      id: "vector-" + i,
-      name: v.name,
-      seed: 0,
-      maxCycles: Math.max(v.cycles ?? 0, 1),
-      steps: [
-        {
-          cycles: v.cycles ?? 0,
-          inputs: Object.entries(v.inputs).map(([id, value]) => ({
-            ref: ref(id, "out"),
-            value,
-          })),
-          assertions: Object.entries(v.outputs).map(([key, value]) => {
-            const at = key.lastIndexOf(":");
-            return {
-              type: "signal" as const,
-              ref: ref(key.slice(0, at), key.slice(at + 1)),
-              value,
-            };
-          }),
-        },
-      ],
-    })),
-  ];
-}
+export const savedCases = circuitCases;
 export function circuitMode(
   project: Project,
   root: string,
