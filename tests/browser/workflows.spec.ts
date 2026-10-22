@@ -34,6 +34,16 @@ test("NAND full-adder truth table and persisted hierarchy", async ({
     page.getByRole("button", { name: "Run clock", exact: true }),
   ).toBeDisabled();
 });
+test("Program appears only when a project can run a program", async ({ page }) => {
+  await ready(page);
+  const program = page.getByRole("button", { name: "Program", exact: true });
+  await expect(program).toBeHidden();
+  await example(page, "adder");
+  await expect(program).toBeHidden();
+  await example(page, "echo");
+  await program.click();
+  await expect(page.locator(".program-panel")).toBeVisible();
+});
 test("CPU executes sum, rejects bad assembly, and supports source breakpoints", async ({
   page,
 }) => {

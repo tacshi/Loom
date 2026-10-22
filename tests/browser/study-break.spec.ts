@@ -67,5 +67,7 @@ for (const zh of [false, true]) {
     await page.getByRole("button",{name:zh?"工程管理":"Projects",exact:true}).click();
     await page.locator('input[type=file]').setInputFiles({name:"course.loom.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(await courseAt("core-04")))});
     await expect(page.locator("#library-panel-learn .course-learn")).toContainText(zh?"从「元件」拖入所需元件，再连接引脚。":"Drag the parts you need from Components onto the canvas, then connect their pins.");
+    await page.locator("#library-panel-learn .components-link").click();
+    await expect(page.getByRole("tab",{name:zh?"元件":"Components",exact:true})).toHaveAttribute("aria-selected","true");
   });
 }
