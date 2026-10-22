@@ -112,8 +112,9 @@ header {
   font-size: 25px;
   letter-spacing: -1px;
 }
-.brand svg {
-  color: var(--accent);
+.brand img {
+  display: block;
+  border-radius: 6px;
 }
 .header-divider {
   height: 22px;
@@ -1656,6 +1657,7 @@ button.primary:hover:not(:disabled) {
 .course-learn nav {display:flex;flex-direction:column;gap:4px;max-height:230px;overflow:auto;}
 .course-learn nav button {text-align:left;justify-content:flex-start;}
 .course-learn button {white-space:normal;overflow-wrap:anywhere;min-width:0;flex-shrink:0;border:1px solid var(--border);border-radius:5px;padding:8px 10px;}
+.course-learn .components-link, .course-learn .components-link:hover:not(:disabled) {display:inline;padding:0;border:0;border-radius:0;background:none;box-shadow:none;color:var(--accent);text-decoration:underline;text-underline-offset:2px;}
 .course-learn details {padding:6px 0;}
 .course-learn details p {margin:8px 0;line-height:1.5;}
 .course-learn details details {margin-left:10px;}

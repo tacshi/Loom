@@ -41,7 +41,6 @@ import { forkDefinition } from "../library/package";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   Play,
-  CircuitBoard,
   Plus,
   Undo2,
   Redo2,
@@ -195,6 +194,18 @@ export default function App() {
     : savedDocument.course ? exercise(savedDocument.course.active).title[lang === "zh" ? 1 : 0] : project.circuits[viewedRoot].name;
   const snapshot = visual.snapshot ?? sim.snapshot;
   const mode = savedDocument.course ? exercise(savedDocument.course.active).lesson.mode : circuitMode(project, project.root);
+  // Program applies only with a CPU, a 16-bit ROM to load into, or a programming mission.
+  const programUsable = useMemo(() => {
+    if (project.cpu || (savedDocument.course && exercise(savedDocument.course.active).mission?.work === "program")) return true;
+    const seen = new Set<string>();
+    const hasRom = (id: string): boolean => {
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return !!project.circuits[id]?.components.some(c => (c.kind === "rom" && c.width === 16) || (!!c.definitionId && hasRom(c.definitionId)));
+    };
+    return hasRom(project.root);
+  }, [project, savedDocument.course?.active]);
+  const programOpen = showProgram && programUsable;
   const signalSignature = JSON.stringify(snapshot.values);
   const displayValues = useMemo(
     () =>
@@ -799,7 +810,7 @@ export default function App() {
       <UpdateNotice flush={persistence.flush} t={t} />
       <header inert={modalOpen}>
         <div className="brand">
-          <CircuitBoard size={25} />
+          <img src="/loom.svg" width={25} height={25} alt="" />
           <span>Loom</span>
         </div>
         <span className="header-divider" />
@@ -820,10 +831,10 @@ export default function App() {
         </span>
         <div className="header-actions" inert={!!openingId || !persistence.loaded}>
           {pausedCourseId && savedDocument.id !== pausedCourseId && (savedDocument.course || libraryTab !== "learn") && <button disabled={!!openingId} onClick={() => void resumeCourse()}>{t("resumeCourse")}</button>}
-          {(!savedDocument.course || project.cpu) && (
+          {programUsable && (
             <button
               onClick={() => {
-                setShowProgram(!showProgram);
+                setShowProgram(!programOpen);
                 setShowDebug(false);
               }}
             >
@@ -894,7 +905,7 @@ export default function App() {
           <div role="tabpanel" id="library-panel-learn" aria-labelledby="library-tab-learn" tabIndex={0} hidden={libraryTab !== "learn"}>
             <CourseLearn headerTarget={lessonHeader} t={t} lang={lang} open={openProject}
               project={savedDocument} edit={editCourseRecord} onPassed={() => setLibraryTab("learn")} onPause={() => void pauseCourse()} onPractice={p => void pauseCourse(p)} onResume={pausedCourseId ? () => void resumeCourse() : undefined}
-              example={!!learningScene} onExample={showLessonExample} onHint={id=>{setSelected([id]);setFocus(id);setFit(x=>x+1);}} runToken={courseRun} cancelCheckRef={cancelCourseCheck}
+              example={!!learningScene} onExample={showLessonExample} onHint={id=>{setSelected([id]);setFocus(id);setFit(x=>x+1);}} onComponents={()=>setLibraryTab("components")} runToken={courseRun} cancelCheckRef={cancelCourseCheck}
               onCheckStopped={()=>visual.close()} onResults={r=>visual.present(r.cases,r.results,true,r.message)} />
           </div>
           <div role="tabpanel" id="library-panel-circuit" aria-labelledby="library-tab-circuit" tabIndex={0} hidden={libraryTab !== "circuit"}>
@@ -1200,7 +1211,7 @@ export default function App() {
               {(mode !== 'logic' || !savedDocument.course) && <>
                 <button disabled={visual.active || sim.diagnostics.some(d=>d.severity==='error')} onClick={()=>sim.command(sim.running?'pause':'run',hz)}>{t(sim.running?'pause':'runClock')}</button>
                 <button disabled={visual.active || sim.diagnostics.some(d=>d.severity==='error')} onClick={()=>sim.command('step')}>{t('advanceClock')}</button>
-                {mode==='cpu' && !showProgram && <button disabled={visual.active || sim.diagnostics.some(d=>d.severity==='error')} onClick={()=>sim.command('instruction')}>{t('stepInstruction')}</button>}
+                {mode==='cpu' && !programOpen && <button disabled={visual.active || sim.diagnostics.some(d=>d.severity==='error')} onClick={()=>sim.command('instruction')}>{t('stepInstruction')}</button>}
                 <button onClick={()=>{cancelCourseCheck.current();visual.close();sim.command('reset');}}>{t('reset')}</button>
                 <select aria-label={t('speed')} value={hz} onChange={e=>setHz(Number(e.target.value))}>{[1,2,10,100,1000,100000].map(n=><option key={n} value={n}>{n} Hz</option>)}</select>
               </>}
@@ -1364,7 +1375,7 @@ export default function App() {
               ))}
             </details>
           )}
-          {showProgram && (
+          {programOpen && (
             <Program
               key={project.id + ":" + project.root}
               project={project}

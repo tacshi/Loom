@@ -33,6 +33,7 @@ export default function CourseLearn({
   onExample,
   example,
   onHint,
+  onComponents,
 }: {
   headerTarget: HTMLDivElement | null;
   project: Project;
@@ -51,9 +52,16 @@ export default function CourseLearn({
   onExample: (p: Project | undefined) => void;
   example: boolean;
   onHint: (componentId: string) => void;
+  onComponents: () => void;
 }) {
   const index = lang === "zh" ? 1 : 0,
     label = (en: string, zh: string) => (index ? zh : en),
+    // Instructions that name the Components tab link to it.
+    components = (
+      <button type="button" className="components-link" onClick={onComponents}>
+        {label("Components", "元件")}
+      </button>
+    ),
     message = (s: string) => {
       const translations: Record<string, string> = {
         "Complete prerequisite checks first": "请先完成前置任务。",
@@ -437,22 +445,24 @@ export default function CourseLearn({
           )}
           {selected === "core-03" && (
             <p>
-              {label(
-                "Open Components and drag AND onto the canvas. X means an output cannot be determined yet; connect both gate inputs before checking it.",
-                "打开「元件」，将与门拖到画布上。X 表示输出还无法确定，先接好门的两个输入，再检查结果。",
+              {index ? (
+                <>打开「{components}」，将与门拖到画布上。X 表示输出还无法确定，先接好门的两个输入，再检查结果。</>
+              ) : (
+                <>Open {components} and drag AND onto the canvas. X means an output cannot be determined yet; connect both gate inputs before checking it.</>
               )}
             </p>
           )}
           {selected === "core-13" && (
             <p>
-              {label(
-                "Drag Bus joiner from Components, select it, and set Bit width to 4 in its properties. Each b pin carries one bit; out carries all four.",
-                "从「元件」拖入「总线合并」，选中后在属性中把位宽设为 4。每个 b 引脚传递一个位，out 传递全部四个位。",
+              {index ? (
+                <>从「{components}」拖入「总线合并」，选中后在属性中把位宽设为 4。每个 b 引脚传递一个位，out 传递全部四个位。</>
+              ) : (
+                <>Drag Bus joiner from {components}, select it, and set Bit width to 4 in its properties. Each b pin carries one bit; out carries all four.</>
               )}
             </p>
           )}
           {mission.work !== "program" && !missionApproaches[selected] && !["core-01", "core-02", "core-03", "core-13"].includes(selected) && (
-            <p>{label("Drag the parts you need from Components onto the canvas, then connect their pins.", "从「元件」拖入所需元件，再连接引脚。")}</p>
+            <p>{index ? <>从「{components}」拖入所需元件，再连接引脚。</> : <>Drag the parts you need from {components} onto the canvas, then connect their pins.</>}</p>
           )}
           <div
             className="mission-milestones"
