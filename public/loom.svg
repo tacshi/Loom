@@ -1,1 +1,28 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="40" fill="#182d2a"/><g fill="none" stroke="#9cd5ad" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"><rect x="38" y="38" width="116" height="116" rx="8"/><path d="M60 67h30v58h42M90 96h43M60 126h30"/><circle cx="60" cy="67" r="8" fill="#182d2a"/><circle cx="133" cy="96" r="8" fill="#182d2a"/><circle cx="60" cy="126" r="8" fill="#182d2a"/></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Same mark as Loom-swift's scripts/render-icon.swift (light variant). -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#23825F"/>
+      <stop offset="1" stop-color="#0C3528"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="280" cy="220" r="760" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="halo">
+      <stop offset="0.235" stop-color="#7CF0B0" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#7CF0B0" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="225" fill="url(#bg)"/>
+  <rect width="1024" height="1024" rx="225" fill="url(#glow)"/>
+  <g transform="translate(512 512) scale(0.84) translate(-486 -512)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M392 322H512A190 190 0 0 1 512 702H392Z" fill="#FFFFFF" fill-opacity="0.08" stroke="#E9FFF2" stroke-width="46"/>
+    <path d="M194 436H390M194 588H390" fill="none" stroke="#E9FFF2" stroke-width="46"/>
+    <circle cx="150" cy="436" r="29" fill="none" stroke="#E9FFF2" stroke-width="30"/>
+    <circle cx="150" cy="588" r="29" fill="none" stroke="#E9FFF2" stroke-width="30"/>
+    <circle cx="820" cy="512" r="170" fill="url(#halo)"/>
+    <path d="M702 512H820" fill="none" stroke="#7CF0B0" stroke-width="46"/>
+    <circle cx="820" cy="512" r="58" fill="#7CF0B0"/>
+  </g>
+</svg>
