@@ -145,9 +145,9 @@ export function validateV2(p: Project) {
       members += n.ports.length;
       if (members > 200000) fail();
     }
+    const netIds = new Set(c.nets.map((n) => n.id));
     for (const w of c.wires)
-      if (w.netId !== undefined && !c.nets.some((n) => n.id === w.netId))
-        fail();
+      if (w.netId !== undefined && !netIds.has(w.netId)) fail();
     const names = new Set<string>();
     for (const param of c.parameters ?? []) {
       if (

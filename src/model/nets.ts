@@ -145,6 +145,18 @@ export function attachNet(c: Circuit, p: Project, netId: string, e: Endpoint) {
   if (!n.ports.some((m) => endpointKey(m) === endpointKey(e)))
     n.ports.push({ ...e });
 }
+/** A net keeps its id after the endpoint it was derived from leaves, so seeds can repeat. */
+function freshNetId(c: Circuit, seed: string) {
+  let id = "net-" + stableId(seed);
+  for (let n = 1; c.nets.some((net) => net.id === id); n++)
+    id = "net-" + stableId(seed + ":" + n);
+  return id;
+}
+/** A marker labels a net, so it cannot outlast that net. */
+export function pruneMarkers(c: Circuit) {
+  const nets = new Set(c.nets.map((n) => n.id));
+  c.markers = c.markers.filter((m) => nets.has(m.netId));
+}
 export function connect(c: Circuit, p: Project, w: Wire) {
   const from = portAt(c, p, w.from),
     to = portAt(c, p, w.to);
@@ -175,7 +187,7 @@ export function connect(c: Circuit, p: Project, w: Wire) {
   }
   if (!net) {
     net = {
-      id: "net-" + stableId(c.id + endpointKey(w.from)),
+      id: freshNetId(c, c.id + endpointKey(w.from)),
       width: from.width,
       ports: [{ ...w.from }],
     };
@@ -251,7 +263,7 @@ export function removeRouteConnection(c: Circuit, id: string) {
       const split = groups.map((ports, i) => ({
         ...net,
         id: i
-          ? "net-" + stableId(net.id + ports.map(endpointKey).sort().join())
+          ? freshNetId(c, net.id + ports.map(endpointKey).sort().join())
           : net.id,
         name: i ? undefined : net.name,
         ports,
@@ -271,6 +283,7 @@ export function removeRouteConnection(c: Circuit, id: string) {
     }
   }
   c.nets = c.nets.filter((n) => n.ports.length > 0);
+  pruneMarkers(c);
 }
 export function resolveSignalRef(
   p: Project,

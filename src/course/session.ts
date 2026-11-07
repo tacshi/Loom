@@ -14,7 +14,7 @@ import {
 import { semanticDocument } from "../simulator/state";
 import { exercise, exercises, courseReference } from "./registry";
 import { canonical } from "../model/nets";
-import type { CourseCheck, ExerciseId } from "./types";
+import type { CourseCheck, CourseVersion, ExerciseId } from "./types";
 export function newCourse(): Project {
   const p = emptyProject("Build your own computer");
   p.course = {
@@ -220,6 +220,68 @@ export async function programSourceHash(p: Project) {
     assembledSource: p.assembledSource ?? "",
   });
 }
+function reachable(p: Project, roots: string[]) {
+  const seen = new Set<string>();
+  const visit = (id: string) => {
+    if (seen.has(id)) return;
+    seen.add(id);
+    for (const n of p.circuits[id].components)
+      if (n.definitionId) visit(n.definitionId);
+  };
+  roots.forEach(visit);
+  return seen;
+}
+const records = (p: Project) =>
+  Object.values(p.course!.accepted).filter((r) => r !== undefined);
+const draftRoots = (p: Project) => [
+  p.root,
+  ...Object.values(p.course!.drafts).filter((id) => id !== undefined),
+];
+/** Keeps a replaced version only while a draft or another accepted version relies on it. */
+function pruneSuperseded(p: Project) {
+  const inDrafts = [...reachable(p, draftRoots(p))].flatMap((id) => {
+    const origin = p.circuits[id].library ?? p.circuits[id].libraryOrigin;
+    return origin ? [origin.hash] : [];
+  });
+  const dropped: string[] = [];
+  for (let changed = true; changed; ) {
+    changed = false;
+    const used = new Set(inDrafts);
+    for (const record of records(p))
+      for (const version of [record, ...(record.superseded ?? [])])
+        for (const hash of Object.values(version.dependencies)) used.add(hash);
+    for (const record of records(p)) {
+      const kept = record.superseded?.filter((version) =>
+        used.has(p.circuits[version.acceptedRoot].library?.hash ?? ""),
+      );
+      if (!record.superseded || kept?.length === record.superseded.length)
+        continue;
+      changed = true;
+      dropped.push(
+        ...record.superseded
+          .filter((version) => !kept?.includes(version))
+          .map((version) => version.acceptedRoot),
+      );
+      if (kept?.length) record.superseded = kept;
+      else delete record.superseded;
+    }
+  }
+  return dropped;
+}
+/** Deletes definitions under the given roots unless something else still uses them. */
+function dropUnused(p: Project, roots: string[]) {
+  const candidates = new Set(
+    roots.flatMap((root) => Object.keys(closure(p, root))),
+  );
+  const live = reachable(p, [
+    ...Object.keys(p.circuits).filter((id) => !candidates.has(id)),
+    ...draftRoots(p),
+    ...records(p).flatMap((record) =>
+      [record, ...(record.superseded ?? [])].map((v) => v.acceptedRoot),
+    ),
+  ]);
+  for (const id of candidates) if (!live.has(id)) delete p.circuits[id];
+}
 export async function acceptCheck(p: Project, result: CourseCheck) {
   if (
     !p.course ||
@@ -251,7 +313,13 @@ export async function acceptCheck(p: Project, result: CourseCheck) {
     (prior ? (p.circuits[prior.acceptedRoot].library?.version ?? 0) : 0) + 1,
   );
   const acceptedRoot = embedPackage(p, pkg);
+  const superseded: CourseVersion[] = [];
+  if (prior) {
+    const { superseded: older = [], ...replaced } = prior;
+    superseded.push(...older, replaced);
+  }
   p.course.accepted[result.exercise] = {
+    ...(superseded.length ? { superseded } : {}),
     hash: result.hash,
     verifiedWidths: result.verifiedWidths,
     exerciseRevision: exercise(result.exercise).revision,
@@ -267,6 +335,7 @@ export async function acceptCheck(p: Project, result: CourseCheck) {
         }
       : {}),
   };
+  if (prior) dropUnused(p, [prior.acceptedRoot, ...pruneSuperseded(p)]);
   p.updatedAt = Date.now();
 }
 export function dependencyHashes(p: Project, id: ExerciseId) {

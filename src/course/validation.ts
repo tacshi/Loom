@@ -1,4 +1,7 @@
+import { MAX_SOURCE_LINE } from "../persistence/limits";
 import type { Project } from "../model/types";
+import type { CourseRecord } from "./types";
+const MAX_SUPERSEDED = 64;
 const ids = new Set([
   ...Array.from(
     { length: 60 },
@@ -51,7 +54,7 @@ export function validateCourse(p: Project) {
               Number(key) > 255 ||
               !Number.isInteger(line) ||
               line < 1 ||
-              line > 10000,
+              line > MAX_SOURCE_LINE,
           )
         )
           throw new Error("invalidProject");
@@ -66,9 +69,8 @@ export function validateCourse(p: Project) {
       !Object.hasOwn(p.circuits, root)
     )
       throw new Error("invalidProject");
-  for (const [id, r] of Object.entries(c.accepted)) {
+  const validateVersion = (r: any) => {
     if (
-      !ids.has(id) ||
       !object(r) ||
       !Number.isInteger(r.exerciseRevision) ||
       r.exerciseRevision < 1 ||
@@ -93,13 +95,13 @@ export function validateCourse(p: Project) {
       r.source?.sourceMap !== undefined &&
       (!object(r.source.sourceMap) ||
         Object.entries(r.source.sourceMap).some(
-          ([key, line]) =>
+          ([key, line]: [string, any]) =>
             !Number.isInteger(Number(key)) ||
             Number(key) < 0 ||
             Number(key) > 255 ||
             !Number.isInteger(line) ||
             line < 1 ||
-            line > 10000,
+            line > MAX_SOURCE_LINE,
         ))
     )
       throw new Error("invalidProject");
@@ -110,5 +112,17 @@ export function validateCourse(p: Project) {
         !/^[a-f0-9]{64}$/.test(hash)
       )
         throw new Error("invalidProject");
+  };
+  for (const [id, r] of Object.entries(c.accepted)) {
+    if (!ids.has(id)) throw new Error("invalidProject");
+    validateVersion(r);
+    const { superseded } = r as CourseRecord;
+    if (superseded === undefined) continue;
+    if (!Array.isArray(superseded) || superseded.length > MAX_SUPERSEDED)
+      throw new Error("invalidProject");
+    for (const version of superseded) {
+      validateVersion(version);
+      if ("superseded" in version) throw new Error("invalidProject");
+    }
   }
 }

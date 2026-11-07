@@ -10,6 +10,8 @@ import {
 } from "../model/types";
 import { canonical, connect, endpointKey, refreshWidths } from "../model/nets";
 import { editingScope, validateDefinitions } from "../model/definitions";
+import { MAX_FILE_BYTES, validateDocument } from "../persistence/validation";
+import { projectBytes } from "../persistence/serialization";
 export type Clipboard = {
   components: Component[];
   nets: Net[];
@@ -34,7 +36,19 @@ export function editProject(
     if (c.library && draft.circuits[c.id] !== c && canonical(draft.circuits[c.id]) !== canonical(c))
       throw new Error("libraryReadOnly");
   draft.updatedAt = Date.now();
+  validateEdit(project, draft);
   return draft;
+}
+/** A project must stay able to save and re-import, so an edit that breaks either is refused. */
+export function validateEdit(previous: Project, next: Project) {
+  try {
+    validateDocument(next);
+  } catch {
+    throw new Error("editInvalid");
+  }
+  const bytes = projectBytes(next);
+  if (bytes > MAX_FILE_BYTES && bytes > projectBytes(previous))
+    throw new Error("projectTooLarge");
 }
 export function copySelection(
   project: Project,
@@ -76,8 +90,12 @@ export function pasteSelection(
 ): string[] {
   const c = project.circuits[id],
     mapping = new Map<string, string>(),
-    nets = new Map<string, string>();
+    nets = new Map<string, string>(),
+    parameters = new Set(c.parameters?.map((p) => p.name));
   for (const original of clipboard.components) {
+    for (const name of [original.widthParameter, original.addressParameter])
+      if (name && !parameters.has(name))
+        throw new Error("parameterBoundSelection");
     const copy = structuredClone(original);
     copy.id = uid();
     mapping.set(original.id, copy.id);

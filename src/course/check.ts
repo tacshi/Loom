@@ -2,7 +2,7 @@ import { assemble } from "../cpu/assembler";
 import { compile } from "../simulator/compiler";
 import { verifyWidthVariants } from "./variants";
 import type { Project } from "../model/types";
-import type { CourseCheck, ExerciseId } from "./types";
+import type { CourseCheck, CourseVersion, Exercise, ExerciseId } from "./types";
 import { exercise, exercises, courseReference } from "./registry";
 import {
   courseProject,
@@ -85,69 +85,74 @@ export async function checkCourse(
     )) {
       if (["core-01", "core-02", "core-03", "core-04"].includes(prior.id))
         continue;
-      const record = p.course.accepted[prior.id];
-      if (!record || record.exerciseRevision !== prior.revision) continue;
-      const acceptedLibrary = p.circuits[record.acceptedRoot]?.library;
-      if (
-        acceptedLibrary?.id !== "course-" + prior.id ||
-        (await electricalHash(p, record.acceptedRoot)) !== record.hash
-      )
-        continue;
-      // Packaging remaps definition IDs. Trust the approved identity and actual
-      // electrical content, never an embedded library label alone.
-      for (const candidate of Object.values(draft.circuits)) {
-        const candidateOrigin = candidate.library ?? candidate.libraryOrigin;
-        const directIdentity =
-          candidateOrigin?.id === acceptedLibrary.id &&
-          candidateOrigin.hash === acceptedLibrary.hash;
-        const copiedProgramPart =
-          spec.mission!.work === "program" &&
-          !!candidate.libraryOrigin &&
-          candidateOrigin?.hash === acceptedLibrary.hash;
-        const packagedIdentity =
-          verifySnapshot &&
-          candidate.id !== draft.root &&
-          candidate.library?.hash ===
-            draft.circuits[draft.root].library?.hash &&
-          Object.values(p.course.accepted[id]?.dependencies ?? {}).includes(
-            acceptedLibrary.hash,
-          );
-        const packagedProgramPart =
-          spec.mission!.work === "program" && packagedIdentity;
+      const current = p.course.accepted[prior.id];
+      for (const record of [
+        ...(current ? [current] : []),
+        ...(current?.superseded ?? []),
+      ]) {
+        if (record.exerciseRevision !== prior.revision) continue;
+        const acceptedLibrary = p.circuits[record.acceptedRoot]?.library;
         if (
-          !(directIdentity || packagedIdentity || copiedProgramPart) ||
-          (!copiedProgramPart &&
-            !packagedProgramPart &&
-            candidate.components.length !==
-              p.circuits[record.acceptedRoot].components.length)
+          acceptedLibrary?.id !== "course-" + prior.id ||
+          (await electricalHash(p, record.acceptedRoot)) !== record.hash
         )
           continue;
-        let fingerprint = dependencyFingerprints.get(candidate.id);
-        if (!fingerprint) {
-          fingerprint = await electricalHash(p, candidate.id);
-          dependencyFingerprints.set(candidate.id, fingerprint);
-        }
-        if (fingerprint === record.hash) trusted.add(candidate.id);
-        else if (copiedProgramPart || packagedProgramPart) {
-          const subtreeKey =
-            prior.id +
-            ":" +
-            (packagedProgramPart ? "package" : candidateOrigin!.id);
-          let approved = copiedSubtrees.get(subtreeKey);
-          if (!approved) {
-            approved = new Set<string>();
-            for (const original of Object.values(
-              closure(p, record.acceptedRoot),
-            ))
-              if (
-                packagedProgramPart ||
-                (original.library?.id === candidateOrigin!.id &&
-                  original.library.hash === acceptedLibrary.hash)
-              )
-                approved.add(await electricalHash(p, original.id));
-            copiedSubtrees.set(subtreeKey, approved);
+        // Packaging remaps definition IDs. Trust the approved identity and actual
+        // electrical content, never an embedded library label alone.
+        for (const candidate of Object.values(draft.circuits)) {
+          const candidateOrigin = candidate.library ?? candidate.libraryOrigin;
+          const directIdentity =
+            candidateOrigin?.id === acceptedLibrary.id &&
+            candidateOrigin.hash === acceptedLibrary.hash;
+          const copiedProgramPart =
+            spec.mission!.work === "program" &&
+            !!candidate.libraryOrigin &&
+            candidateOrigin?.hash === acceptedLibrary.hash;
+          const packagedIdentity =
+            verifySnapshot &&
+            candidate.id !== draft.root &&
+            candidate.library?.hash ===
+              draft.circuits[draft.root].library?.hash &&
+            Object.values(p.course.accepted[id]?.dependencies ?? {}).includes(
+              acceptedLibrary.hash,
+            );
+          const packagedProgramPart =
+            spec.mission!.work === "program" && packagedIdentity;
+          if (
+            !(directIdentity || packagedIdentity || copiedProgramPart) ||
+            (!copiedProgramPart &&
+              !packagedProgramPart &&
+              candidate.components.length !==
+                p.circuits[record.acceptedRoot].components.length)
+          )
+            continue;
+          let fingerprint = dependencyFingerprints.get(candidate.id);
+          if (!fingerprint) {
+            fingerprint = await electricalHash(p, candidate.id);
+            dependencyFingerprints.set(candidate.id, fingerprint);
           }
-          if (approved.has(fingerprint)) trusted.add(candidate.id);
+          if (fingerprint === record.hash) trusted.add(candidate.id);
+          else if (copiedProgramPart || packagedProgramPart) {
+            const subtreeKey =
+              record.hash +
+              ":" +
+              (packagedProgramPart ? "package" : candidateOrigin!.id);
+            let approved = copiedSubtrees.get(subtreeKey);
+            if (!approved) {
+              approved = new Set<string>();
+              for (const original of Object.values(
+                closure(p, record.acceptedRoot),
+              ))
+                if (
+                  packagedProgramPart ||
+                  (original.library?.id === candidateOrigin!.id &&
+                    original.library.hash === acceptedLibrary.hash)
+                )
+                  approved.add(await electricalHash(p, original.id));
+              copiedSubtrees.set(subtreeKey, approved);
+            }
+            if (approved.has(fingerprint)) trusted.add(candidate.id);
+          }
         }
       }
     }
@@ -218,6 +223,30 @@ export async function checkCourse(
   }
   return result;
 }
+async function verifyVersion(
+  p: Project,
+  spec: Exercise,
+  version: CourseVersion,
+  progress?: (exercise: ExerciseId, caseName?: string) => void,
+): Promise<CourseCheck> {
+  const copy = structuredClone(p);
+  copy.course!.drafts[spec.id] = version.acceptedRoot;
+  copy.course!.accepted[spec.id] = structuredClone(version);
+  if (spec.mission!.work === "program") {
+    if (!version.source)
+      return {exercise: spec.id, status: "invalid", message: "sourceChanged", results: [], cases: []};
+    copy.source = version.source.source;
+    copy.assembledSource = version.source.assembledSource;
+    copy.sourceMap = version.source.sourceMap;
+  }
+  const result = await checkCourse(copy, spec.id, true, progress);
+  // The electrical hash normalizes remapped definition IDs.
+  if (result.status === "passed" && (version.exerciseRevision !== spec.revision || version.hash !== result.hash)) {
+    result.status = "invalid";
+    result.message = "courseRecordMismatch";
+  }
+  return result;
+}
 /** Imported completion claims are rechecked against the trusted registry and actual embedded snapshots. */
 export async function reverifyCourse(
   p: Project,
@@ -233,29 +262,19 @@ export async function reverifyCourse(
       delete p.course.accepted[spec.id];
       continue;
     }
-    const copy = structuredClone(p);
-    copy.course!.drafts[spec.id] = record.acceptedRoot;
-    if (spec.mission!.work === "program") {
-      if (!record.source) {
-        results.push({exercise: spec.id, status: "invalid", message: "sourceChanged", results: [], cases: []});
-        delete p.course.accepted[spec.id];
-        continue;
-      }
-      copy.source = record.source.source;
-      copy.assembledSource = record.source.assembledSource;
-      copy.sourceMap = record.source.sourceMap;
-    }
-    const result = await checkCourse(copy, spec.id, true, progress);
-    if (result.status === "passed" && (record.exerciseRevision !== spec.revision || record.hash !== result.hash)) {
-      result.status = "invalid";
-      result.message = "courseRecordMismatch";
-    }
+    const result = await verifyVersion(p, spec, record, progress);
     results.push(result);
-    // The electrical hash normalizes remapped definition IDs.
-    if (
-      result.status !== "passed"
-    )
+    if (result.status !== "passed") {
       delete p.course.accepted[spec.id];
+      continue;
+    }
+    // Earlier versions earn trust the same way, so a forged one cannot vouch for a part.
+    const kept: CourseVersion[] = [];
+    for (const version of record.superseded ?? [])
+      if ((await verifyVersion(p, spec, version, progress)).status === "passed")
+        kept.push(version);
+    if (kept.length) record.superseded = kept;
+    else delete record.superseded;
   }
   p.course.needsVerification = false;
   return results;

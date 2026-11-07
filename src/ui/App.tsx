@@ -78,6 +78,7 @@ import {
 } from "../editor/routing";
 import {
   editProject,
+  validateEdit,
   copySelection,
   pasteSelection,
   offsetClipboard,
@@ -331,7 +332,9 @@ export default function App() {
   }
   function editCourseRecord(action:(p:Project)=>void):boolean {
     if(!persistence.writable||openingId)return false;
-    const next=structuredClone(savedDocument);action(next);next.updatedAt=Date.now();setProject(next);return true;
+    const next=structuredClone(savedDocument);action(next);next.updatedAt=Date.now();
+    try{validateEdit(savedDocument,next);}catch(error){setNotice(t((error as Error).message));return false;}
+    setProject(next);return true;
   }
   function showLessonExample(scene:Project|undefined){
     testReturnNav.current = undefined;

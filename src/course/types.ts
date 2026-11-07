@@ -26,7 +26,7 @@ export type ConceptId =
   | "io"
   | "calculator";
 export type ExerciseId = import("./missions/types").MissionId;
-export type CourseRecord = {
+export type CourseVersion = {
   source?: {
     source: string;
     assembledSource?: string;
@@ -38,6 +38,8 @@ export type CourseRecord = {
   dependencies: Record<string, string>;
   acceptedRoot: string;
 };
+/** `superseded` holds replaced versions that a draft or accepted part still relies on. */
+export type CourseRecord = CourseVersion & { superseded?: CourseVersion[] };
 export type CourseState = {
   sources?: Partial<
     Record<

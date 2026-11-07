@@ -91,6 +91,9 @@ export const messages: Record<string, [string, string]> = {
   placementKeys: ["Arrow keys to move · Enter to place · Esc to cancel", "方向键移动 · 回车放置 · Esc 取消"],
   addressParameter: ["Address-width parameter", "地址位宽参数"],
   parameterInUse: ["Remove the parameter bindings before deleting it.", "请先移除参数绑定，再删除参数。"],
+  parameterBoundSelection: ["Clear the width and address parameters on the selected components first.", "请先清除所选元件的位宽和地址参数。"],
+  projectTooLarge: ["That change would make the project larger than the 32 MB file limit, so it was not applied.", "此更改会使工程超过 32 MB 文件上限，因此未应用。"],
+  editInvalid: ["That change would stop this project from saving, so it was not applied.", "此更改会导致工程无法保存，因此未应用。"],
   parameterName: ["Parameter name", "参数名称"],
   returnBeforeEdit: ["Return to the live circuit before editing.", "请先返回当前电路再编辑。"],
   noPackageTests: [
