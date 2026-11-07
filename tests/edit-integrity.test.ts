@@ -8,7 +8,11 @@ import {
   editProject,
   pasteSelection,
 } from "../src/editor/session";
-import { validateProject } from "../src/persistence/validation";
+import {
+  MAX_FILE_BYTES,
+  validateProject,
+} from "../src/persistence/validation";
+import { exportProject, projectBytes } from "../src/persistence/serialization";
 import { assemble } from "../src/cpu/assembler";
 import {
   acceptCheck,
@@ -217,6 +221,54 @@ it("an edit that would not save is rejected before it reaches the document", () 
   for (const action of edits)
     expect(() => editProject(p, action)).toThrow("editInvalid");
   expect(JSON.stringify(p)).toBe(before);
+});
+
+function romProject(count: number) {
+  const p = emptyProject(),
+    c = p.circuits[p.root];
+  const image = new Array(65536).fill(0xffffffff);
+  for (let i = 0; i < count; i++) {
+    const rom = createComponent("rom", 0, i * 100, 32);
+    rom.id = "rom" + i;
+    rom.params.addressBits = 16;
+    rom.image = image;
+    c.components.push(rom);
+  }
+  return p;
+}
+const addRom = (draft: Project) => {
+  const c = draft.circuits[draft.root],
+    copy = structuredClone(c.components[0]);
+  copy.id = "extra";
+  c.components.push(copy);
+};
+
+it("measures the same size that an export writes", () => {
+  const { p } = circuit(["i", "input"], ["o", "probe"]);
+  p.name = "电路 ✓";
+  p.circuits[p.root].name = "根 circuit";
+  expect(projectBytes(p)).toBe(
+    new TextEncoder().encode(exportProject(p)).length,
+  );
+});
+
+it("an edit cannot grow a project past the import size limit", () => {
+  const p = romProject(46);
+  expect(projectBytes(p)).toBeLessThan(MAX_FILE_BYTES);
+
+  expect(() => editProject(p, addRom)).toThrow("projectTooLarge");
+  expect(p.circuits[p.root].components).toHaveLength(46);
+});
+
+it("an oversized project can still shrink", () => {
+  const p = romProject(47);
+  expect(projectBytes(p)).toBeGreaterThan(MAX_FILE_BYTES);
+
+  expect(() => editProject(p, addRom)).toThrow("projectTooLarge");
+  const smaller = editProject(p, (draft) => {
+    draft.circuits[draft.root].components.pop();
+  });
+  expect(projectBytes(smaller)).toBeLessThan(MAX_FILE_BYTES);
 });
 
 it("an accepted edit still validates and keeps the document separate", () => {

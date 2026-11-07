@@ -1,6 +1,5 @@
 import { subcircuitLabel, subcircuitSymbol } from "./subcircuitLabel";
 import { loadProject } from "../persistence/store";
-import { validateDocument } from "../persistence/validation";
 import CircuitMenu from "./CircuitMenu";
 import { exampleGuides, type ExampleId } from "../examples/guides";
 import { useVisualTests } from "./useVisualTests";
@@ -79,6 +78,7 @@ import {
 } from "../editor/routing";
 import {
   editProject,
+  validateEdit,
   copySelection,
   pasteSelection,
   offsetClipboard,
@@ -333,7 +333,7 @@ export default function App() {
   function editCourseRecord(action:(p:Project)=>void):boolean {
     if(!persistence.writable||openingId)return false;
     const next=structuredClone(savedDocument);action(next);next.updatedAt=Date.now();
-    try{validateDocument(next);}catch{setNotice(t("editInvalid"));return false;}
+    try{validateEdit(savedDocument,next);}catch(error){setNotice(t((error as Error).message));return false;}
     setProject(next);return true;
   }
   function showLessonExample(scene:Project|undefined){
