@@ -1,3 +1,4 @@
+import { MAX_SOURCE_LINE } from "../persistence/limits";
 import type { Project } from "../model/types";
 const ids = new Set([
   ...Array.from(
@@ -51,7 +52,7 @@ export function validateCourse(p: Project) {
               Number(key) > 255 ||
               !Number.isInteger(line) ||
               line < 1 ||
-              line > 10000,
+              line > MAX_SOURCE_LINE,
           )
         )
           throw new Error("invalidProject");
@@ -99,7 +100,7 @@ export function validateCourse(p: Project) {
             Number(key) > 255 ||
             !Number.isInteger(line) ||
             line < 1 ||
-            line > 10000,
+            line > MAX_SOURCE_LINE,
         ))
     )
       throw new Error("invalidProject");

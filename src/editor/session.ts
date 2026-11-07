@@ -10,6 +10,7 @@ import {
 } from "../model/types";
 import { canonical, connect, endpointKey, refreshWidths } from "../model/nets";
 import { editingScope, validateDefinitions } from "../model/definitions";
+import { validateDocument } from "../persistence/validation";
 export type Clipboard = {
   components: Component[];
   nets: Net[];
@@ -34,6 +35,12 @@ export function editProject(
     if (c.library && draft.circuits[c.id] !== c && canonical(draft.circuits[c.id]) !== canonical(c))
       throw new Error("libraryReadOnly");
   draft.updatedAt = Date.now();
+  // Saves run this check too; an edit that fails it must never reach the document.
+  try {
+    validateDocument(draft);
+  } catch {
+    throw new Error("editInvalid");
+  }
   return draft;
 }
 export function copySelection(
@@ -76,8 +83,12 @@ export function pasteSelection(
 ): string[] {
   const c = project.circuits[id],
     mapping = new Map<string, string>(),
-    nets = new Map<string, string>();
+    nets = new Map<string, string>(),
+    parameters = new Set(c.parameters?.map((p) => p.name));
   for (const original of clipboard.components) {
+    for (const name of [original.widthParameter, original.addressParameter])
+      if (name && !parameters.has(name))
+        throw new Error("parameterBoundSelection");
     const copy = structuredClone(original);
     copy.id = uid();
     mapping.set(original.id, copy.id);

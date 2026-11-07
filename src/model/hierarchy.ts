@@ -6,7 +6,13 @@ import {
   type Port,
   type Circuit,
 } from "./types";
-import { deriveNets, electricalWires, removeRouteConnection } from "./nets";
+import {
+  deriveNets,
+  electricalWires,
+  endpointKey,
+  pruneMarkers,
+  removeRouteConnection,
+} from "./nets";
 import { ports, pinPosition } from "./components";
 import { orthogonal, protectTerminals, route } from "../editor/routing";
 import { NAME_LIMIT } from "./names";
@@ -29,6 +35,9 @@ export function extract(
     );
   selection = selected.map((c) => c.id);
   if (!selected.length) throw new Error("selectComponents");
+  // Instance arguments are literals, so a parent parameter cannot reach the package.
+  if (selected.some((c) => c.widthParameter || c.addressParameter))
+    throw new Error("parameterBoundSelection");
   const id = uid(),
     instanceId = uid(),
     minX = Math.min(...selected.map((c) => c.x)),
@@ -66,7 +75,8 @@ export function extract(
       selection.includes(w.from.component) !==
       selection.includes(w.to.component),
   );
-  const mapping = new Map<string, { id: string; componentId: string }>();
+  const mapping = new Map<string, { id: string; componentId: string }>(),
+    pins = new Map<string, Endpoint>();
   function expose(
     input: boolean,
     endpoint: Endpoint,
@@ -142,6 +152,7 @@ export function extract(
     const key = (input ? "in:" : "out:") + w.from.component + ":" + w.from.port;
     const source = parent.components.find((c) => c.id === w.from.component)!;
     const portId = expose(input, endpoint, key, source.name);
+    pins.set(endpointKey(endpoint), { component: instanceId, port: portId });
     if (input) w.to = { component: instanceId, port: portId };
     else w.from = { component: instanceId, port: portId };
   }
@@ -175,6 +186,11 @@ export function extract(
   instance.name = name;
   instance.definitionId = id;
   parent.components.push(instance);
+  parent.markers = parent.markers.flatMap((m) => {
+    if (!m.endpoint || !selection.includes(m.endpoint.component)) return [m];
+    const pin = pins.get(endpointKey(m.endpoint));
+    return pin ? [{ ...m, endpoint: pin }] : [];
+  });
   const seen = new Set<string>();
   parent.wires = parent.wires.filter((w) => {
     const k = JSON.stringify([w.from, w.to]);
@@ -210,6 +226,7 @@ export function extract(
   }
   definition.nets = deriveNets(definition, project);
   parent.nets = deriveNets(parent, project);
+  pruneMarkers(parent);
   return instanceId;
 }
 
@@ -236,6 +253,8 @@ export function removeSelection(
   circuit.ports = circuit.ports.filter((p) => !removedPorts.has(p.id));
   for (const net of circuit.nets)
     net.ports = net.ports.filter((e) => !selection.includes(e.component));
+  circuit.nets = circuit.nets.filter((n) => n.ports.length > 0);
+  pruneMarkers(circuit);
   circuit.components = circuit.components.filter(
     (c) => !selection.includes(c.id),
   );
@@ -262,6 +281,8 @@ export function removeSelection(
           !(instances.has(w.from.component) && removedPorts.has(w.from.port)) &&
           !(instances.has(w.to.component) && removedPorts.has(w.to.port)),
       );
+      parent.nets = parent.nets.filter((n) => n.ports.length > 0);
       parent.markers = parent.markers.filter(m => !m.endpoint || !(instances.has(m.endpoint.component) && removedPorts.has(m.endpoint.port)));
+      pruneMarkers(parent);
     }
 }

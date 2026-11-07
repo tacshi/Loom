@@ -220,6 +220,26 @@ export async function programSourceHash(p: Project) {
     assembledSource: p.assembledSource ?? "",
   });
 }
+/** Deletes a replaced snapshot's definitions unless something else still uses them. */
+function dropReplacedSnapshot(p: Project, replaced: string) {
+  const candidates = new Set(Object.keys(closure(p, replaced))),
+    live = new Set<string>();
+  const visit = (id: string) => {
+    if (live.has(id)) return;
+    live.add(id);
+    for (const n of p.circuits[id].components)
+      if (n.definitionId) visit(n.definitionId);
+  };
+  const course = p.course!;
+  for (const id of [
+    ...Object.keys(p.circuits).filter((id) => !candidates.has(id)),
+    p.root,
+    ...Object.values(course.drafts),
+    ...Object.values(course.accepted).map((r) => r?.acceptedRoot),
+  ])
+    if (id) visit(id);
+  for (const id of candidates) if (!live.has(id)) delete p.circuits[id];
+}
 export async function acceptCheck(p: Project, result: CourseCheck) {
   if (
     !p.course ||
@@ -267,6 +287,7 @@ export async function acceptCheck(p: Project, result: CourseCheck) {
         }
       : {}),
   };
+  if (prior) dropReplacedSnapshot(p, prior.acceptedRoot);
   p.updatedAt = Date.now();
 }
 export function dependencyHashes(p: Project, id: ExerciseId) {

@@ -1,5 +1,6 @@
 import { validateV2 } from "./v2Validation";
 import { validateDefinitions } from "../model/definitions";
+import { MAX_SOURCE_LINE } from "./limits";
 import type { Project, Kind } from "../model/types";
 const kinds = new Set<Kind>([
   "input",
@@ -59,6 +60,26 @@ export function parseProject(text: string): Project {
   return project;
 }
 export function validateProject(raw: unknown): Project {
+  assertShape(raw);
+  // Reparse to discard any custom prototypes before treating the object as a document.
+  const project = JSON.parse(JSON.stringify(raw)) as Project;
+  assertDocument(project);
+  return project;
+}
+/** Applies the save rules to a document this app already owns, without copying it. */
+export function validateDocument(project: Project) {
+  assertShape(project);
+  assertDocument(project);
+}
+function assertDocument(project: Project) {
+  try {
+    validateV2(project);
+    validateDefinitions(project);
+  } catch {
+    throw new Error("invalidProject");
+  }
+}
+function assertShape(raw: unknown) {
   assert(object(raw));
   if (raw.schemaVersion !== 2) throw new Error("unsupportedVersion");
   assert(
@@ -200,7 +221,7 @@ export function validateProject(raw: unknown): Project {
   if (raw.sourceMap !== undefined) {
     assert(object(raw.sourceMap));
     for (const [a, l] of Object.entries(raw.sourceMap))
-      assert(integer(Number(a), 0, 255) && integer(l, 1, 10000));
+      assert(integer(Number(a), 0, 255) && integer(l, 1, MAX_SOURCE_LINE));
   }
   for (const value of Object.values(raw.circuits)) {
     assert(
@@ -240,13 +261,4 @@ export function validateProject(raw: unknown): Project {
           [0, 90, 180, 270].includes(m.rotation as number),
       );
   }
-  // Reparse to discard any custom prototypes before treating the object as a document.
-  const project = JSON.parse(JSON.stringify(raw)) as Project;
-  try {
-    validateV2(project);
-    validateDefinitions(project);
-  } catch {
-    throw new Error("invalidProject");
-  }
-  return project;
 }
